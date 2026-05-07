@@ -19,16 +19,16 @@
     * { margin: 0; padding: 0; box-sizing: border-box; font-size: max(11px, 1em); }
     body { background-color: var(--soil); color: var(--cream); font-family: 'Source Sans 3', sans-serif; min-height: 100vh;
       background-image: radial-gradient(ellipse at 20% 50%, rgba(139,69,19,0.15) 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, rgba(193,68,14,0.08) 0%, transparent 50%); }
-    .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 220px; background: var(--charcoal); border-right: 2px solid var(--leather); z-index: 100; display: flex; flex-direction: column; transition: width 0.2s ease; }
+    .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 220px; background: var(--charcoal); border-right: 2px solid var(--leather); z-index: 100; display: flex; flex-direction: column; transition: width 0.2s ease; overflow-y: auto; }
     .sidebar.collapsed { width: 60px; }
     .sidebar.collapsed .nav-item { justify-content: center; padding: 12px 0; }
     .sidebar.collapsed .logo { text-align: center; padding: 20px 8px; }
     .logo { padding: 24px 20px; border-bottom: 1px solid rgba(139,69,19,0.4); }
     .logo h1 { font-family: 'Syncopate', sans-serif; font-size: 18px; font-weight: 700; color: var(--hay); letter-spacing: 2px; line-height: 1.3; text-transform: uppercase; }
     .logo span { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ash); letter-spacing: 3px; text-transform: uppercase; }
-    .nav-section { padding: 16px 0; border-bottom: 1px solid rgba(139,69,19,0.2); }
+    .nav-section { padding: 12px 0; border-bottom: 1px solid rgba(139,69,19,0.2); }
     .nav-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--ash); padding: 0 20px 8px; }
-    .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 20px; cursor: pointer; transition: all 0.15s; font-size: 14px; font-weight: 600; color: var(--ash); border-left: 3px solid transparent; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 20px; cursor: pointer; transition: all 0.15s; font-size: 14px; font-weight: 600; color: var(--ash); border-left: 3px solid transparent; }
     .nav-item:hover { background: rgba(139,69,19,0.2); color: var(--cream); }
     .nav-item.active { background: rgba(193,68,14,0.15); color: var(--hay); border-left-color: var(--rust); }
     .nav-icon { font-size: 16px; width: 20px; text-align: center; }
@@ -225,6 +225,7 @@ const NAV_ICONS = {
   calving_gap: (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="12" cy="16" r="2"/></svg>),
   landlords: (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>),
   pastures: (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><polyline points="2,17 12,22 22,17"/><polyline points="2,12 12,17 22,12"/></svg>),
+  pasture_import: (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>),
   record_move: (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m6.36 6.36l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m6.36-6.36l4.24-4.24"/></svg>),
   move_history: (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>),
 };
@@ -1782,6 +1783,312 @@ function MoveHistoryPage({ toast }) {
   );
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// PASTURE IMPORT PAGE (CSV Upload)
+// ──────────────────────────────────────────────────────────────────────────
+function PastureImportPage({ toast }) {
+  const [file, setFile] = React.useState(null);
+  const [preview, setPreview] = React.useState([]);
+  const [landlords, setLandlords] = React.useState([]);
+  const [errors, setErrors] = React.useState([]);
+  const [importing, setImporting] = React.useState(false);
+  const [step, setStep] = React.useState(1); // 1=upload, 2=preview, 3=complete
+
+  React.useEffect(() => { loadLandlords(); }, []);
+
+  async function loadLandlords() {
+    const { data } = await supabase.from('landlords').select('id, name').order('name');
+    setLandlords(data || []);
+  }
+
+  function handleFileUpload(e) {
+    const uploadedFile = e.target.files[0];
+    if (!uploadedFile) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target.result;
+      parseCSV(text);
+    };
+    reader.readAsText(uploadedFile);
+    setFile(uploadedFile);
+  }
+
+  function parseCSV(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+    if (lines.length < 2) {
+      toast({ message: 'CSV file is empty or invalid', type: 'error' });
+      return;
+    }
+
+    const headers = lines[0].split(',').map(h => h.trim());
+    const expectedHeaders = ['name', 'acres', 'pct_grazable', 'base_type', 'landlord_name', 'cool_season_pct', 'warm_season_pct', 'general_notes'];
+    
+    const rows = lines.slice(1).map((line, idx) => {
+      const values = line.split(',').map(v => v.trim());
+      const row = {};
+      headers.forEach((header, i) => {
+        row[header] = values[i] || '';
+      });
+      row._lineNumber = idx + 2; // +2 because line 1 is headers, and we're 0-indexed
+      return row;
+    });
+
+    // Validate and match landlords
+    const validatedRows = rows.map(row => {
+      const issues = [];
+      
+      if (!row.name) issues.push('Missing name');
+      if (!row.acres || isNaN(parseFloat(row.acres))) issues.push('Invalid acres');
+      
+      // Match landlord by name
+      let landlordId = null;
+      if (row.landlord_name) {
+        const landlord = landlords.find(l => 
+          l.name.toLowerCase() === row.landlord_name.toLowerCase()
+        );
+        if (landlord) {
+          landlordId = landlord.id;
+        } else {
+          issues.push(`Landlord "${row.landlord_name}" not found`);
+        }
+      }
+
+      return {
+        ...row,
+        landlord_id: landlordId,
+        _issues: issues,
+        _valid: issues.length === 0
+      };
+    });
+
+    setPreview(validatedRows);
+    setErrors(validatedRows.filter(r => !r._valid));
+    setStep(2);
+  }
+
+  async function executeImport() {
+    const validRows = preview.filter(r => r._valid);
+    if (validRows.length === 0) {
+      toast({ message: 'No valid rows to import', type: 'error' });
+      return;
+    }
+
+    setImporting(true);
+
+    const pastures = validRows.map(row => ({
+      name: row.name,
+      acres: parseFloat(row.acres),
+      pct_grazable: row.pct_grazable ? parseFloat(row.pct_grazable) : 1.0,
+      base_type: row.base_type || 'permanent_pasture',
+      landlord_id: row.landlord_id || null,
+      cool_season_pct: row.cool_season_pct ? parseInt(row.cool_season_pct) : null,
+      warm_season_pct: row.warm_season_pct ? parseInt(row.warm_season_pct) : null,
+      general_notes: row.general_notes || null,
+      is_active: true
+    }));
+
+    const { data, error } = await supabase.from('pastures').insert(pastures);
+
+    setImporting(false);
+
+    if (error) {
+      toast({ message: `Import failed: ${error.message}`, type: 'error' });
+      console.error(error);
+    } else {
+      toast({ message: `Successfully imported ${validRows.length} pastures`, type: 'success' });
+      setStep(3);
+    }
+  }
+
+  function reset() {
+    setFile(null);
+    setPreview([]);
+    setErrors([]);
+    setStep(1);
+  }
+
+  if (step === 3) {
+    return (
+      <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+        <div style={{ background: 'var(--charcoal)', border: '1px solid rgba(139,69,19,0.3)', borderRadius: '8px', padding: '40px', textAlign: 'center' }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>✓</div>
+          <h3 style={{ fontFamily: 'Playfair Display, serif', fontSize: '24px', color: 'var(--cream)', marginBottom: '12px' }}>
+            Import Complete
+          </h3>
+          <p style={{ color: 'var(--ash)', marginBottom: '24px' }}>
+            {preview.filter(r => r._valid).length} pastures successfully imported
+          </p>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            <button className="btn btn-secondary" onClick={reset}>Import More</button>
+            <button className="btn btn-primary" onClick={() => window.location.href = '?page=pastures'}>
+              View Pastures
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ maxWidth: '900px' }}>
+      {step === 1 && (
+        <div style={{ background: 'var(--charcoal)', border: '1px solid rgba(139,69,19,0.3)', borderRadius: '8px', padding: '32px' }}>
+          <h3 style={{ fontFamily: 'Playfair Display, serif', fontSize: '22px', color: 'var(--cream)', marginBottom: '16px' }}>
+            Import Pastures from CSV
+          </h3>
+
+          <div style={{ background: 'rgba(193,68,14,0.1)', border: '1px solid rgba(193,68,14,0.3)', borderRadius: '6px', padding: '16px', marginBottom: '24px' }}>
+            <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px', letterSpacing: '1px', color: 'var(--hay)', marginBottom: '8px' }}>
+              CSV FORMAT REQUIRED:
+            </div>
+            <pre style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '12px', color: 'var(--cream)', overflow: 'auto', margin: 0 }}>
+{`name,acres,pct_grazable,base_type,landlord_name,cool_season_pct,warm_season_pct,general_notes
+Huber Calvin SW 80,80.0,1.0,permanent_pasture,Brett Huber,70,30,Good water
+Berens North,160.0,0.95,permanent_pasture,Brett Huber,60,40,
+Dakota Lakes East,240.5,1.0,cropland,Dakota Lakes,,,Cornstalks in winter`}
+            </pre>
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px', letterSpacing: '2px', color: 'var(--ash)', marginBottom: '8px' }}>
+              FIELD NOTES:
+            </div>
+            <ul style={{ fontSize: '13px', color: 'var(--ash)', lineHeight: '1.6', paddingLeft: '20px' }}>
+              <li><strong style={{ color: 'var(--cream)' }}>name</strong> & <strong style={{ color: 'var(--cream)' }}>acres</strong> are required</li>
+              <li><strong style={{ color: 'var(--cream)' }}>pct_grazable</strong>: 0.0 to 1.0 (defaults to 1.0)</li>
+              <li><strong style={{ color: 'var(--cream)' }}>base_type</strong>: permanent_pasture, cropland, hayfield, or crp</li>
+              <li><strong style={{ color: 'var(--cream)' }}>landlord_name</strong>: must match existing landlord exactly (case-insensitive)</li>
+              <li><strong style={{ color: 'var(--cream)' }}>cool/warm_season_pct</strong>: 0-100 (optional)</li>
+            </ul>
+          </div>
+
+          <div style={{ border: '2px dashed rgba(139,69,19,0.4)', borderRadius: '8px', padding: '40px', textAlign: 'center', marginTop: '24px' }}>
+            <input 
+              type="file" 
+              accept=".csv" 
+              onChange={handleFileUpload}
+              style={{ display: 'none' }}
+              id="csv-upload"
+            />
+            <label htmlFor="csv-upload" className="btn btn-primary" style={{ cursor: 'pointer', display: 'inline-block' }}>
+              Choose CSV File
+            </label>
+            {file && (
+              <div style={{ marginTop: '12px', fontSize: '13px', color: 'var(--sage)' }}>
+                Selected: {file.name}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {step === 2 && (
+        <>
+          <div style={{ background: 'var(--charcoal)', border: '1px solid rgba(139,69,19,0.3)', borderRadius: '8px', padding: '24px', marginBottom: '20px' }}>
+            <h3 style={{ fontFamily: 'Playfair Display, serif', fontSize: '20px', color: 'var(--cream)', marginBottom: '16px' }}>
+              Import Preview
+            </h3>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+              <div style={{ background: 'rgba(92,184,92,0.1)', border: '1px solid rgba(92,184,92,0.3)', borderRadius: '4px', padding: '12px' }}>
+                <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px', color: 'var(--ash)', marginBottom: '4px' }}>
+                  VALID ROWS
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#5cb85c' }}>
+                  {preview.filter(r => r._valid).length}
+                </div>
+              </div>
+              
+              <div style={{ background: 'rgba(224,85,85,0.1)', border: '1px solid rgba(224,85,85,0.3)', borderRadius: '4px', padding: '12px' }}>
+                <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px', color: 'var(--ash)', marginBottom: '4px' }}>
+                  ERRORS
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#e05555' }}>
+                  {errors.length}
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(212,168,71,0.1)', border: '1px solid rgba(212,168,71,0.3)', borderRadius: '4px', padding: '12px' }}>
+                <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px', color: 'var(--ash)', marginBottom: '4px' }}>
+                  TOTAL ROWS
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--hay)' }}>
+                  {preview.length}
+                </div>
+              </div>
+            </div>
+
+            {errors.length > 0 && (
+              <div style={{ background: 'rgba(224,85,85,0.1)', border: '1px solid rgba(224,85,85,0.3)', borderRadius: '4px', padding: '16px', marginBottom: '20px' }}>
+                <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px', letterSpacing: '1px', color: '#e05555', marginBottom: '12px' }}>
+                  ERRORS FOUND:
+                </div>
+                <div style={{ maxHeight: '200px', overflow: 'auto' }}>
+                  {errors.map((row, idx) => (
+                    <div key={idx} style={{ fontSize: '13px', color: 'var(--cream)', marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid rgba(224,85,85,0.2)' }}>
+                      <div><strong>Line {row._lineNumber}:</strong> {row.name || '(no name)'}</div>
+                      <div style={{ color: '#e05555', fontSize: '12px', marginTop: '4px' }}>
+                        {row._issues.join(', ')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button className="btn btn-secondary" onClick={reset}>Cancel</button>
+              <button 
+                className="btn btn-primary" 
+                onClick={executeImport}
+                disabled={importing || preview.filter(r => r._valid).length === 0}
+              >
+                {importing ? 'Importing...' : `Import ${preview.filter(r => r._valid).length} Pastures`}
+              </button>
+            </div>
+          </div>
+
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>LINE</th>
+                  <th>NAME</th>
+                  <th>ACRES</th>
+                  <th>LANDLORD</th>
+                  <th>TYPE</th>
+                  <th>STATUS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {preview.map((row, idx) => (
+                  <tr key={idx} style={{ background: row._valid ? 'transparent' : 'rgba(224,85,85,0.1)' }}>
+                    <td className="td-mono" style={{ fontSize: '12px' }}>{row._lineNumber}</td>
+                    <td style={{ fontWeight: 600 }}>{row.name || <em style={{ color: 'var(--ash)' }}>missing</em>}</td>
+                    <td className="td-mono">{row.acres}</td>
+                    <td style={{ fontSize: '13px', color: row.landlord_id ? 'var(--sage)' : 'var(--ash)' }}>
+                      {row.landlord_name || '—'}
+                    </td>
+                    <td style={{ fontSize: '12px' }}>{row.base_type || 'permanent_pasture'}</td>
+                    <td>
+                      {row._valid ? (
+                        <span style={{ color: '#5cb85c', fontSize: '12px' }}>✓ Valid</span>
+                      ) : (
+                        <span style={{ color: '#e05555', fontSize: '11px' }}>{row._issues.join(', ')}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ============================================================================
 // END GRAZING MODULE
 // ============================================================================
@@ -2976,7 +3283,7 @@ function App() {
     animals: 'Animal Inventory', herds: 'Herd Management', partnerships: 'Ownership Partnerships',
     reports: 'Reports', import: 'Bulk Import', chat: 'Field Entry', logs: 'Entry Log',
     calving_gap: 'Calving Gap',
-    landlords: 'Landlords', pastures: 'Pastures', record_move: 'Record Move', move_history: 'Move History',
+    landlords: 'Landlords', pastures: 'Pastures', pasture_import: 'Import Pastures', record_move: 'Record Move', move_history: 'Move History',
   };
 
   if (authLoading) return (
@@ -3028,6 +3335,10 @@ function App() {
             <span className="nav-icon">{NAV_ICONS['pastures']}</span>
             {!sidebarCollapsed && <span>Pastures</span>}
           </div>
+          <div className={`nav-item ${page === 'pasture_import' ? 'active' : ''}`} onClick={() => setPage('pasture_import')} title={sidebarCollapsed ? 'Import Pastures' : ''}>
+            <span className="nav-icon">{NAV_ICONS['pasture_import']}</span>
+            {!sidebarCollapsed && <span>Import Pastures</span>}
+          </div>
           <div className={`nav-item ${page === 'landlords' ? 'active' : ''}`} onClick={() => setPage('landlords')} title={sidebarCollapsed ? 'Landlords' : ''}>
             <span className="nav-icon">{NAV_ICONS['landlords']}</span>
             {!sidebarCollapsed && <span>Landlords</span>}
@@ -3071,6 +3382,7 @@ function App() {
           {page === 'calving_gap' && <CalvingGapPage toast={showToast} />}
           {page === 'landlords' && <LandlordsPage toast={showToast} />}
           {page === 'pastures' && <PasturesPage toast={showToast} />}
+          {page === 'pasture_import' && <PastureImportPage toast={showToast} />}
           {page === 'record_move' && <RecordMovePage toast={showToast} />}
           {page === 'move_history' && <MoveHistoryPage toast={showToast} />}
         </div>
