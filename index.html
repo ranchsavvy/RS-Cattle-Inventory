@@ -223,6 +223,10 @@ const NAV_ICONS = {
   reports: (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>),
   logs: (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10,9 9,9 8,9"/></svg>),
   calving_gap: (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="12" cy="16" r="2"/></svg>),
+  landlords: (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>),
+  pastures: (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><polyline points="2,17 12,22 22,17"/><polyline points="2,12 12,17 22,12"/></svg>),
+  record_move: (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m6.36 6.36l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m6.36-6.36l4.24-4.24"/></svg>),
+  move_history: (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>),
 };
 
 // ===== ANIMALS PAGE =====
@@ -1183,6 +1187,605 @@ function AnimalDetailModal({ animal, herds, partnerships, animalOwners, onClose,
 }
 
 // ===== CALVING GAP PAGE (NEW) =====
+// ============================================================================
+// GRAZING MODULE COMPONENTS
+// ============================================================================
+
+// ──────────────────────────────────────────────────────────────────────────
+// LANDLORDS PAGE
+// ──────────────────────────────────────────────────────────────────────────
+function LandlordsPage({ toast }) {
+  const [landlords, setLandlords] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [modal, setModal] = React.useState(null);
+  const [form, setForm] = React.useState({});
+
+  React.useEffect(() => { loadLandlords(); }, []);
+
+  async function loadLandlords() {
+    const { data, error } = await supabase.from('landlords').select('*').order('name');
+    if (error) {
+      toast({ message: 'Error loading landlords', type: 'error' });
+    } else {
+      setLandlords(data || []);
+    }
+    setLoading(false);
+  }
+
+  async function saveLandlord() {
+    if (!form.name || !form.rate_per_aum) {
+      toast({ message: 'Name and rate are required', type: 'error' });
+      return;
+    }
+    const { error } = form.id
+      ? await supabase.from('landlords').update(form).eq('id', form.id)
+      : await supabase.from('landlords').insert([form]);
+    if (error) {
+      toast({ message: 'Error saving landlord', type: 'error' });
+    } else {
+      toast({ message: `Landlord ${form.id ? 'updated' : 'added'}`, type: 'success' });
+      setModal(null);
+      loadLandlords();
+    }
+  }
+
+  async function deleteLandlord(id) {
+    if (!confirm('Delete this landlord?')) return;
+    const { error } = await supabase.from('landlords').delete().eq('id', id);
+    if (error) {
+      toast({ message: 'Error deleting landlord', type: 'error' });
+    } else {
+      toast({ message: 'Landlord deleted', type: 'success' });
+      loadLandlords();
+    }
+  }
+
+  if (loading) return <div className="empty-state"><h3>Loading...</h3></div>;
+
+  return (
+    <>
+      <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '13px', color: 'var(--ash)' }}>
+          {landlords.length} landlord{landlords.length !== 1 ? 's' : ''}
+        </div>
+        <button className="btn btn-primary" onClick={() => { setForm({}); setModal('edit'); }}>
+          + Add Landlord
+        </button>
+      </div>
+
+      {landlords.length === 0 ? (
+        <div className="empty-state">
+          <h3>No Landlords Yet</h3>
+          <p>Add landlords to track pasture ownership and calculate rent.</p>
+        </div>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>NAME</th>
+                <th>RATE/AUM</th>
+                <th>CONTACT</th>
+                <th>NOTES</th>
+                <th style={{ width: '100px' }}>ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {landlords.map(l => (
+                <tr key={l.id}>
+                  <td style={{ fontWeight: 600 }}>{l.name}</td>
+                  <td className="td-mono">${l.rate_per_aum}/AUM</td>
+                  <td style={{ fontSize: '13px', color: 'var(--ash)' }}>{l.contact_info || '—'}</td>
+                  <td style={{ fontSize: '13px', color: 'var(--ash)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {l.notes || '—'}
+                  </td>
+                  <td>
+                    <button className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: '12px', marginRight: '6px' }}
+                      onClick={() => { setForm(l); setModal('edit'); }}>Edit</button>
+                    <button className="btn btn-danger" style={{ padding: '4px 10px', fontSize: '12px' }}
+                      onClick={() => deleteLandlord(l.id)}>Del</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {modal === 'edit' && (
+        <div className="modal-overlay" onClick={() => setModal(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">{form.id ? 'Edit' : 'Add'} Landlord</h2>
+              <button className="modal-close" onClick={() => setModal(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-grid">
+                <div className="form-group full">
+                  <label className="form-label">Name *</label>
+                  <input className="form-input" value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} placeholder="Brett Huber" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Rate per AUM *</label>
+                  <input className="form-input" type="number" step="0.01" value={form.rate_per_aum || ''} 
+                    onChange={e => setForm({...form, rate_per_aum: e.target.value})} placeholder="18.50" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Contact Info</label>
+                  <input className="form-input" value={form.contact_info || ''} onChange={e => setForm({...form, contact_info: e.target.value})} placeholder="Phone or email" />
+                </div>
+                <div className="form-group full">
+                  <label className="form-label">Notes</label>
+                  <textarea className="form-textarea" rows="3" value={form.notes || ''} onChange={e => setForm({...form, notes: e.target.value})} />
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={saveLandlord}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// PASTURES PAGE
+// ──────────────────────────────────────────────────────────────────────────
+function PasturesPage({ toast }) {
+  const [pastures, setPastures] = React.useState([]);
+  const [landlords, setLandlords] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [modal, setModal] = React.useState(null);
+  const [form, setForm] = React.useState({});
+  const [searchTerm, setSearchTerm] = React.useState('');
+  const [landlordFilter, setLandlordFilter] = React.useState('all');
+
+  React.useEffect(() => { loadData(); }, []);
+
+  async function loadData() {
+    const [{ data: p }, { data: l }] = await Promise.all([
+      supabase.from('pastures').select('*, landlord:landlords(name)').order('name'),
+      supabase.from('landlords').select('*').order('name')
+    ]);
+    setPastures(p || []);
+    setLandlords(l || []);
+    setLoading(false);
+  }
+
+  async function savePasture() {
+    if (!form.name || !form.acres) {
+      toast({ message: 'Name and acres are required', type: 'error' });
+      return;
+    }
+    const payload = {
+      name: form.name,
+      acres: parseFloat(form.acres),
+      pct_grazable: form.pct_grazable ? parseFloat(form.pct_grazable) : 1.0,
+      base_type: form.base_type || 'permanent_pasture',
+      landlord_id: form.landlord_id || null,
+      cool_season_pct: form.cool_season_pct ? parseInt(form.cool_season_pct) : null,
+      warm_season_pct: form.warm_season_pct ? parseInt(form.warm_season_pct) : null,
+      general_notes: form.general_notes || null,
+    };
+    const { error } = form.id
+      ? await supabase.from('pastures').update(payload).eq('id', form.id)
+      : await supabase.from('pastures').insert([payload]);
+    if (error) {
+      toast({ message: 'Error saving pasture', type: 'error' });
+    } else {
+      toast({ message: `Pasture ${form.id ? 'updated' : 'added'}`, type: 'success' });
+      setModal(null);
+      loadData();
+    }
+  }
+
+  async function deletePasture(id) {
+    if (!confirm('Delete this pasture?')) return;
+    const { error } = await supabase.from('pastures').update({ is_active: false }).eq('id', id);
+    if (error) {
+      toast({ message: 'Error deleting pasture', type: 'error' });
+    } else {
+      toast({ message: 'Pasture archived', type: 'success' });
+      loadData();
+    }
+  }
+
+  const filtered = pastures.filter(p => {
+    const matchSearch = !searchTerm || p.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchLandlord = landlordFilter === 'all' || p.landlord_id === landlordFilter;
+    return p.is_active && matchSearch && matchLandlord;
+  });
+
+  if (loading) return <div className="empty-state"><h3>Loading...</h3></div>;
+
+  return (
+    <>
+      <div className="filter-bar">
+        <div className="search-box">
+          <span className="search-icon">🔍</span>
+          <input type="text" placeholder="Search pastures..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+        </div>
+        <select className="filter-select" value={landlordFilter} onChange={e => setLandlordFilter(e.target.value)}>
+          <option value="all">All Landlords</option>
+          {landlords.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+        </select>
+        <button className="btn btn-primary" onClick={() => { setForm({}); setModal('edit'); }}>
+          + Add Pasture
+        </button>
+      </div>
+
+      <div style={{ marginBottom: '16px', fontFamily: 'IBM Plex Mono, monospace', fontSize: '13px', color: 'var(--ash)' }}>
+        {filtered.length} pasture{filtered.length !== 1 ? 's' : ''} • {filtered.reduce((sum, p) => sum + parseFloat(p.acres || 0), 0).toFixed(1)} total acres
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="empty-state">
+          <h3>No Pastures Found</h3>
+          <p>{searchTerm || landlordFilter !== 'all' ? 'Try adjusting your filters' : 'Add pastures to start tracking grazing'}</p>
+        </div>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>NAME</th>
+                <th>ACRES</th>
+                <th>TYPE</th>
+                <th>LANDLORD</th>
+                <th>GRAZABLE</th>
+                <th>NOTES</th>
+                <th style={{ width: '100px' }}>ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(p => (
+                <tr key={p.id}>
+                  <td style={{ fontWeight: 600 }}>{p.name}</td>
+                  <td className="td-mono">{p.acres} ac</td>
+                  <td style={{ fontSize: '12px', textTransform: 'capitalize' }}>{(p.base_type || 'pasture').replace(/_/g, ' ')}</td>
+                  <td style={{ fontSize: '13px', color: 'var(--sage)' }}>{p.landlord?.name || '—'}</td>
+                  <td className="td-mono">{(parseFloat(p.pct_grazable || 1) * 100).toFixed(0)}%</td>
+                  <td style={{ fontSize: '13px', color: 'var(--ash)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {p.general_notes || '—'}
+                  </td>
+                  <td>
+                    <button className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: '12px', marginRight: '6px' }}
+                      onClick={() => { setForm(p); setModal('edit'); }}>Edit</button>
+                    <button className="btn btn-danger" style={{ padding: '4px 10px', fontSize: '12px' }}
+                      onClick={() => deletePasture(p.id)}>Del</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {modal === 'edit' && (
+        <div className="modal-overlay" onClick={() => setModal(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">{form.id ? 'Edit' : 'Add'} Pasture</h2>
+              <button className="modal-close" onClick={() => setModal(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-grid">
+                <div className="form-group full">
+                  <label className="form-label">Pasture Name *</label>
+                  <input className="form-input" value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} placeholder="Huber Calvin SW 80" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Acres *</label>
+                  <input className="form-input" type="number" step="0.1" value={form.acres || ''} 
+                    onChange={e => setForm({...form, acres: e.target.value})} placeholder="80.0" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">% Grazable</label>
+                  <input className="form-input" type="number" step="0.01" min="0" max="1" value={form.pct_grazable || ''} 
+                    onChange={e => setForm({...form, pct_grazable: e.target.value})} placeholder="1.0" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Type</label>
+                  <select className="form-select" value={form.base_type || ''} onChange={e => setForm({...form, base_type: e.target.value})}>
+                    <option value="permanent_pasture">Permanent Pasture</option>
+                    <option value="cropland">Cropland</option>
+                    <option value="hayfield">Hayfield</option>
+                    <option value="crp">CRP</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Landlord</label>
+                  <select className="form-select" value={form.landlord_id || ''} onChange={e => setForm({...form, landlord_id: e.target.value || null})}>
+                    <option value="">None</option>
+                    {landlords.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Cool Season %</label>
+                  <input className="form-input" type="number" min="0" max="100" value={form.cool_season_pct || ''} 
+                    onChange={e => setForm({...form, cool_season_pct: e.target.value})} placeholder="70" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Warm Season %</label>
+                  <input className="form-input" type="number" min="0" max="100" value={form.warm_season_pct || ''} 
+                    onChange={e => setForm({...form, warm_season_pct: e.target.value})} placeholder="30" />
+                </div>
+                <div className="form-group full">
+                  <label className="form-label">Notes</label>
+                  <textarea className="form-textarea" rows="3" value={form.general_notes || ''} 
+                    onChange={e => setForm({...form, general_notes: e.target.value})} 
+                    placeholder="Water sources, fence condition, best season of use..." />
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={savePasture}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// RECORD MOVE PAGE (The Core Functionality)
+// ──────────────────────────────────────────────────────────────────────────
+function RecordMovePage({ toast }) {
+  const [herds, setHerds] = React.useState([]);
+  const [pastures, setPastures] = React.useState([]);
+  const [form, setForm] = React.useState({ actual_entry_date: new Date().toISOString().split('T')[0] });
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => { loadData(); }, []);
+
+  async function loadData() {
+    const [{ data: h }, { data: p }] = await Promise.all([
+      supabase.from('herds').select('id, name, head_count, default_au').eq('is_active', true).order('name'),
+      supabase.from('pastures').select('id, name, acres, pct_grazable').eq('is_active', true).order('name')
+    ]);
+    setHerds(h || []);
+    setPastures(p || []);
+    setLoading(false);
+  }
+
+  async function recordMove() {
+    if (!form.herd_id || !form.pasture_id || !form.actual_entry_date) {
+      toast({ message: 'Please select herd, pasture, and date', type: 'error' });
+      return;
+    }
+
+    // Close out previous move for this herd
+    const { data: prevMove } = await supabase
+      .from('grazing_events')
+      .select('id')
+      .eq('herd_id', form.herd_id)
+      .is('actual_exit_date', null)
+      .single();
+
+    if (prevMove) {
+      await supabase
+        .from('grazing_events')
+        .update({ actual_exit_date: form.actual_entry_date })
+        .eq('id', prevMove.id);
+    }
+
+    // Get herd details for AU calculation
+    const selectedHerd = herds.find(h => h.id === form.herd_id);
+    const selectedPasture = pastures.find(p => p.id === form.pasture_id);
+
+    const payload = {
+      herd_id: form.herd_id,
+      pasture_id: form.pasture_id,
+      pasture_type: form.pasture_type || 'permanent_pasture',
+      actual_entry_date: form.actual_entry_date,
+      actual_head_count: selectedHerd?.head_count || null,
+      actual_au_per_head: selectedHerd?.default_au || 1.0,
+      entry_forage_condition: form.entry_forage_condition || null,
+      notes: form.notes || null,
+    };
+
+    const { error } = await supabase.from('grazing_events').insert([payload]);
+
+    if (error) {
+      toast({ message: 'Error recording move', type: 'error' });
+      console.error(error);
+    } else {
+      toast({ message: `Moved ${selectedHerd?.name} to ${selectedPasture?.name}`, type: 'success' });
+      setForm({ actual_entry_date: new Date().toISOString().split('T')[0] });
+    }
+  }
+
+  if (loading) return <div className="empty-state"><h3>Loading...</h3></div>;
+
+  const selectedHerd = herds.find(h => h.id === form.herd_id);
+
+  return (
+    <div style={{ maxWidth: '600px' }}>
+      <div style={{ background: 'var(--charcoal)', border: '1px solid rgba(139,69,19,0.3)', borderRadius: '8px', padding: '28px' }}>
+        <h3 style={{ fontFamily: 'Playfair Display, serif', fontSize: '22px', color: 'var(--cream)', marginBottom: '24px' }}>
+          Record Herd Move
+        </h3>
+
+        <div className="form-grid">
+          <div className="form-group full">
+            <label className="form-label">Herd *</label>
+            <select className="form-select" value={form.herd_id || ''} onChange={e => setForm({...form, herd_id: e.target.value})}>
+              <option value="">Select herd...</option>
+              {herds.map(h => <option key={h.id} value={h.id}>{h.name} ({h.head_count} head)</option>)}
+            </select>
+          </div>
+
+          <div className="form-group full">
+            <label className="form-label">New Pasture *</label>
+            <select className="form-select" value={form.pasture_id || ''} onChange={e => setForm({...form, pasture_id: e.target.value})}>
+              <option value="">Select pasture...</option>
+              {pastures.map(p => <option key={p.id} value={p.id}>{p.name} ({p.acres} ac)</option>)}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Move Date *</label>
+            <input className="form-input" type="date" value={form.actual_entry_date || ''} 
+              onChange={e => setForm({...form, actual_entry_date: e.target.value})} />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Pasture Type</label>
+            <select className="form-select" value={form.pasture_type || ''} onChange={e => setForm({...form, pasture_type: e.target.value})}>
+              <option value="permanent_pasture">Permanent Pasture</option>
+              <option value="cornstalk">Cornstalk</option>
+              <option value="cover_crop">Cover Crop</option>
+            </select>
+          </div>
+
+          <div className="form-group full">
+            <label className="form-label">Forage Condition</label>
+            <textarea className="form-textarea" rows="2" value={form.entry_forage_condition || ''} 
+              onChange={e => setForm({...form, entry_forage_condition: e.target.value})} 
+              placeholder="Height, condition, quality notes..." />
+          </div>
+
+          <div className="form-group full">
+            <label className="form-label">Notes</label>
+            <textarea className="form-textarea" rows="2" value={form.notes || ''} 
+              onChange={e => setForm({...form, notes: e.target.value})} 
+              placeholder="Any additional notes about this move..." />
+          </div>
+        </div>
+
+        {selectedHerd && (
+          <div style={{ marginTop: '20px', padding: '12px', background: 'rgba(193,68,14,0.1)', border: '1px solid rgba(193,68,14,0.3)', borderRadius: '4px', fontSize: '13px', color: 'var(--ash)' }}>
+            <strong style={{ color: 'var(--cream)' }}>Herd Info:</strong> {selectedHerd.head_count} head × {selectedHerd.default_au} AU = {(selectedHerd.head_count * selectedHerd.default_au).toFixed(1)} total AU
+          </div>
+        )}
+
+        <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
+          <button className="btn btn-secondary" onClick={() => setForm({ actual_entry_date: new Date().toISOString().split('T')[0] })}>
+            Clear
+          </button>
+          <button className="btn btn-primary" style={{ flex: 1 }} onClick={recordMove}>
+            Record Move
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// MOVE HISTORY PAGE
+// ──────────────────────────────────────────────────────────────────────────
+function MoveHistoryPage({ toast }) {
+  const [moves, setMoves] = React.useState([]);
+  const [herds, setHerds] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [herdFilter, setHerdFilter] = React.useState('all');
+
+  React.useEffect(() => { loadData(); }, []);
+
+  async function loadData() {
+    const [{ data: m }, { data: h }] = await Promise.all([
+      supabase.from('grazing_events')
+        .select('*, herd:herds(name), pasture:pastures(name, acres, pct_grazable, landlord:landlords(name, rate_per_aum))')
+        .order('actual_entry_date', { ascending: false }),
+      supabase.from('herds').select('id, name').eq('is_active', true).order('name')
+    ]);
+
+    // Calculate AUMs for each move
+    const movesWithCalcs = (m || []).map(move => {
+      const days = move.actual_exit_date 
+        ? Math.ceil((new Date(move.actual_exit_date) - new Date(move.actual_entry_date)) / (1000 * 60 * 60 * 24))
+        : null;
+      
+      const totalAU = (move.actual_head_count || 0) * (move.actual_au_per_head || 1);
+      const totalAD = days ? totalAU * days : null;
+      const totalAUMs = totalAD ? totalAD / 30 : null;
+      const acres = parseFloat(move.pasture?.acres || 0);
+      const grazable = parseFloat(move.pasture?.pct_grazable || 1);
+      const ada = (days && acres > 0) ? totalAD / (acres * grazable) : null;
+      
+      return { ...move, days, totalAU, totalAD, totalAUMs, ada };
+    });
+
+    setMoves(movesWithCalcs);
+    setHerds(h || []);
+    setLoading(false);
+  }
+
+  const filtered = herdFilter === 'all' ? moves : moves.filter(m => m.herd_id === herdFilter);
+
+  if (loading) return <div className="empty-state"><h3>Loading...</h3></div>;
+
+  return (
+    <>
+      <div className="filter-bar">
+        <select className="filter-select" value={herdFilter} onChange={e => setHerdFilter(e.target.value)}>
+          <option value="all">All Herds</option>
+          {herds.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+        </select>
+        <div style={{ flex: 1, fontFamily: 'IBM Plex Mono, monospace', fontSize: '13px', color: 'var(--ash)' }}>
+          {filtered.length} move{filtered.length !== 1 ? 's' : ''} • {filtered.filter(m => m.totalAUMs).reduce((sum, m) => sum + m.totalAUMs, 0).toFixed(1)} total AUMs
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="empty-state">
+          <h3>No Moves Recorded</h3>
+          <p>Record your first move to start tracking grazing history</p>
+        </div>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>HERD</th>
+                <th>PASTURE</th>
+                <th>ENTRY</th>
+                <th>EXIT</th>
+                <th>DAYS</th>
+                <th>HEAD</th>
+                <th>AU</th>
+                <th>ADA</th>
+                <th>AUMs</th>
+                <th>LANDLORD</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(m => (
+                <tr key={m.id}>
+                  <td style={{ fontWeight: 600 }}>{m.herd?.name}</td>
+                  <td style={{ color: 'var(--sage)' }}>{m.pasture?.name}</td>
+                  <td className="td-mono" style={{ fontSize: '12px' }}>{new Date(m.actual_entry_date).toLocaleDateString()}</td>
+                  <td className="td-mono" style={{ fontSize: '12px' }}>
+                    {m.actual_exit_date ? new Date(m.actual_exit_date).toLocaleDateString() : <em style={{ color: 'var(--hay)' }}>Active</em>}
+                  </td>
+                  <td className="td-mono">{m.days || '—'}</td>
+                  <td className="td-mono">{m.actual_head_count || '—'}</td>
+                  <td className="td-mono">{m.totalAU ? m.totalAU.toFixed(1) : '—'}</td>
+                  <td className="td-mono">{m.ada ? m.ada.toFixed(1) : '—'}</td>
+                  <td className="td-mono" style={{ fontWeight: 600, color: 'var(--hay)' }}>
+                    {m.totalAUMs ? m.totalAUMs.toFixed(1) : '—'}
+                  </td>
+                  <td style={{ fontSize: '12px', color: 'var(--ash)' }}>{m.pasture?.landlord?.name || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ============================================================================
+// END GRAZING MODULE
+// ============================================================================
+
 function CalvingGapPage({ toast }) {
   const today = new Date();
   const oneYearAgo = new Date(today); oneYearAgo.setFullYear(today.getFullYear() - 1);
@@ -2373,6 +2976,7 @@ function App() {
     animals: 'Animal Inventory', herds: 'Herd Management', partnerships: 'Ownership Partnerships',
     reports: 'Reports', import: 'Bulk Import', chat: 'Field Entry', logs: 'Entry Log',
     calving_gap: 'Calving Gap',
+    landlords: 'Landlords', pastures: 'Pastures', record_move: 'Record Move', move_history: 'Move History',
   };
 
   if (authLoading) return (
@@ -2411,6 +3015,26 @@ function App() {
         </div>
 
         <div className="nav-section">
+          {!sidebarCollapsed && <div className="nav-label">Grazing</div>}
+          <div className={`nav-item ${page === 'record_move' ? 'active' : ''}`} onClick={() => setPage('record_move')} title={sidebarCollapsed ? 'Record Move' : ''}>
+            <span className="nav-icon">{NAV_ICONS['record_move']}</span>
+            {!sidebarCollapsed && <span>Record Move</span>}
+          </div>
+          <div className={`nav-item ${page === 'move_history' ? 'active' : ''}`} onClick={() => setPage('move_history')} title={sidebarCollapsed ? 'Move History' : ''}>
+            <span className="nav-icon">{NAV_ICONS['move_history']}</span>
+            {!sidebarCollapsed && <span>Move History</span>}
+          </div>
+          <div className={`nav-item ${page === 'pastures' ? 'active' : ''}`} onClick={() => setPage('pastures')} title={sidebarCollapsed ? 'Pastures' : ''}>
+            <span className="nav-icon">{NAV_ICONS['pastures']}</span>
+            {!sidebarCollapsed && <span>Pastures</span>}
+          </div>
+          <div className={`nav-item ${page === 'landlords' ? 'active' : ''}`} onClick={() => setPage('landlords')} title={sidebarCollapsed ? 'Landlords' : ''}>
+            <span className="nav-icon">{NAV_ICONS['landlords']}</span>
+            {!sidebarCollapsed && <span>Landlords</span>}
+          </div>
+        </div>
+
+        <div className="nav-section">
           {!sidebarCollapsed && <div className="nav-label">Analytics</div>}
           <div className={`nav-item ${page === 'calving_gap' ? 'active' : ''}`} onClick={() => setPage('calving_gap')} title={sidebarCollapsed ? 'Calving Gap' : ''}>
             <span className="nav-icon">{NAV_ICONS['calving_gap']}</span>
@@ -2445,6 +3069,10 @@ function App() {
           {page === 'chat' && <ChatPage toast={showToast} />}
           {page === 'logs' && <LogsPage toast={showToast} />}
           {page === 'calving_gap' && <CalvingGapPage toast={showToast} />}
+          {page === 'landlords' && <LandlordsPage toast={showToast} />}
+          {page === 'pastures' && <PasturesPage toast={showToast} />}
+          {page === 'record_move' && <RecordMovePage toast={showToast} />}
+          {page === 'move_history' && <MoveHistoryPage toast={showToast} />}
         </div>
       </div>
 
