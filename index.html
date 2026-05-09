@@ -2144,7 +2144,8 @@ function CalvingGapPage({ toast }) {
       .select('id, vid, sex, herd_id, breeding_status, herds(name)')
       .in('sex', ['cow', 'heifer'])
       .eq('status', 'active')
-      .order('vid');
+      .order('vid')
+      .limit(10000);
     if (herdFilter) q = q.eq('herd_id', herdFilter);
     const { data: cows, error } = await q;
     if (error) { toast('Error loading animals: ' + error.message, 'error'); setLoading(false); return; }
@@ -2156,7 +2157,8 @@ function CalvingGapPage({ toast }) {
       .from('calving_records')
       .select('dam_id, calving_date')
       .in('dam_id', cowIds)
-      .order('calving_date', { ascending: false });
+      .order('calving_date', { ascending: false })
+      .limit(10000);
 
     // 3. Build map: dam_id -> all calving dates (most recent first)
     const calvingMap = {};
@@ -2428,7 +2430,7 @@ function HerdsPage({ toast, navigateToAnimals }) {
   const [herdCounts, setHerdCounts] = useState({});
   useEffect(() => {
     const fetchCounts = async () => {
-      const { data } = await supabase.from('animals').select('herd_id').eq('status', 'active');
+      const { data } = await supabase.from('animals').select('herd_id').eq('status', 'active').limit(10000);
       if (data) { const counts = {}; data.forEach(a => { if (a.herd_id) counts[a.herd_id] = (counts[a.herd_id] || 0) + 1; }); setHerdCounts(counts); }
     };
     fetchCounts();
@@ -3119,16 +3121,16 @@ function ReportsPage({ toast }) {
     const scopeId = reportScope === 'herd' ? selectedHerd : selectedOwner;
     if (!scopeId) { toast('Please select a herd or owner', 'error'); return; }
     const scopeName = reportScope === 'herd' ? herds.find(h => h.id === scopeId)?.name : partnerships.find(p => p.id === scopeId)?.name;
-    let animalsQuery = supabase.from('animals').select('id, vid, sex').order('vid');
+    let animalsQuery = supabase.from('animals').select('id, vid, sex').order('vid').limit(10000);
     if (reportScope === 'herd') animalsQuery = animalsQuery.eq('herd_id', scopeId);
     const { data: animals } = await animalsQuery;
     let scopeAnimals = animals || [];
     if (reportScope === 'owner') {
-      const { data: ownership } = await supabase.from('animal_ownership_history').select('animal_id').eq('partnership_id', scopeId);
+      const { data: ownership } = await supabase.from('animal_ownership_history').select('animal_id').eq('partnership_id', scopeId).limit(10000);
       const ownedIds = new Set(ownership?.map(o => o.animal_id));
       scopeAnimals = scopeAnimals.filter(a => ownedIds.has(a.id));
     }
-    const { data: calvingData } = await supabase.from('calving_records').select('*').in('dam_id', scopeAnimals.map(a => a.id)).gte('calving_date', startDate).lte('calving_date', endDate).order('calving_date', { ascending: false });
+    const { data: calvingData } = await supabase.from('calving_records').select('*').in('dam_id', scopeAnimals.map(a => a.id)).gte('calving_date', startDate).lte('calving_date', endDate).order('calving_date', { ascending: false }).limit(10000);
     const rows = [`Ranch Savvy - Calving Records Report`, `${reportScope === 'herd' ? 'Herd' : 'Owner'}: ${scopeName}`, `Period: ${startDate} to ${endDate}`, ``, `Calving Date,Dam VID,Calf Sex,Calf Status,Udder Score,Calving Ease,Notes`];
     calvingData?.forEach(c => { const dam = scopeAnimals.find(a => a.id === c.dam_id); rows.push([c.calving_date, dam?.vid || '', c.calf_sex, c.calf_status, c.udder_score || '', c.calving_ease?.replace(/_/g, ' ') || '', `"${(c.notes || '').replace(/"/g, '""')}"`].join(',')); });
     rows.push(''); rows.push(`Total Calvings: ${calvingData?.length || 0}`); rows.push(`Live Calves: ${calvingData?.filter(c => c.calf_status === 'alive').length || 0}`); rows.push(`Dead Calves: ${calvingData?.filter(c => c.calf_status === 'dead').length || 0}`);
@@ -3140,7 +3142,7 @@ function ReportsPage({ toast }) {
     const scopeId = reportScope === 'herd' ? selectedHerd : selectedOwner;
     if (!scopeId) { toast('Please select a herd or owner', 'error'); return; }
     const scopeName = reportScope === 'herd' ? herds.find(h => h.id === scopeId)?.name : partnerships.find(p => p.id === scopeId)?.name;
-    let q = supabase.from('animals').select('id, status, created_at').lte('created_at', startDate);
+    let q = supabase.from('animals').select('id, status, created_at').lte('created_at', startDate).limit(10000);
     if (reportScope === 'herd') q = q.eq('herd_id', scopeId);
     const { data: beginningAnimals } = await q;
     const csvContent = [
