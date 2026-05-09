@@ -1567,11 +1567,35 @@ function RecordMovePage({ toast }) {
   React.useEffect(() => { loadData(); }, []);
 
   async function loadData() {
-    const [{ data: h }, { data: p }] = await Promise.all([
-      supabase.from('herds').select('id, name, head_count, default_au').eq('is_active', true).order('name'),
-      supabase.from('pastures').select('id, name, acres, pct_grazable').eq('is_active', true).order('name')
-    ]);
-    setHerds(h || []);
+    // Get herds with their animal class info to calculate AU
+    const { data: h } = await supabase
+      .from('herds')
+      .select('id, name, animal_class_id, animal_classes(default_au)')
+      .eq('is_active', true)
+      .order('name');
+    
+    // Get count of active animals per herd
+    const herdsWithCounts = await Promise.all((h || []).map(async (herd) => {
+      const { count } = await supabase
+        .from('animals')
+        .select('*', { count: 'exact', head: true })
+        .eq('herd_id', herd.id)
+        .eq('status', 'active');
+      
+      return {
+        ...herd,
+        head_count: count || 0,
+        default_au: herd.animal_classes?.default_au || 1.0
+      };
+    }));
+
+    const { data: p } = await supabase
+      .from('pastures')
+      .select('id, name, acres, pct_grazable')
+      .eq('is_active', true)
+      .order('name');
+    
+    setHerds(herdsWithCounts || []);
     setPastures(p || []);
     setLoading(false);
   }
