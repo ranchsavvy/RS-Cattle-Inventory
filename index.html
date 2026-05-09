@@ -1206,7 +1206,7 @@ function LandlordsPage({ toast }) {
   async function loadLandlords() {
     const { data, error } = await supabase.from('landlords').select('*').order('name');
     if (error) {
-      toast({ message: 'Error loading landlords', type: 'error' });
+      toast('Error loading landlords', 'error');
     } else {
       setLandlords(data || []);
     }
@@ -1215,16 +1215,16 @@ function LandlordsPage({ toast }) {
 
   async function saveLandlord() {
     if (!form.name) {
-      toast({ message: 'Name is required', type: 'error' });
+      toast('Name is required', 'error');
       return;
     }
     const { error } = form.id
       ? await supabase.from('landlords').update(form).eq('id', form.id)
       : await supabase.from('landlords').insert([form]);
     if (error) {
-      toast({ message: 'Error saving landlord', type: 'error' });
+      toast('Error saving landlord', 'error');
     } else {
-      toast({ message: `Landlord ${form.id ? 'updated' : 'added'}`, type: 'success' });
+      toast(`Landlord ${form.id ? 'updated' : 'added'}`, 'success');
       setModal(null);
       loadLandlords();
     }
@@ -1234,9 +1234,9 @@ function LandlordsPage({ toast }) {
     if (!confirm('Delete this landlord?')) return;
     const { error } = await supabase.from('landlords').delete().eq('id', id);
     if (error) {
-      toast({ message: 'Error deleting landlord', type: 'error' });
+      toast('Error deleting landlord', 'error');
     } else {
-      toast({ message: 'Landlord deleted', type: 'success' });
+      toast('Landlord deleted', 'success');
       loadLandlords();
     }
   }
@@ -1351,7 +1351,7 @@ function PasturesPage({ toast }) {
 
   async function savePasture() {
     if (!form.name || !form.acres) {
-      toast({ message: 'Name and acres are required', type: 'error' });
+      toast('Name and acres are required', 'error');
       return;
     }
     const payload = {
@@ -1370,9 +1370,9 @@ function PasturesPage({ toast }) {
       ? await supabase.from('pastures').update(payload).eq('id', form.id)
       : await supabase.from('pastures').insert([payload]);
     if (error) {
-      toast({ message: 'Error saving pasture', type: 'error' });
+      toast('Error saving pasture', 'error');
     } else {
-      toast({ message: `Pasture ${form.id ? 'updated' : 'added'}`, type: 'success' });
+      toast(`Pasture ${form.id ? 'updated' : 'added'}`, 'success');
       setModal(null);
       loadData();
     }
@@ -1382,9 +1382,9 @@ function PasturesPage({ toast }) {
     if (!confirm('Delete this pasture?')) return;
     const { error } = await supabase.from('pastures').update({ is_active: false }).eq('id', id);
     if (error) {
-      toast({ message: 'Error deleting pasture', type: 'error' });
+      toast('Error deleting pasture', 'error');
     } else {
-      toast({ message: 'Pasture archived', type: 'success' });
+      toast('Pasture archived', 'success');
       loadData();
     }
   }
@@ -1578,7 +1578,7 @@ function RecordMovePage({ toast }) {
 
   async function recordMove() {
     if (!form.herd_id || !form.pasture_id || !form.actual_entry_date) {
-      toast({ message: 'Please select herd, pasture, and date', type: 'error' });
+      toast('Please select herd, pasture, and date', 'error');
       return;
     }
 
@@ -1615,10 +1615,10 @@ function RecordMovePage({ toast }) {
     const { error } = await supabase.from('grazing_events').insert([payload]);
 
     if (error) {
-      toast({ message: 'Error recording move', type: 'error' });
+      toast('Error recording move', 'error');
       console.error(error);
     } else {
-      toast({ message: `Moved ${selectedHerd?.name} to ${selectedPasture?.name}`, type: 'success' });
+      toast(`Moved ${selectedHerd?.name} to ${selectedPasture?.name}`, 'success');
       setForm({ actual_entry_date: new Date().toISOString().split('T')[0] });
     }
   }
@@ -1863,7 +1863,7 @@ function PastureImportPage({ toast }) {
   function parseCSV(text) {
     const lines = text.split('\n').map(l => l.trim()).filter(l => l);
     if (lines.length < 2) {
-      toast({ message: 'CSV file is empty or invalid', type: 'error' });
+      toast('CSV file is empty or invalid', 'error');
       return;
     }
 
@@ -1922,7 +1922,7 @@ function PastureImportPage({ toast }) {
   async function executeImport() {
     const validRows = preview.filter(r => r._valid);
     if (validRows.length === 0) {
-      toast({ message: 'No valid rows to import', type: 'error' });
+      toast('No valid rows to import', 'error');
       return;
     }
 
@@ -1947,10 +1947,10 @@ function PastureImportPage({ toast }) {
     setImporting(false);
 
     if (error) {
-      toast({ message: `Import failed: ${error.message}`, type: 'error' });
+      toast(`Import failed: ${error.message}`, 'error');
       console.error(error);
     } else {
-      toast({ message: `Successfully imported ${validRows.length} pastures`, type: 'success' });
+      toast(`Successfully imported ${validRows.length} pastures`, 'success');
       setStep(3);
     }
   }
