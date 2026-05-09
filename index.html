@@ -280,43 +280,20 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
 
   const fetchAnimals = useCallback(async () => {
     setLoading(true);
-    // Paginate through all animals to avoid Supabase's 1000-row default limit
-    const PAGE = 1000;
-    let allData = [];
-    let from = 0;
-    while (true) {
-      const { data, error } = await supabase
-        .from('animals')
-        .select('*, herds(name), animal_classes(name)')
-        .order('vid', { ascending: true })
-        .range(from, from + PAGE - 1);
-      if (error) { toast('Error loading animals: ' + error.message, 'error'); setLoading(false); return; }
-      allData = allData.concat(data || []);
-      if (!data || data.length < PAGE) break;
-      from += PAGE;
+    const { data, error } = await supabase.from('animals').select('*, herds(name), animal_classes(name)').order('vid', { ascending: true });
+    if (error) { toast('Error loading animals: ' + error.message, 'error'); setLoading(false); return; }
+    setAllAnimals(data || []);
+    const { data: ownershipData, error: ownershipError } = await supabase
+      .from('animal_ownership_history').select('animal_id, partnership_id, partnerships(name)').order('effective_date', { ascending: false });
+    if (!ownershipError) {
+      const animalIdSet = new Set(data?.map(a => a.id) || []);
+      const ownerMap = {};
+      ownershipData?.forEach(o => {
+        if (animalIdSet.has(o.animal_id) && !ownerMap[o.animal_id] && o.partnerships?.name)
+          ownerMap[o.animal_id] = o.partnerships.name;
+      });
+      setAnimalOwners(ownerMap);
     }
-    setAllAnimals(allData);
-    // Paginate ownership history too
-    let allOwnership = [];
-    from = 0;
-    while (true) {
-      const { data: ownershipData, error: ownershipError } = await supabase
-        .from('animal_ownership_history')
-        .select('animal_id, partnership_id, partnerships(name)')
-        .order('effective_date', { ascending: false })
-        .range(from, from + PAGE - 1);
-      if (ownershipError) break;
-      allOwnership = allOwnership.concat(ownershipData || []);
-      if (!ownershipData || ownershipData.length < PAGE) break;
-      from += PAGE;
-    }
-    const animalIdSet = new Set(allData.map(a => a.id));
-    const ownerMap = {};
-    allOwnership.forEach(o => {
-      if (animalIdSet.has(o.animal_id) && !ownerMap[o.animal_id] && o.partnerships?.name)
-        ownerMap[o.animal_id] = o.partnerships.name;
-    });
-    setAnimalOwners(ownerMap);
     setLoading(false);
   }, []);
 
@@ -1237,8 +1214,8 @@ function LandlordsPage({ toast }) {
   }
 
   async function saveLandlord() {
-    if (!form.name || !form.rate_per_aum) {
-      toast({ message: 'Name and rate are required', type: 'error' });
+    if (!form.name) {
+      toast({ message: 'Name is required', type: 'error' });
       return;
     }
     const { error } = form.id
@@ -1280,7 +1257,7 @@ function LandlordsPage({ toast }) {
       {landlords.length === 0 ? (
         <div className="empty-state">
           <h3>No Landlords Yet</h3>
-          <p>Add landlords to track pasture ownership and calculate rent.</p>
+          <p>Add landlords to track pasture ownership. Rent rates are set per-pasture.</p>
         </div>
       ) : (
         <div className="table-wrap">
@@ -1288,7 +1265,6 @@ function LandlordsPage({ toast }) {
             <thead>
               <tr>
                 <th>NAME</th>
-                <th>RATE/AUM</th>
                 <th>CONTACT</th>
                 <th>NOTES</th>
                 <th style={{ width: '100px' }}>ACTIONS</th>
@@ -1298,7 +1274,6 @@ function LandlordsPage({ toast }) {
               {landlords.map(l => (
                 <tr key={l.id}>
                   <td style={{ fontWeight: 600 }}>{l.name}</td>
-                  <td className="td-mono">${l.rate_per_aum}/AUM</td>
                   <td style={{ fontSize: '13px', color: 'var(--ash)' }}>{l.contact_info || '—'}</td>
                   <td style={{ fontSize: '13px', color: 'var(--ash)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {l.notes || '—'}
@@ -1329,12 +1304,7 @@ function LandlordsPage({ toast }) {
                   <label className="form-label">Name *</label>
                   <input className="form-input" value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} placeholder="Brett Huber" />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Rate per AUM *</label>
-                  <input className="form-input" type="number" step="0.01" value={form.rate_per_aum || ''} 
-                    onChange={e => setForm({...form, rate_per_aum: e.target.value})} placeholder="18.50" />
-                </div>
-                <div className="form-group">
+                <div className="form-group full">
                   <label className="form-label">Contact Info</label>
                   <input className="form-input" value={form.contact_info || ''} onChange={e => setForm({...form, contact_info: e.target.value})} placeholder="Phone or email" />
                 </div>
@@ -1390,6 +1360,8 @@ function PasturesPage({ toast }) {
       pct_grazable: form.pct_grazable ? parseFloat(form.pct_grazable) : 1.0,
       base_type: form.base_type || 'permanent_pasture',
       landlord_id: form.landlord_id || null,
+      rent_type: form.rent_type || 'per_aum',
+      rent_rate: form.rent_rate ? parseFloat(form.rent_rate) : 0,
       cool_season_pct: form.cool_season_pct ? parseInt(form.cool_season_pct) : null,
       warm_season_pct: form.warm_season_pct ? parseInt(form.warm_season_pct) : null,
       general_notes: form.general_notes || null,
@@ -1459,6 +1431,7 @@ function PasturesPage({ toast }) {
                 <th>ACRES</th>
                 <th>TYPE</th>
                 <th>LANDLORD</th>
+                <th>RENT</th>
                 <th>GRAZABLE</th>
                 <th>NOTES</th>
                 <th style={{ width: '100px' }}>ACTIONS</th>
@@ -1471,6 +1444,12 @@ function PasturesPage({ toast }) {
                   <td className="td-mono">{p.acres} ac</td>
                   <td style={{ fontSize: '12px', textTransform: 'capitalize' }}>{(p.base_type || 'pasture').replace(/_/g, ' ')}</td>
                   <td style={{ fontSize: '13px', color: 'var(--sage)' }}>{p.landlord?.name || '—'}</td>
+                  <td className="td-mono" style={{ fontSize: '12px' }}>
+                    {p.rent_type === 'none' ? 'Owned' : 
+                     p.rent_type === 'per_aum' ? `$${p.rent_rate}/AUM` :
+                     p.rent_type === 'per_acre' ? `$${p.rent_rate}/ac` :
+                     p.rent_type === 'per_head_day' ? `$${p.rent_rate}/hd/day` : '—'}
+                  </td>
                   <td className="td-mono">{(parseFloat(p.pct_grazable || 1) * 100).toFixed(0)}%</td>
                   <td style={{ fontSize: '13px', color: 'var(--ash)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {p.general_notes || '—'}
@@ -1526,6 +1505,26 @@ function PasturesPage({ toast }) {
                     <option value="">None</option>
                     {landlords.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                   </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Rent Type</label>
+                  <select className="form-select" value={form.rent_type || 'per_aum'} onChange={e => setForm({...form, rent_type: e.target.value})}>
+                    <option value="per_aum">Per AUM</option>
+                    <option value="per_acre">Per Acre (Annual)</option>
+                    <option value="per_head_day">Per Head/Day</option>
+                    <option value="none">Owned (No Rent)</option>
+                  </select>
+                  {form.rent_type === 'per_acre' && (
+                    <div style={{ fontSize: '11px', color: 'var(--ash)', marginTop: '4px' }}>
+                      Per-acre is a flat annual rate (Jan 1 - Dec 31)
+                    </div>
+                  )}
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Rent Rate</label>
+                  <input className="form-input" type="number" step="0.01" value={form.rent_rate || ''} 
+                    onChange={e => setForm({...form, rent_rate: e.target.value})} placeholder="18.50" 
+                    disabled={form.rent_type === 'none'} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Cool Season %</label>
@@ -1715,7 +1714,7 @@ function MoveHistoryPage({ toast }) {
   async function loadData() {
     const [{ data: m }, { data: h }] = await Promise.all([
       supabase.from('grazing_events')
-        .select('*, herd:herds(name), pasture:pastures(name, acres, pct_grazable, landlord:landlords(name, rate_per_aum))')
+        .select('*, herd:herds(name), pasture:pastures(name, acres, pct_grazable, rent_type, rent_rate, landlord:landlords(name))')
         .order('actual_entry_date', { ascending: false }),
       supabase.from('herds').select('id, name').eq('is_active', true).order('name')
     ]);
@@ -1733,7 +1732,29 @@ function MoveHistoryPage({ toast }) {
       const grazable = parseFloat(move.pasture?.pct_grazable || 1);
       const ada = (days && acres > 0) ? totalAD / (acres * grazable) : null;
       
-      return { ...move, days, totalAU, totalAD, totalAUMs, ada };
+      // Calculate rent based on rent_type
+      let rentCost = null;
+      let rentDisplay = null;
+      const rentType = move.pasture?.rent_type;
+      const rentRate = parseFloat(move.pasture?.rent_rate || 0);
+      
+      if (rentType === 'per_aum' && totalAUMs) {
+        rentCost = totalAUMs * rentRate;
+        rentDisplay = `$${rentCost.toFixed(2)}`;
+      } else if (rentType === 'per_acre') {
+        // Per-acre is annual, not per-event - show the annual rate but don't sum it per event
+        rentCost = null; // Don't include in per-event totals
+        rentDisplay = `Annual: $${(acres * rentRate).toFixed(2)}`;
+      } else if (rentType === 'per_head_day' && days && move.actual_head_count) {
+        rentCost = move.actual_head_count * days * rentRate;
+        rentDisplay = `$${rentCost.toFixed(2)}`;
+      } else if (rentType === 'none') {
+        rentDisplay = 'Owned';
+      } else {
+        rentDisplay = '—';
+      }
+      
+      return { ...move, days, totalAU, totalAD, totalAUMs, ada, rentCost, rentDisplay };
     });
 
     setMoves(movesWithCalcs);
@@ -1753,7 +1774,7 @@ function MoveHistoryPage({ toast }) {
           {herds.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
         </select>
         <div style={{ flex: 1, fontFamily: 'IBM Plex Mono, monospace', fontSize: '13px', color: 'var(--ash)' }}>
-          {filtered.length} move{filtered.length !== 1 ? 's' : ''} • {filtered.filter(m => m.totalAUMs).reduce((sum, m) => sum + m.totalAUMs, 0).toFixed(1)} total AUMs
+          {filtered.length} move{filtered.length !== 1 ? 's' : ''} • {filtered.filter(m => m.totalAUMs).reduce((sum, m) => sum + m.totalAUMs, 0).toFixed(1)} total AUMs • ${filtered.filter(m => m.rentCost).reduce((sum, m) => sum + m.rentCost, 0).toFixed(2)} variable rent (excludes annual per-acre)
         </div>
       </div>
 
@@ -1776,7 +1797,7 @@ function MoveHistoryPage({ toast }) {
                 <th>AU</th>
                 <th>ADA</th>
                 <th>AUMs</th>
-                <th>LANDLORD</th>
+                <th>RENT</th>
               </tr>
             </thead>
             <tbody>
@@ -1795,7 +1816,9 @@ function MoveHistoryPage({ toast }) {
                   <td className="td-mono" style={{ fontWeight: 600, color: 'var(--hay)' }}>
                     {m.totalAUMs ? m.totalAUMs.toFixed(1) : '—'}
                   </td>
-                  <td style={{ fontSize: '12px', color: 'var(--ash)' }}>{m.pasture?.landlord?.name || '—'}</td>
+                  <td style={{ fontSize: '12px', color: m.rentCost ? 'var(--rust)' : 'var(--ash)' }}>
+                    {m.rentDisplay}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -1845,7 +1868,7 @@ function PastureImportPage({ toast }) {
     }
 
     const headers = lines[0].split(',').map(h => h.trim());
-    const expectedHeaders = ['name', 'acres', 'pct_grazable', 'base_type', 'landlord_name', 'cool_season_pct', 'warm_season_pct', 'general_notes'];
+    const expectedHeaders = ['name', 'acres', 'pct_grazable', 'base_type', 'landlord_name', 'rent_type', 'rent_rate', 'cool_season_pct', 'warm_season_pct', 'general_notes'];
     
     const rows = lines.slice(1).map((line, idx) => {
       const values = line.split(',').map(v => v.trim());
@@ -1863,6 +1886,12 @@ function PastureImportPage({ toast }) {
       
       if (!row.name) issues.push('Missing name');
       if (!row.acres || isNaN(parseFloat(row.acres))) issues.push('Invalid acres');
+      
+      // Validate rent_type if provided
+      const validRentTypes = ['per_aum', 'per_acre', 'per_head_day', 'none'];
+      if (row.rent_type && !validRentTypes.includes(row.rent_type)) {
+        issues.push(`Invalid rent_type: ${row.rent_type}`);
+      }
       
       // Match landlord by name
       let landlordId = null;
@@ -1905,6 +1934,8 @@ function PastureImportPage({ toast }) {
       pct_grazable: row.pct_grazable ? parseFloat(row.pct_grazable) : 1.0,
       base_type: row.base_type || 'permanent_pasture',
       landlord_id: row.landlord_id || null,
+      rent_type: row.rent_type || 'per_aum',
+      rent_rate: row.rent_rate ? parseFloat(row.rent_rate) : 0,
       cool_season_pct: row.cool_season_pct ? parseInt(row.cool_season_pct) : null,
       warm_season_pct: row.warm_season_pct ? parseInt(row.warm_season_pct) : null,
       general_notes: row.general_notes || null,
@@ -1966,10 +1997,10 @@ function PastureImportPage({ toast }) {
               CSV FORMAT REQUIRED:
             </div>
             <pre style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '12px', color: 'var(--cream)', overflow: 'auto', margin: 0 }}>
-{`name,acres,pct_grazable,base_type,landlord_name,cool_season_pct,warm_season_pct,general_notes
-Huber Calvin SW 80,80.0,1.0,permanent_pasture,Brett Huber,70,30,Good water
-Berens North,160.0,0.95,permanent_pasture,Brett Huber,60,40,
-Dakota Lakes East,240.5,1.0,cropland,Dakota Lakes,,,Cornstalks in winter`}
+{`name,acres,pct_grazable,base_type,landlord_name,rent_type,rent_rate,cool_season_pct,warm_season_pct,general_notes
+Huber Calvin SW 80,80.0,1.0,permanent_pasture,Brett Huber,per_aum,18.50,70,30,Good water
+Berens North,160.0,0.95,permanent_pasture,Brett Huber,per_acre,25.00,60,40,
+Dakota Lakes East,240.5,1.0,cropland,Dakota Lakes,none,0,,,Owned land`}
             </pre>
           </div>
 
@@ -1982,6 +2013,8 @@ Dakota Lakes East,240.5,1.0,cropland,Dakota Lakes,,,Cornstalks in winter`}
               <li><strong style={{ color: 'var(--cream)' }}>pct_grazable</strong>: 0.0 to 1.0 (defaults to 1.0)</li>
               <li><strong style={{ color: 'var(--cream)' }}>base_type</strong>: permanent_pasture, cropland, hayfield, or crp</li>
               <li><strong style={{ color: 'var(--cream)' }}>landlord_name</strong>: must match existing landlord exactly (case-insensitive)</li>
+              <li><strong style={{ color: 'var(--cream)' }}>rent_type</strong>: per_aum, per_acre, per_head_day, or none (defaults to per_aum)</li>
+              <li><strong style={{ color: 'var(--cream)' }}>rent_rate</strong>: dollar amount (defaults to 0)</li>
               <li><strong style={{ color: 'var(--cream)' }}>cool/warm_season_pct</strong>: 0-100 (optional)</li>
             </ul>
           </div>
@@ -2144,8 +2177,7 @@ function CalvingGapPage({ toast }) {
       .select('id, vid, sex, herd_id, breeding_status, herds(name)')
       .in('sex', ['cow', 'heifer'])
       .eq('status', 'active')
-      .order('vid')
-      .limit(10000);
+      .order('vid');
     if (herdFilter) q = q.eq('herd_id', herdFilter);
     const { data: cows, error } = await q;
     if (error) { toast('Error loading animals: ' + error.message, 'error'); setLoading(false); return; }
@@ -2157,8 +2189,7 @@ function CalvingGapPage({ toast }) {
       .from('calving_records')
       .select('dam_id, calving_date')
       .in('dam_id', cowIds)
-      .order('calving_date', { ascending: false })
-      .limit(10000);
+      .order('calving_date', { ascending: false });
 
     // 3. Build map: dam_id -> all calving dates (most recent first)
     const calvingMap = {};
@@ -2430,7 +2461,7 @@ function HerdsPage({ toast, navigateToAnimals }) {
   const [herdCounts, setHerdCounts] = useState({});
   useEffect(() => {
     const fetchCounts = async () => {
-      const { data } = await supabase.from('animals').select('herd_id').eq('status', 'active').limit(10000);
+      const { data } = await supabase.from('animals').select('herd_id').eq('status', 'active');
       if (data) { const counts = {}; data.forEach(a => { if (a.herd_id) counts[a.herd_id] = (counts[a.herd_id] || 0) + 1; }); setHerdCounts(counts); }
     };
     fetchCounts();
@@ -3121,16 +3152,16 @@ function ReportsPage({ toast }) {
     const scopeId = reportScope === 'herd' ? selectedHerd : selectedOwner;
     if (!scopeId) { toast('Please select a herd or owner', 'error'); return; }
     const scopeName = reportScope === 'herd' ? herds.find(h => h.id === scopeId)?.name : partnerships.find(p => p.id === scopeId)?.name;
-    let animalsQuery = supabase.from('animals').select('id, vid, sex').order('vid').limit(10000);
+    let animalsQuery = supabase.from('animals').select('id, vid, sex').order('vid');
     if (reportScope === 'herd') animalsQuery = animalsQuery.eq('herd_id', scopeId);
     const { data: animals } = await animalsQuery;
     let scopeAnimals = animals || [];
     if (reportScope === 'owner') {
-      const { data: ownership } = await supabase.from('animal_ownership_history').select('animal_id').eq('partnership_id', scopeId).limit(10000);
+      const { data: ownership } = await supabase.from('animal_ownership_history').select('animal_id').eq('partnership_id', scopeId);
       const ownedIds = new Set(ownership?.map(o => o.animal_id));
       scopeAnimals = scopeAnimals.filter(a => ownedIds.has(a.id));
     }
-    const { data: calvingData } = await supabase.from('calving_records').select('*').in('dam_id', scopeAnimals.map(a => a.id)).gte('calving_date', startDate).lte('calving_date', endDate).order('calving_date', { ascending: false }).limit(10000);
+    const { data: calvingData } = await supabase.from('calving_records').select('*').in('dam_id', scopeAnimals.map(a => a.id)).gte('calving_date', startDate).lte('calving_date', endDate).order('calving_date', { ascending: false });
     const rows = [`Ranch Savvy - Calving Records Report`, `${reportScope === 'herd' ? 'Herd' : 'Owner'}: ${scopeName}`, `Period: ${startDate} to ${endDate}`, ``, `Calving Date,Dam VID,Calf Sex,Calf Status,Udder Score,Calving Ease,Notes`];
     calvingData?.forEach(c => { const dam = scopeAnimals.find(a => a.id === c.dam_id); rows.push([c.calving_date, dam?.vid || '', c.calf_sex, c.calf_status, c.udder_score || '', c.calving_ease?.replace(/_/g, ' ') || '', `"${(c.notes || '').replace(/"/g, '""')}"`].join(',')); });
     rows.push(''); rows.push(`Total Calvings: ${calvingData?.length || 0}`); rows.push(`Live Calves: ${calvingData?.filter(c => c.calf_status === 'alive').length || 0}`); rows.push(`Dead Calves: ${calvingData?.filter(c => c.calf_status === 'dead').length || 0}`);
@@ -3142,7 +3173,7 @@ function ReportsPage({ toast }) {
     const scopeId = reportScope === 'herd' ? selectedHerd : selectedOwner;
     if (!scopeId) { toast('Please select a herd or owner', 'error'); return; }
     const scopeName = reportScope === 'herd' ? herds.find(h => h.id === scopeId)?.name : partnerships.find(p => p.id === scopeId)?.name;
-    let q = supabase.from('animals').select('id, status, created_at').lte('created_at', startDate).limit(10000);
+    let q = supabase.from('animals').select('id, status, created_at').lte('created_at', startDate);
     if (reportScope === 'herd') q = q.eq('herd_id', scopeId);
     const { data: beginningAnimals } = await q;
     const csvContent = [
