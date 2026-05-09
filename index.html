@@ -1931,11 +1931,14 @@ function PastureImportPage({ toast }) {
     const pastures = validRows.map(row => ({
       name: row.name,
       acres: parseFloat(row.acres),
-      pct_grazable: row.pct_grazable ? parseFloat(row.pct_grazable) : 1.0,
-      base_type: row.base_type || 'permanent_pasture',
+      pct_grazable: row.pct_grazable ? 
+        (row.pct_grazable.includes('%') ? 
+          parseFloat(row.pct_grazable.replace('%', '')) / 100 : 
+          parseFloat(row.pct_grazable)) : 1.0,
+      base_type: row.base_type && row.base_type.trim() ? row.base_type.trim().toLowerCase() : 'permanent_pasture',
       landlord_id: row.landlord_id || null,
-      rent_type: row.rent_type || 'per_aum',
-      rent_rate: row.rent_rate ? parseFloat(row.rent_rate) : 0,
+      rent_type: row.rent_type && row.rent_type.trim() ? row.rent_type.trim() : 'none',
+      rent_rate: row.rent_rate && row.rent_rate.trim() ? parseFloat(row.rent_rate) : 0,
       cool_season_pct: row.cool_season_pct ? parseInt(row.cool_season_pct) : null,
       warm_season_pct: row.warm_season_pct ? parseInt(row.warm_season_pct) : null,
       general_notes: row.general_notes || null,
