@@ -1567,25 +1567,36 @@ function RecordMovePage({ toast }) {
   React.useEffect(() => { loadData(); }, []);
 
   async function loadData() {
-    // Get herds with their animal class info to calculate AU
+    // Get herds with full details
     const { data: h } = await supabase
       .from('herds')
-      .select('id, name, animal_class_id, animal_classes(default_au)')
+      .select('*')
       .eq('is_active', true)
       .order('name');
     
-    // Get count of active animals per herd
-    const herdsWithCounts = await Promise.all((h || []).map(async (herd) => {
+    // Calculate current AU and head count for each herd
+    const herdsWithData = await Promise.all((h || []).map(async (herd) => {
+      // Count active animals in this herd
       const { count } = await supabase
         .from('animals')
         .select('*', { count: 'exact', head: true })
         .eq('herd_id', herd.id)
         .eq('status', 'active');
       
+      let currentAU = herd.default_au || 1.0;
+      
+      // If herd has ADG tracking, calculate dynamic AU based on current weight
+      if (herd.adg && herd.starting_weight && herd.weight_date) {
+        const daysSince = Math.floor((new Date() - new Date(herd.weight_date)) / (1000 * 60 * 60 * 24));
+        const currentWeight = parseFloat(herd.starting_weight) + (daysSince * parseFloat(herd.adg));
+        currentAU = currentWeight / 1000;
+      }
+      
       return {
-        ...herd,
+        id: herd.id,
+        name: herd.name,
         head_count: count || 0,
-        default_au: herd.animal_classes?.default_au || 1.0
+        default_au: parseFloat(currentAU.toFixed(3))
       };
     }));
 
@@ -1595,7 +1606,7 @@ function RecordMovePage({ toast }) {
       .eq('is_active', true)
       .order('name');
     
-    setHerds(herdsWithCounts || []);
+    setHerds(herdsWithData || []);
     setPastures(p || []);
     setLoading(false);
   }
@@ -2473,7 +2484,9 @@ function HerdsPage({ toast, navigateToAnimals }) {
   const [herds, setHerds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
-  const [newHerd, setNewHerd] = useState({ name: '', notes: '' });
+  const [editingHerd, setEditingHerd] = useState(null);
+  const [newHerd, setNewHerd] = useState({ name: '', notes: '', default_au: '', starting_weight: '', weight_date: '', adg: '' });
+  const [form, setForm] = useState({ name: '', notes: '', default_au: '', starting_weight: '', weight_date: '', adg: '' });
 
   const fetchHerds = async () => {
     setLoading(true);
@@ -2496,9 +2509,41 @@ function HerdsPage({ toast, navigateToAnimals }) {
 
   const addHerd = async () => {
     if (!newHerd.name) { toast('Herd name is required', 'error'); return; }
-    const { error } = await supabase.from('herds').insert({ name: newHerd.name, notes: newHerd.notes || null });
+    const payload = {
+      name: newHerd.name,
+      notes: newHerd.notes || null,
+      default_au: newHerd.default_au ? parseFloat(newHerd.default_au) : null,
+      starting_weight: newHerd.starting_weight ? parseFloat(newHerd.starting_weight) : null,
+      weight_date: newHerd.weight_date || null,
+      adg: newHerd.adg ? parseFloat(newHerd.adg) : null
+    };
+    const { error } = await supabase.from('herds').insert(payload);
     if (error) toast('Error: ' + error.message, 'error');
-    else { setShowAdd(false); setNewHerd({ name: '', notes: '' }); fetchHerds(); toast('Herd created!', 'success'); }
+    else { setShowAdd(false); setNewHerd({ name: '', notes: '', default_au: '', starting_weight: '', weight_date: '', adg: '' }); fetchHerds(); toast('Herd created!', 'success'); }
+  };
+
+  const saveEdit = async () => {
+    if (!form.name) { toast('Herd name is required', 'error'); return; }
+    const payload = {
+      name: form.name,
+      notes: form.notes || null,
+      default_au: form.default_au ? parseFloat(form.default_au) : null,
+      starting_weight: form.starting_weight ? parseFloat(form.starting_weight) : null,
+      weight_date: form.weight_date || null,
+      adg: form.adg ? parseFloat(form.adg) : null
+    };
+    const { error } = await supabase.from('herds').update(payload).eq('id', editingHerd.id);
+    if (error) toast('Error: ' + error.message, 'error');
+    else { setEditingHerd(null); fetchHerds(); toast('Herd updated!', 'success'); }
+  };
+
+  const calculateCurrentAU = (herd) => {
+    if (!herd.adg || !herd.starting_weight || !herd.weight_date) {
+      return herd.default_au || null;
+    }
+    const daysSince = Math.floor((new Date() - new Date(herd.weight_date)) / (1000 * 60 * 60 * 24));
+    const currentWeight = parseFloat(herd.starting_weight) + (daysSince * parseFloat(herd.adg));
+    return (currentWeight / 1000).toFixed(2);
   };
 
   return (
@@ -2507,29 +2552,146 @@ function HerdsPage({ toast, navigateToAnimals }) {
         <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Herd</button>
       </div>
       {loading ? <div className="loading"><div className="spinner"></div> Loading...</div> : (
-        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:'16px'}}>
+        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(300px, 1fr))', gap:'16px'}}>
           {herds.map(h => (
-            <div key={h.id} className="detail-card" onClick={() => navigateToAnimals(h.id)} style={{cursor:'pointer', transition:'all 0.15s'}} onMouseEnter={e => e.currentTarget.style.background='rgba(139,69,19,0.15)'} onMouseLeave={e => e.currentTarget.style.background='rgba(44,26,14,0.4)'}>
+            <div key={h.id} className="detail-card">
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'12px'}}>
                 <h3 style={{fontFamily:'Playfair Display, serif', fontSize:'18px', color:'var(--cream)', fontWeight:'700', margin:0}}>{h.name}</h3>
                 <span style={{fontFamily:'IBM Plex Mono', fontSize:'24px', color:'var(--hay)', fontWeight:'700'}}>{herdCounts[h.id] || 0}</span>
               </div>
-              <div style={{color:'var(--ash)', fontSize:'12px', fontFamily:'IBM Plex Mono'}}>HEAD ACTIVE</div>
+              <div style={{color:'var(--ash)', fontSize:'12px', fontFamily:'IBM Plex Mono', marginBottom:'8px'}}>HEAD ACTIVE</div>
+              
+              {calculateCurrentAU(h) && (
+                <div style={{background:'rgba(139,69,19,0.2)', padding:'8px', borderRadius:'4px', marginBottom:'8px'}}>
+                  <div style={{fontFamily:'IBM Plex Mono', fontSize:'11px', color:'var(--ash)', marginBottom:'4px'}}>ANIMAL UNIT</div>
+                  <div style={{fontFamily:'IBM Plex Mono', fontSize:'16px', color:'var(--hay)', fontWeight:'600'}}>
+                    {calculateCurrentAU(h)} AU/head
+                  </div>
+                  {h.adg && h.starting_weight && (
+                    <div style={{fontSize:'11px', color:'var(--ash)', marginTop:'4px', fontFamily:'IBM Plex Mono'}}>
+                      ADG: {h.adg} lbs/day
+                    </div>
+                  )}
+                </div>
+              )}
+              
               {h.notes && <p style={{marginTop:'10px', color:'var(--ash)', fontSize:'13px'}}>{h.notes}</p>}
+              
+              <div style={{display:'flex', gap:'8px', marginTop:'12px'}}>
+                <button className="btn btn-secondary" style={{flex:1, padding:'6px', fontSize:'12px'}} onClick={() => { setForm(h); setEditingHerd(h); }}>
+                  Edit
+                </button>
+                <button className="btn btn-ghost" style={{flex:1, padding:'6px', fontSize:'12px'}} onClick={() => navigateToAnimals(h.id)}>
+                  View Animals
+                </button>
+              </div>
+              
               <div style={{marginTop:'12px', fontSize:'11px', color:'var(--ash)', fontFamily:'IBM Plex Mono'}}>{h.is_active ? '● ACTIVE' : '○ INACTIVE'}</div>
             </div>
           ))}
         </div>
       )}
+      
+      {/* ADD HERD MODAL */}
       {showAdd && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowAdd(false)}>
-          <div className="modal" style={{maxWidth:'400px'}}>
-            <div className="modal-header"><h2 className="modal-title">Add New Herd</h2><button className="modal-close" onClick={() => setShowAdd(false)}>✕</button></div>
-            <div className="modal-body">
-              <div className="form-group" style={{marginBottom:'16px'}}><label className="form-label">Herd Name *</label><input className="form-input" placeholder="e.g. Old Cows" value={newHerd.name} onChange={e => setNewHerd(f => ({...f, name: e.target.value}))} /></div>
-              <div className="form-group"><label className="form-label">Notes</label><textarea className="form-textarea" placeholder="Any notes about this herd..." value={newHerd.notes} onChange={e => setNewHerd(f => ({...f, notes: e.target.value}))} /></div>
+          <div className="modal" style={{maxWidth:'500px'}}>
+            <div className="modal-header">
+              <h2 className="modal-title">Add New Herd</h2>
+              <button className="modal-close" onClick={() => setShowAdd(false)}>✕</button>
             </div>
-            <div className="modal-footer"><button className="btn btn-ghost" onClick={() => setShowAdd(false)}>Cancel</button><button className="btn btn-primary" onClick={addHerd}>Create Herd</button></div>
+            <div className="modal-body">
+              <div className="form-grid">
+                <div className="form-group full">
+                  <label className="form-label">Herd Name *</label>
+                  <input className="form-input" placeholder="e.g. Old Cows, Blue Steers" value={newHerd.name} onChange={e => setNewHerd(f => ({...f, name: e.target.value}))} />
+                </div>
+                
+                <div className="form-group">
+                  <label className="form-label">Default AU (Cows/Bulls)</label>
+                  <input className="form-input" type="number" step="0.01" placeholder="1.4" value={newHerd.default_au} onChange={e => setNewHerd(f => ({...f, default_au: e.target.value}))} />
+                  <div style={{fontSize:'11px', color:'var(--ash)', marginTop:'4px'}}>For static animals (cows, bulls)</div>
+                </div>
+                
+                <div className="form-group">
+                  <label className="form-label">Starting Weight (lbs)</label>
+                  <input className="form-input" type="number" placeholder="600" value={newHerd.starting_weight} onChange={e => setNewHerd(f => ({...f, starting_weight: e.target.value}))} />
+                  <div style={{fontSize:'11px', color:'var(--ash)', marginTop:'4px'}}>For yearlings with ADG</div>
+                </div>
+                
+                <div className="form-group">
+                  <label className="form-label">Weight Date</label>
+                  <input className="form-input" type="date" value={newHerd.weight_date} onChange={e => setNewHerd(f => ({...f, weight_date: e.target.value}))} />
+                </div>
+                
+                <div className="form-group">
+                  <label className="form-label">ADG (lbs/day)</label>
+                  <input className="form-input" type="number" step="0.01" placeholder="2.5" value={newHerd.adg} onChange={e => setNewHerd(f => ({...f, adg: e.target.value}))} />
+                  <div style={{fontSize:'11px', color:'var(--ash)', marginTop:'4px'}}>Average daily gain for yearlings</div>
+                </div>
+                
+                <div className="form-group full">
+                  <label className="form-label">Notes</label>
+                  <textarea className="form-textarea" placeholder="Any notes about this herd..." value={newHerd.notes} onChange={e => setNewHerd(f => ({...f, notes: e.target.value}))} />
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={() => setShowAdd(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={addHerd}>Create Herd</button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* EDIT HERD MODAL */}
+      {editingHerd && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setEditingHerd(null)}>
+          <div className="modal" style={{maxWidth:'500px'}}>
+            <div className="modal-header">
+              <h2 className="modal-title">Edit Herd</h2>
+              <button className="modal-close" onClick={() => setEditingHerd(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-grid">
+                <div className="form-group full">
+                  <label className="form-label">Herd Name *</label>
+                  <input className="form-input" value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} />
+                </div>
+                
+                <div className="form-group">
+                  <label className="form-label">Default AU (Cows/Bulls)</label>
+                  <input className="form-input" type="number" step="0.01" placeholder="1.4" value={form.default_au || ''} onChange={e => setForm(f => ({...f, default_au: e.target.value}))} />
+                  <div style={{fontSize:'11px', color:'var(--ash)', marginTop:'4px'}}>For static animals (cows, bulls)</div>
+                </div>
+                
+                <div className="form-group">
+                  <label className="form-label">Starting Weight (lbs)</label>
+                  <input className="form-input" type="number" placeholder="600" value={form.starting_weight || ''} onChange={e => setForm(f => ({...f, starting_weight: e.target.value}))} />
+                  <div style={{fontSize:'11px', color:'var(--ash)', marginTop:'4px'}}>For yearlings with ADG</div>
+                </div>
+                
+                <div className="form-group">
+                  <label className="form-label">Weight Date</label>
+                  <input className="form-input" type="date" value={form.weight_date || ''} onChange={e => setForm(f => ({...f, weight_date: e.target.value}))} />
+                </div>
+                
+                <div className="form-group">
+                  <label className="form-label">ADG (lbs/day)</label>
+                  <input className="form-input" type="number" step="0.01" placeholder="2.5" value={form.adg || ''} onChange={e => setForm(f => ({...f, adg: e.target.value}))} />
+                  <div style={{fontSize:'11px', color:'var(--ash)', marginTop:'4px'}}>Average daily gain for yearlings</div>
+                </div>
+                
+                <div className="form-group full">
+                  <label className="form-label">Notes</label>
+                  <textarea className="form-textarea" value={form.notes || ''} onChange={e => setForm(f => ({...f, notes: e.target.value}))} />
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={() => setEditingHerd(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={saveEdit}>Save Changes</button>
+            </div>
           </div>
         </div>
       )}
