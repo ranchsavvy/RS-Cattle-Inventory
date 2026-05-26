@@ -2114,6 +2114,7 @@ Dakota Lakes East,240.5,1.0,cropland,Dakota Lakes,,,Cornstalks in winter`}
 }
 
 // ============================================================================
+
 // ──────────────────────────────────────────────────────────────────────────
 // PLANNED MOVES PAGE
 // ──────────────────────────────────────────────────────────────────────────
@@ -2124,7 +2125,7 @@ function PlannedMovesPage({ toast }) {
   const [loading, setLoading] = React.useState(true);
   const [showAddForm, setShowAddForm] = React.useState(false);
   const [editingId, setEditingId] = React.useState(null);
-  const [executeMove, setExecuteMove] = React.useState(null); // planned move being executed
+  const [executeMove, setExecuteMove] = React.useState(null);
   const [form, setForm] = React.useState({});
   const [execForm, setExecForm] = React.useState({});
   const [showHistory, setShowHistory] = React.useState(false);
@@ -2135,19 +2136,17 @@ function PlannedMovesPage({ toast }) {
 
   async function loadData() {
     setLoading(true);
-
     // Load herds and pastures first — always exist
     const [{ data: h }, { data: ps }] = await Promise.all([
-      supabase.from('herds').select('id, name, head_count, default_au').eq('is_active', true).order('name'),
+      supabase.from('herds').select('id, name, head_count').eq('is_active', true).order('name'),
       supabase.from('pastures').select('id, name, acres, pct_grazable').eq('is_active', true).order('name'),
     ]);
     setHerds(h || []);
     setPastures(ps || []);
-
     // Load planned_moves separately — table may not exist yet if SQL hasn't been run
     try {
       const { data: p, error: pe } = await supabase.from('planned_moves')
-        .select('*, herd:herds(name, head_count, default_au), to_pasture:pastures(name, acres)')
+        .select('*, herd:herds(name, head_count), to_pasture:pastures(name, acres)')
         .order('planned_date', { ascending: true });
       if (pe) console.warn('planned_moves error (run SQL in Supabase first):', pe.message);
       setPlanned(p || []);
@@ -2155,23 +2154,9 @@ function PlannedMovesPage({ toast }) {
       console.warn('planned_moves table not available:', e);
       setPlanned([]);
     }
-
     setLoading(false);
   }
 
-  const pending = planned.filter(m => {
-    if (m.status !== 'pending') return false;
-    if (herdFilter !== 'all' && m.herd_id !== herdFilter) return false;
-    if (dateRange !== 'all') {
-      const days = daysUntil(m.planned_date);
-      const limit = parseInt(dateRange);
-      if (days > limit) return false;
-    }
-    return true;
-  });
-  const history = planned.filter(m => m.status !== 'pending');
-
-  // Days until move
   function daysUntil(dateStr) {
     const today = new Date(); today.setHours(0,0,0,0);
     const d = new Date(dateStr + 'T00:00:00');
@@ -2192,16 +2177,24 @@ function PlannedMovesPage({ toast }) {
     return `In ${days}d`;
   }
 
+  const pending = planned.filter(m => {
+    if (m.status !== 'pending') return false;
+    if (herdFilter !== 'all' && m.herd_id !== herdFilter) return false;
+    if (dateRange !== 'all') {
+      const days = daysUntil(m.planned_date);
+      if (days > parseInt(dateRange)) return false;
+    }
+    return true;
+  });
+  const history = planned.filter(m => m.status !== 'pending');
+
   async function saveNew() {
     if (!form.herd_id || !form.to_pasture_id || !form.planned_date) {
       toast({ message: 'Herd, destination pasture, and date are required', type: 'error' }); return;
     }
     const { error } = await supabase.from('planned_moves').insert([{
-      herd_id: form.herd_id,
-      to_pasture_id: form.to_pasture_id,
-      planned_date: form.planned_date,
-      notes: form.notes || null,
-      status: 'pending',
+      herd_id: form.herd_id, to_pasture_id: form.to_pasture_id,
+      planned_date: form.planned_date, notes: form.notes || null, status: 'pending',
     }]);
     if (error) { toast({ message: 'Error saving planned move', type: 'error' }); return; }
     toast({ message: 'Planned move added', type: 'success' });
@@ -2213,10 +2206,8 @@ function PlannedMovesPage({ toast }) {
       toast({ message: 'Herd, destination pasture, and date are required', type: 'error' }); return;
     }
     const { error } = await supabase.from('planned_moves').update({
-      herd_id: form.herd_id,
-      to_pasture_id: form.to_pasture_id,
-      planned_date: form.planned_date,
-      notes: form.notes || null,
+      herd_id: form.herd_id, to_pasture_id: form.to_pasture_id,
+      planned_date: form.planned_date, notes: form.notes || null,
     }).eq('id', editingId);
     if (error) { toast({ message: 'Error updating planned move', type: 'error' }); return; }
     toast({ message: 'Planned move updated', type: 'success' });
@@ -2231,28 +2222,17 @@ function PlannedMovesPage({ toast }) {
   }
 
   function startEdit(move) {
-    setEditingId(move.id);
-    setShowAddForm(false);
-    setForm({
-      herd_id: move.herd_id,
-      to_pasture_id: move.to_pasture_id,
-      planned_date: move.planned_date,
-      notes: move.notes || '',
-    });
+    setEditingId(move.id); setShowAddForm(false);
+    setForm({ herd_id: move.herd_id, to_pasture_id: move.to_pasture_id, planned_date: move.planned_date, notes: move.notes || '' });
   }
 
   function startExecute(move) {
     const herd = herds.find(h => h.id === move.herd_id);
     setExecForm({
-      planned_move_id: move.id,
-      herd_id: move.herd_id,
-      pasture_id: move.to_pasture_id,
-      actual_entry_date: move.planned_date,
-      pasture_type: 'permanent_pasture',
-      actual_head_count: herd?.head_count || '',
-      actual_au_per_head: herd?.default_au || 1.0,
-      entry_forage_condition: '',
-      notes: move.notes || '',
+      planned_move_id: move.id, herd_id: move.herd_id, pasture_id: move.to_pasture_id,
+      actual_entry_date: move.planned_date, pasture_type: 'permanent_pasture',
+      actual_head_count: herd?.head_count || '', actual_au_per_head: 1.0,
+      entry_forage_condition: '', notes: move.notes || '',
     });
     setExecuteMove(move);
   }
@@ -2261,21 +2241,13 @@ function PlannedMovesPage({ toast }) {
     if (!execForm.herd_id || !execForm.pasture_id || !execForm.actual_entry_date) {
       toast({ message: 'Herd, pasture, and date are required', type: 'error' }); return;
     }
-
-    // Close any open grazing event for this herd
-    const { data: prevMove } = await supabase
-      .from('grazing_events').select('id')
+    const { data: prevMove } = await supabase.from('grazing_events').select('id')
       .eq('herd_id', execForm.herd_id).is('actual_exit_date', null).single();
     if (prevMove) {
-      await supabase.from('grazing_events')
-        .update({ actual_exit_date: execForm.actual_entry_date })
-        .eq('id', prevMove.id);
+      await supabase.from('grazing_events').update({ actual_exit_date: execForm.actual_entry_date }).eq('id', prevMove.id);
     }
-
-    // Insert the new grazing event
     const { data: newEvent, error: eventError } = await supabase.from('grazing_events').insert([{
-      herd_id: execForm.herd_id,
-      pasture_id: execForm.pasture_id,
+      herd_id: execForm.herd_id, pasture_id: execForm.pasture_id,
       pasture_type: execForm.pasture_type || 'permanent_pasture',
       actual_entry_date: execForm.actual_entry_date,
       actual_head_count: execForm.actual_head_count ? parseInt(execForm.actual_head_count) : null,
@@ -2283,15 +2255,8 @@ function PlannedMovesPage({ toast }) {
       entry_forage_condition: execForm.entry_forage_condition || null,
       notes: execForm.notes || null,
     }]).select('id').single();
-
     if (eventError) { toast({ message: 'Error recording move', type: 'error' }); console.error(eventError); return; }
-
-    // Mark planned move as executed
-    await supabase.from('planned_moves').update({
-      status: 'executed',
-      executed_grazing_event_id: newEvent.id,
-    }).eq('id', execForm.planned_move_id);
-
+    await supabase.from('planned_moves').update({ status: 'executed', executed_grazing_event_id: newEvent.id }).eq('id', execForm.planned_move_id);
     const herd = herds.find(h => h.id === execForm.herd_id);
     const pasture = pastures.find(p => p.id === execForm.pasture_id);
     toast({ message: `Executed: ${herd?.name} → ${pasture?.name}`, type: 'success' });
@@ -2338,7 +2303,6 @@ function PlannedMovesPage({ toast }) {
 
   return (
     <>
-      {/* Execute Confirmation Modal */}
       {executeMove && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <div style={{ background: 'var(--charcoal)', border: '1px solid rgba(139,69,19,0.5)', borderRadius: '12px', padding: '28px', width: '100%', maxWidth: '520px' }}>
@@ -2386,7 +2350,7 @@ function PlannedMovesPage({ toast }) {
                 <textarea className="form-textarea" rows="2" value={execForm.notes || ''} onChange={e => setExecForm({...execForm, notes: e.target.value})} />
               </div>
             </div>
-            {execForm.herd_id && execForm.actual_head_count && (
+            {execForm.actual_head_count && (
               <div style={{ padding: '10px 12px', background: 'rgba(193,68,14,0.1)', border: '1px solid rgba(193,68,14,0.3)', borderRadius: '4px', fontSize: '13px', color: 'var(--ash)', marginTop: '4px' }}>
                 <strong style={{ color: 'var(--cream)' }}>AU calc:</strong> {execForm.actual_head_count} head × {execForm.actual_au_per_head} AU = {(parseFloat(execForm.actual_head_count || 0) * parseFloat(execForm.actual_au_per_head || 1)).toFixed(1)} total AU
               </div>
@@ -2399,7 +2363,6 @@ function PlannedMovesPage({ toast }) {
         </div>
       )}
 
-      {/* Filter bar + Add button */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '12px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
           <select className="filter-select" value={herdFilter} onChange={e => setHerdFilter(e.target.value)}>
@@ -2423,10 +2386,8 @@ function PlannedMovesPage({ toast }) {
         </button>
       </div>
 
-      {/* Add form */}
       {showAddForm && !editingId && <MoveForm isEdit={false} />}
 
-      {/* Pending moves */}
       {pending.length === 0 && !showAddForm ? (
         <div className="empty-state">
           <h3>No Planned Moves</h3>
@@ -2441,11 +2402,9 @@ function PlannedMovesPage({ toast }) {
               <div key={move.id}>
                 {isEditing ? <MoveForm isEdit={true} /> : (
                   <div style={{ background: 'var(--charcoal)', border: `1px solid ${days <= 1 ? 'rgba(193,68,14,0.5)' : 'rgba(139,69,19,0.3)'}`, borderRadius: '8px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    {/* Urgency badge */}
                     <div style={{ minWidth: '80px', textAlign: 'center', padding: '4px 8px', background: days < 0 ? 'rgba(193,68,14,0.2)' : days <= 3 ? 'rgba(212,165,116,0.15)' : 'rgba(139,69,19,0.15)', borderRadius: '4px', ...urgencyStyle(days) }}>
                       {urgencyLabel(days)}
                     </div>
-                    {/* Move details */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ color: 'var(--cream)', fontWeight: 600, fontSize: '15px' }}>
                         {move.herd?.name}
@@ -2459,7 +2418,6 @@ function PlannedMovesPage({ toast }) {
                       </div>
                       {move.notes && <div style={{ fontSize: '12px', color: 'var(--ash)', marginTop: '4px', fontStyle: 'italic' }}>{move.notes}</div>}
                     </div>
-                    {/* Actions */}
                     <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                       <button className="btn btn-secondary" style={{ fontSize: '12px', padding: '5px 10px' }} onClick={() => startEdit(move)}>Edit</button>
                       <button className="btn btn-secondary" style={{ fontSize: '12px', padding: '5px 10px', color: 'var(--rust)' }} onClick={() => cancelMove(move.id)}>Cancel</button>
@@ -2473,7 +2431,6 @@ function PlannedMovesPage({ toast }) {
         </div>
       )}
 
-      {/* History toggle */}
       {history.length > 0 && (
         <>
           <div style={{ borderTop: '1px solid rgba(139,69,19,0.2)', paddingTop: '16px', marginTop: '8px' }}>
@@ -2505,7 +2462,7 @@ function PlannedMovesPage({ toast }) {
   );
 }
 
-
+// END GRAZING MODULE
 // ============================================================================
 
 function CalvingGapPage({ toast }) {
@@ -3489,17 +3446,361 @@ function ChatPage({ toast }) {
   );
 }
 
+// ===== INVENTORY CHANGE REPORT =====
+function InventoryChangeReport({ toast, herds }) {
+  const today = new Date().toISOString().split('T')[0];
+  const janFirst = new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0];
+  const [startDate, setStartDate] = useState(janFirst);
+  const [endDate, setEndDate] = useState(today);
+  const [herdFilter, setHerdFilter] = useState('');
+  const [results, setResults] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const TYPE_STYLE = {
+    purchase: { color: 'var(--sky)',   label: 'PURCHASE', sign: '+' },
+    birth:    { color: 'var(--sage)',  label: 'BIRTH',    sign: '+' },
+    sale:     { color: 'var(--hay)',   label: 'SALE',     sign: '−' },
+    death:    { color: '#e05555',      label: 'DEATH',    sign: '−' },
+  };
+
+  const runReport = async () => {
+    if (!startDate || !endDate) { toast('Please select a date range', 'error'); return; }
+    if (startDate > endDate)   { toast('Start date must be before end date', 'error'); return; }
+    setLoading(true);
+    setResults(null);
+    try {
+      // ── 1. Beginning inventory ──────────────────────────────────────────────
+      // Animals that existed BEFORE the period that were still active at period start.
+      // "Active at start" = currently active (never left), OR left (sold/dead) on/after startDate.
+      let begQ = supabase.from('animals')
+        .select('id, vid, sex, herd_id, status, status_date, created_at, herds(name)')
+        .lt('created_at', startDate)
+        .limit(10000);
+      if (herdFilter) begQ = begQ.eq('herd_id', herdFilter);
+      const { data: prePeriod, error: begErr } = await begQ;
+      if (begErr) throw new Error('Beginning inventory query failed: ' + begErr.message);
+
+      const beginningInventory = (prePeriod || []).filter(a => {
+        if (a.status === 'active') return true;
+        if ((a.status === 'sold' || a.status === 'dead') && a.status_date >= startDate) return true;
+        return false;
+      });
+
+      // ── 2. Purchases / additions (animals first entered during period) ──────
+      let addQ = supabase.from('animals')
+        .select('id, vid, sex, herd_id, created_at, notes, herds(name)')
+        .gte('created_at', startDate)
+        .lte('created_at', endDate + 'T23:59:59')
+        .limit(10000);
+      if (herdFilter) addQ = addQ.eq('herd_id', herdFilter);
+      const { data: added, error: addErr } = await addQ;
+      if (addErr) throw new Error('Purchases query failed: ' + addErr.message);
+
+      // ── 3. Calvings (live calves born during period) ────────────────────────
+      const { data: calvingRaw, error: calvErr } = await supabase.from('calving_records')
+        .select('id, calving_date, calf_sex, calf_status, dam_id')
+        .gte('calving_date', startDate)
+        .lte('calving_date', endDate)
+        .eq('calf_status', 'alive')
+        .limit(10000);
+      if (calvErr) throw new Error('Calving query failed: ' + calvErr.message);
+
+      // fetch dam details for herd filtering
+      let damsMap = {};
+      const uniqueDamIds = [...new Set((calvingRaw || []).map(c => c.dam_id))];
+      if (uniqueDamIds.length > 0) {
+        const { data: dams } = await supabase.from('animals')
+          .select('id, vid, herd_id, herds(name)')
+          .in('id', uniqueDamIds)
+          .limit(10000);
+        (dams || []).forEach(d => { damsMap[d.id] = d; });
+      }
+      const calvingData = herdFilter
+        ? (calvingRaw || []).filter(c => damsMap[c.dam_id]?.herd_id === herdFilter)
+        : (calvingRaw || []);
+
+      // ── 4. Sales during period ──────────────────────────────────────────────
+      const { data: saleRecords, error: srErr } = await supabase.from('sale_records')
+        .select('id, sale_date, sale_location, sale_type, notes')
+        .gte('sale_date', startDate)
+        .lte('sale_date', endDate)
+        .limit(10000);
+      if (srErr) throw new Error('Sales query failed: ' + srErr.message);
+
+      let salesFlat = [];
+      if ((saleRecords || []).length > 0) {
+        const srIds = saleRecords.map(s => s.id);
+        const { data: saleAnimals, error: saErr } = await supabase.from('sale_animals')
+          .select('sale_record_id, animals(id, vid, sex, herd_id, herds(name))')
+          .in('sale_record_id', srIds)
+          .limit(10000);
+        if (saErr) throw new Error('Sale animals query failed: ' + saErr.message);
+        const srMap = Object.fromEntries(saleRecords.map(s => [s.id, s]));
+        salesFlat = (saleAnimals || [])
+          .filter(sa => !herdFilter || sa.animals?.herd_id === herdFilter)
+          .map(sa => {
+            const sr = srMap[sa.sale_record_id] || {};
+            return {
+              date:  sr.sale_date || '',
+              type:  'sale',
+              vid:   sa.animals?.vid || '—',
+              sex:   sa.animals?.sex || '—',
+              herd:  sa.animals?.herds?.name || '—',
+              notes: [sr.sale_location, sr.sale_type].filter(Boolean).join(' · ') || '',
+            };
+          });
+      }
+
+      // ── 5. Deaths during period ─────────────────────────────────────────────
+      const { data: deathRaw, error: drErr } = await supabase.from('death_records')
+        .select('id, death_date, cause_of_death, notes, animals(id, vid, sex, herd_id, herds(name))')
+        .gte('death_date', startDate)
+        .lte('death_date', endDate)
+        .limit(10000);
+      if (drErr) throw new Error('Deaths query failed: ' + drErr.message);
+      const deathsFlat = (deathRaw || [])
+        .filter(d => !herdFilter || d.animals?.herd_id === herdFilter)
+        .map(d => ({
+          date:  d.death_date,
+          type:  'death',
+          vid:   d.animals?.vid || '—',
+          sex:   d.animals?.sex || '—',
+          herd:  d.animals?.herds?.name || '—',
+          notes: d.cause_of_death || d.notes || '',
+        }));
+
+      // ── 6. Ending inventory (currently active) ─────────────────────────────
+      let endQ = supabase.from('animals').select('id', { count: 'exact', head: true }).eq('status', 'active').limit(10000);
+      if (herdFilter) endQ = endQ.eq('herd_id', herdFilter);
+      const { count: endingCount, error: endErr } = await endQ;
+      if (endErr) throw new Error('Ending inventory query failed: ' + endErr.message);
+
+      // ── 7. Build unified transaction ledger ────────────────────────────────
+      const purchasesFlat = (added || []).map(a => ({
+        date:  a.created_at.split('T')[0],
+        type:  'purchase',
+        vid:   a.vid || '—',
+        sex:   a.sex || '—',
+        herd:  a.herds?.name || '—',
+        notes: a.notes || '',
+      }));
+      const calvingsFlat = calvingData.map(c => {
+        const dam = damsMap[c.dam_id];
+        return {
+          date:  c.calving_date,
+          type:  'birth',
+          vid:   dam?.vid ? `(dam: ${dam.vid})` : '—',
+          sex:   c.calf_sex || '—',
+          herd:  dam?.herds?.name || '—',
+          notes: 'Live calf',
+        };
+      });
+
+      const transactions = [...purchasesFlat, ...calvingsFlat, ...salesFlat, ...deathsFlat]
+        .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+      setResults({
+        beginningCount: beginningInventory.length,
+        purchases:      purchasesFlat.length,
+        births:         calvingsFlat.length,
+        sales:          salesFlat.length,
+        deaths:         deathsFlat.length,
+        endingCount:    endingCount || 0,
+        transactions,
+        startDate,
+        endDate,
+        herdName:       herdFilter ? (herds.find(h => h.id === herdFilter)?.name || 'Unknown') : 'All Herds',
+      });
+      toast(`Report complete — ${transactions.length} event${transactions.length !== 1 ? 's' : ''}`, 'success');
+    } catch (err) {
+      toast('Error: ' + err.message, 'error');
+    }
+    setLoading(false);
+  };
+
+  const exportCSV = () => {
+    if (!results) return;
+    const rows = [
+      `Ranch Savvy — Inventory Change Report`,
+      `Scope: ${results.herdName}`,
+      `Period: ${results.startDate} to ${results.endDate}`,
+      `Generated: ${new Date().toLocaleString()}`,
+      ``,
+      `SUMMARY`,
+      `Beginning Inventory,${results.beginningCount}`,
+      `+ Purchases / Additions,${results.purchases}`,
+      `+ Births (Live Calves),${results.births}`,
+      `− Sales,${results.sales}`,
+      `− Deaths,${results.deaths}`,
+      `= Calculated Ending,${results.beginningCount + results.purchases + results.births - results.sales - results.deaths}`,
+      `Actual Ending Inventory,${results.endingCount}`,
+      `Unreconciled Difference,${results.endingCount - (results.beginningCount + results.purchases + results.births - results.sales - results.deaths)}`,
+      ``,
+      `TRANSACTIONS`,
+      `Date,Type,VID,Sex,Herd,Notes`,
+      ...results.transactions.map(t =>
+        [t.date, t.type.toUpperCase(), t.vid, t.sex, t.herd, `"${(t.notes||'').replace(/"/g,'""')}"`].join(',')
+      ),
+    ];
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ranch_savvy_inventory_change_${results.startDate}_${results.endDate}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('CSV exported!', 'success');
+  };
+
+  const calcEnding = results
+    ? results.beginningCount + results.purchases + results.births - results.sales - results.deaths
+    : 0;
+  const diff = results ? results.endingCount - calcEnding : 0;
+
+  return (
+    <div>
+      {/* ── Parameters ── */}
+      <div className="detail-card" style={{marginBottom:'24px'}}>
+        <h3 style={{marginBottom:'16px'}}>Report Parameters</h3>
+        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'14px', alignItems:'end'}}>
+          <div className="form-group" style={{margin:0}}>
+            <label className="form-label">Start Date</label>
+            <input className="form-input" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+          </div>
+          <div className="form-group" style={{margin:0}}>
+            <label className="form-label">End Date</label>
+            <input className="form-input" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+          </div>
+          <div className="form-group" style={{margin:0}}>
+            <label className="form-label">Herd Filter</label>
+            <select className="form-select" value={herdFilter} onChange={e => setHerdFilter(e.target.value)}>
+              <option value="">All Herds</option>
+              {herds.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+            </select>
+          </div>
+        </div>
+        <div style={{display:'flex', gap:'10px', marginTop:'16px', alignItems:'center'}}>
+          <button className="btn btn-primary" onClick={runReport} disabled={loading}>
+            {loading ? 'Running...' : 'Run Report'}
+          </button>
+          {results && <button className="btn btn-secondary" onClick={exportCSV}>⤓ Export CSV</button>}
+          {loading && <span style={{color:'var(--ash)', fontSize:'13px', fontFamily:'IBM Plex Mono, monospace'}}>Querying database...</span>}
+        </div>
+      </div>
+
+      {/* ── Results ── */}
+      {results && (
+        <>
+          {/* Stat cards */}
+          <div style={{display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:'12px', marginBottom:'16px'}}>
+            {[
+              { label:'BEG. INVENTORY',    value: results.beginningCount, color:'var(--cream)',  sign:'' },
+              { label:'+ PURCHASES',        value: results.purchases,      color:'var(--sky)',   sign:'+' },
+              { label:'+ BIRTHS',           value: results.births,         color:'var(--sage)',  sign:'+' },
+              { label:'− SALES',            value: results.sales,          color:'var(--hay)',   sign:'−' },
+              { label:'− DEATHS',           value: results.deaths,         color:'#e05555',      sign:'−' },
+              { label:'END INVENTORY',      value: results.endingCount,    color:'var(--cream)', sign:'' },
+            ].map(s => (
+              <div key={s.label} className="stat-card">
+                <div className="stat-label">{s.label}</div>
+                <div className="stat-value" style={{color: s.color, fontSize:'28px', lineHeight:'1.1'}}>
+                  {s.sign}{s.value}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Reconciliation banner */}
+          <div style={{
+            background: diff === 0 ? 'rgba(124,140,110,0.15)' : 'rgba(212,168,71,0.1)',
+            border: `1px solid ${diff === 0 ? 'rgba(124,140,110,0.5)' : 'rgba(212,168,71,0.5)'}`,
+            borderRadius:'6px', padding:'12px 18px', marginBottom:'20px',
+            display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'8px',
+          }}>
+            <span style={{fontFamily:'IBM Plex Mono, monospace', fontSize:'12px', color: diff === 0 ? 'var(--sage)' : 'var(--hay)'}}>
+              {diff === 0 ? '✓ RECONCILED' : `⚠ ${Math.abs(diff)} HEAD UNACCOUNTED`}
+              <span style={{color:'var(--ash)', marginLeft:'12px'}}>
+                {results.beginningCount} beg &nbsp;+ {results.purchases} pur &nbsp;+ {results.births} births &nbsp;− {results.sales} sales &nbsp;− {results.deaths} deaths &nbsp;= {calcEnding} calc &nbsp;| {results.endingCount} actual
+              </span>
+            </span>
+            <span style={{fontFamily:'IBM Plex Mono, monospace', fontSize:'11px', color:'var(--ash)'}}>
+              {results.herdName} · {results.startDate} → {results.endDate}
+            </span>
+          </div>
+
+          {/* Transaction ledger */}
+          {results.transactions.length === 0 ? (
+            <div className="empty-state">
+              <h3>No transactions in this period</h3>
+              <p>No purchases, births, sales, or deaths recorded between {startDate} and {endDate}
+                {herdFilter ? ` for ${herds.find(h=>h.id===herdFilter)?.name}` : ''}.</p>
+            </div>
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>+/−</th>
+                    <th>VID</th>
+                    <th>Sex</th>
+                    <th>Herd</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {results.transactions.map((t, i) => {
+                    const ts = TYPE_STYLE[t.type] || { color:'var(--ash)', label: t.type.toUpperCase(), sign:'' };
+                    return (
+                      <tr key={i} style={{cursor:'default'}}>
+                        <td className="td-mono" style={{fontSize:'12px'}}>{t.date}</td>
+                        <td>
+                          <span style={{
+                            display:'inline-block', padding:'2px 8px', borderRadius:'3px',
+                            fontSize:'11px', fontFamily:'IBM Plex Mono, monospace', fontWeight:'600',
+                            color: ts.color, background: ts.color + '1a', border: `1px solid ${ts.color}44`,
+                          }}>{ts.label}</span>
+                        </td>
+                        <td style={{fontFamily:'IBM Plex Mono, monospace', fontSize:'16px', color: ts.color, textAlign:'center', fontWeight:'700'}}>{ts.sign}</td>
+                        <td className="td-mono">{t.vid}</td>
+                        <td>{t.sex && t.sex !== '—' ? <span className={`badge badge-${t.sex}`}>{t.sex}</span> : <span style={{color:'var(--ash)'}}>—</span>}</td>
+                        <td style={{fontSize:'13px', color:'var(--ash)'}}>{t.herd}</td>
+                        <td style={{fontSize:'12px', color:'var(--ash)', maxWidth:'200px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{t.notes || '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <div className="pagination">
+                <span className="pagination-info">
+                  {results.transactions.length} events &nbsp;·&nbsp;
+                  <span style={{color:'var(--sky)'}}>▲ {results.purchases} purchases</span> &nbsp;
+                  <span style={{color:'var(--sage)'}}>▲ {results.births} births</span> &nbsp;
+                  <span style={{color:'var(--hay)'}}>▼ {results.sales} sales</span> &nbsp;
+                  <span style={{color:'#e05555'}}>▼ {results.deaths} deaths</span>
+                </span>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ===== REPORTS PAGE =====
 function ReportsPage({ toast }) {
-  const [reportType, setReportType] = useState('summary');
+  const [activeTab, setActiveTab] = useState('inventory_change');
+  const [herds, setHerds] = useState([]);
+  const [partnerships, setPartnerships] = useState([]);
+
+  // Legacy calving/summary state
   const [reportScope, setReportScope] = useState('herd');
   const [selectedHerd, setSelectedHerd] = useState('');
   const [selectedOwner, setSelectedOwner] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
-  const [exportFormat, setExportFormat] = useState('csv');
-  const [herds, setHerds] = useState([]);
-  const [partnerships, setPartnerships] = useState([]);
   const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
@@ -3550,29 +3851,70 @@ function ReportsPage({ toast }) {
   const generateReport = async () => {
     if (!startDate || !endDate) { toast('Please select date range', 'error'); return; }
     setGenerating(true);
-    try {
-      if (reportType === 'calving') await generateCalvingReport();
-      else await generateSummaryReport();
-    } catch (error) { toast('Error generating report: ' + error.message, 'error'); }
+    try { await generateCalvingReport(); }
+    catch (error) { toast('Error generating report: ' + error.message, 'error'); }
     setGenerating(false);
   };
 
+  const TABS = [
+    { id: 'inventory_change', label: 'Inventory Change' },
+    { id: 'calving',          label: 'Calving Records' },
+    { id: 'summary',          label: 'Summary' },
+  ];
+
   return (
     <div>
-      <div style={{marginBottom:'24px'}}><p style={{color:'var(--ash)', fontSize:'13px'}}>Generate inventory reports by herd or owner for any date range. Choose between summary (in/out counts) or detailed event logs.</p></div>
-      <div className="detail-card" style={{maxWidth:'600px'}}>
-        <h3>Report Configuration</h3>
-        <div className="form-group"><label className="form-label">Report Type</label><select className="form-select" value={reportType} onChange={e => setReportType(e.target.value)}><option value="summary">Summary (Beginning/Ending Inventory)</option><option value="detail">Detail (All Events)</option><option value="calving">Calving Records</option></select></div>
-        <div className="form-group"><label className="form-label">Report Scope</label><select className="form-select" value={reportScope} onChange={e => setReportScope(e.target.value)}><option value="herd">By Herd</option><option value="owner">By Owner</option></select></div>
-        {reportScope === 'herd' && <div className="form-group"><label className="form-label">Select Herd</label><select className="form-select" value={selectedHerd} onChange={e => setSelectedHerd(e.target.value)}><option value="">Choose a herd...</option>{herds.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select></div>}
-        {reportScope === 'owner' && <div className="form-group"><label className="form-label">Select Owner</label><select className="form-select" value={selectedOwner} onChange={e => setSelectedOwner(e.target.value)}><option value="">Choose an owner...</option>{partnerships.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>}
-        <div className="form-grid">
-          <div className="form-group"><label className="form-label">Start Date</label><input className="form-input" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></div>
-          <div className="form-group"><label className="form-label">End Date</label><input className="form-input" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} /></div>
-        </div>
-        <div className="form-group"><label className="form-label">Export Format</label><select className="form-select" value={exportFormat} onChange={e => setExportFormat(e.target.value)}><option value="csv">CSV (Spreadsheet)</option><option value="pdf">PDF</option></select></div>
-        <button className="btn btn-primary" onClick={generateReport} disabled={generating} style={{marginTop:'20px', width:'100%'}}>{generating ? 'Generating Report...' : `⤓ Generate & Download ${exportFormat.toUpperCase()}`}</button>
+      {/* Tab bar */}
+      <div style={{display:'flex', gap:'0', marginBottom:'28px', borderBottom:'2px solid rgba(139,69,19,0.3)'}}>
+        {TABS.map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+            padding:'10px 22px', border:'none', background:'transparent', cursor:'pointer',
+            color: activeTab === tab.id ? 'var(--hay)' : 'var(--ash)',
+            borderBottom: activeTab === tab.id ? '2px solid var(--rust)' : '2px solid transparent',
+            marginBottom:'-2px',
+            fontSize:'12px', fontWeight:'700', fontFamily:'IBM Plex Mono, monospace',
+            letterSpacing:'1.5px', textTransform:'uppercase', transition:'color 0.15s',
+          }}>
+            {tab.label}
+          </button>
+        ))}
       </div>
+
+      {activeTab === 'inventory_change' && (
+        <InventoryChangeReport toast={toast} herds={herds} />
+      )}
+
+      {activeTab === 'calving' && (
+        <div>
+          <div className="detail-card" style={{maxWidth:'600px'}}>
+            <h3>Calving Records Export</h3>
+            <div className="form-group"><label className="form-label">Report Scope</label><select className="form-select" value={reportScope} onChange={e => setReportScope(e.target.value)}><option value="herd">By Herd</option><option value="owner">By Owner</option></select></div>
+            {reportScope === 'herd' && <div className="form-group"><label className="form-label">Select Herd</label><select className="form-select" value={selectedHerd} onChange={e => setSelectedHerd(e.target.value)}><option value="">Choose a herd...</option>{herds.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select></div>}
+            {reportScope === 'owner' && <div className="form-group"><label className="form-label">Select Owner</label><select className="form-select" value={selectedOwner} onChange={e => setSelectedOwner(e.target.value)}><option value="">Choose an owner...</option>{partnerships.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>}
+            <div className="form-grid">
+              <div className="form-group"><label className="form-label">Start Date</label><input className="form-input" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></div>
+              <div className="form-group"><label className="form-label">End Date</label><input className="form-input" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} /></div>
+            </div>
+            <button className="btn btn-primary" onClick={generateReport} disabled={generating} style={{marginTop:'8px', width:'100%'}}>{generating ? 'Generating...' : '⤓ Export Calving CSV'}</button>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'summary' && (
+        <div>
+          <div className="detail-card" style={{maxWidth:'600px'}}>
+            <h3>Summary Export</h3>
+            <div className="form-group"><label className="form-label">Report Scope</label><select className="form-select" value={reportScope} onChange={e => setReportScope(e.target.value)}><option value="herd">By Herd</option><option value="owner">By Owner</option></select></div>
+            {reportScope === 'herd' && <div className="form-group"><label className="form-label">Select Herd</label><select className="form-select" value={selectedHerd} onChange={e => setSelectedHerd(e.target.value)}><option value="">Choose a herd...</option>{herds.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select></div>}
+            {reportScope === 'owner' && <div className="form-group"><label className="form-label">Select Owner</label><select className="form-select" value={selectedOwner} onChange={e => setSelectedOwner(e.target.value)}><option value="">Choose an owner...</option>{partnerships.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>}
+            <div className="form-grid">
+              <div className="form-group"><label className="form-label">Start Date</label><input className="form-input" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></div>
+              <div className="form-group"><label className="form-label">End Date</label><input className="form-input" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} /></div>
+            </div>
+            <button className="btn btn-primary" onClick={generateSummaryReport} disabled={generating} style={{marginTop:'8px', width:'100%'}}>{generating ? 'Generating...' : '⤓ Export Summary CSV'}</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3700,7 +4042,7 @@ function App() {
     animals: 'Animal Inventory', herds: 'Herd Management', partnerships: 'Ownership Partnerships',
     reports: 'Reports', import: 'Bulk Import', chat: 'Field Entry', logs: 'Entry Log',
     calving_gap: 'Calving Gap',
-    landlords: 'Landlords', pastures: 'Pastures', pasture_import: 'Import Pastures', record_move: 'Record Move', move_history: 'Move History',
+    landlords: 'Landlords', pastures: 'Pastures', pasture_import: 'Import Pastures', planned_moves: 'Planned Moves', record_move: 'Record Move', move_history: 'Move History',
   };
 
   if (authLoading) return (
@@ -3740,12 +4082,12 @@ function App() {
 
         <div className="nav-section">
           {!sidebarCollapsed && <div className="nav-label">Grazing</div>}
-          <div className={`nav-item ${page === 'planned_moves' ? 'active' : ''}`} onClick={() => setPage('planned_moves')} title={sidebarCollapsed ? 'Planned Moves' : ''}>
-            <span className="nav-icon">{NAV_ICONS['planned_moves']}</span>{!sidebarCollapsed && <span>Planned Moves</span>}
-          </div>
           <div className={`nav-item ${page === 'record_move' ? 'active' : ''}`} onClick={() => setPage('record_move')} title={sidebarCollapsed ? 'Record Move' : ''}>
             <span className="nav-icon">{NAV_ICONS['record_move']}</span>
             {!sidebarCollapsed && <span>Record Move</span>}
+          </div>
+          <div className={`nav-item ${page === 'planned_moves' ? 'active' : ''}`} onClick={() => setPage('planned_moves')} title={sidebarCollapsed ? 'Planned Moves' : ''}>
+            <span className="nav-icon">{NAV_ICONS['planned_moves']}</span>{!sidebarCollapsed && <span>Planned Moves</span>}
           </div>
           <div className={`nav-item ${page === 'move_history' ? 'active' : ''}`} onClick={() => setPage('move_history')} title={sidebarCollapsed ? 'Move History' : ''}>
             <span className="nav-icon">{NAV_ICONS['move_history']}</span>
@@ -3803,8 +4145,8 @@ function App() {
           {page === 'landlords' && <LandlordsPage toast={showToast} />}
           {page === 'pastures' && <PasturesPage toast={showToast} />}
           {page === 'pasture_import' && <PastureImportPage toast={showToast} />}
-          {page === 'planned_moves' && <PlannedMovesPage toast={showToast} />}
           {page === 'record_move' && <RecordMovePage toast={showToast} />}
+          {page === 'planned_moves' && <PlannedMovesPage toast={showToast} />}
           {page === 'move_history' && <MoveHistoryPage toast={showToast} />}
         </div>
       </div>
