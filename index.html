@@ -2138,15 +2138,15 @@ function PlannedMovesPage({ toast }) {
     setLoading(true);
     // Load herds and pastures first — always exist
     const [{ data: h }, { data: ps }] = await Promise.all([
-      supabase.from('herds').select('id, name, head_count').eq('is_active', true).order('name'),
-      supabase.from('pastures').select('id, name, acres, pct_grazable').eq('is_active', true).order('name'),
+      supabase.from('herds').select('id, name').order('name'),
+      supabase.from('pastures').select('id, name, acres').order('name'),
     ]);
     setHerds(h || []);
     setPastures(ps || []);
     // Load planned_moves separately — table may not exist yet if SQL hasn't been run
     try {
       const { data: p, error: pe } = await supabase.from('planned_moves')
-        .select('*, herd:herds(name, head_count), to_pasture:pastures(name, acres)')
+        .select('*, herd:herds(name), to_pasture:pastures(name, acres)')
         .order('planned_date', { ascending: true });
       if (pe) console.warn('planned_moves error (run SQL in Supabase first):', pe.message);
       setPlanned(p || []);
@@ -2413,7 +2413,7 @@ function PlannedMovesPage({ toast }) {
                       </div>
                       <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '12px', color: 'var(--ash)', marginTop: '3px' }}>
                         {new Date(move.planned_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                        {move.herd?.head_count && ` · ${move.herd.head_count} head`}
+                
                         {move.to_pasture?.acres && ` · ${move.to_pasture.acres} ac`}
                       </div>
                       {move.notes && <div style={{ fontSize: '12px', color: 'var(--ash)', marginTop: '4px', fontStyle: 'italic' }}>{move.notes}</div>}
