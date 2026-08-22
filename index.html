@@ -189,6 +189,25 @@ const YEAR_LETTERS = {
 };
 const getYearLetter = (year) => YEAR_LETTERS[year] || '?';
 
+// Local calendar date (YYYY-MM-DD). NEVER use new Date().toISOString().split('T')[0] for "today" —
+// that returns the UTC date, which rolls over at 6-7pm Central and stamps evening entries with tomorrow's date.
+const todayLocal = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+// Run a Supabase .in() query in chunks to avoid URL length limits (GET requests fail past ~8-16KB;
+// ~200 UUIDs per request is safe). buildQuery receives one chunk of ids and must return the query promise.
+const chunkedIn = async (ids, buildQuery, chunkSize = 200) => {
+  let all = [];
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const { data, error } = await buildQuery(ids.slice(i, i + chunkSize));
+    if (error) return { data: null, error };
+    all = all.concat(data || []);
+  }
+  return { data: all, error: null };
+};
+
 const formatDate = (d) => {
   if (!d) return '—';
   const [year, month, day] = d.split('T')[0].split('-');
@@ -412,7 +431,7 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `ranch_savvy_inventory_${new Date().toISOString().split('T')[0]}.csv`; a.click();
+    a.href = url; a.download = `ranch_savvy_inventory_${todayLocal()}.csv`; a.click();
     URL.revokeObjectURL(url);
     toast(`Exported ${filteredAnimals.length} animals to CSV`, 'success');
   };
@@ -626,7 +645,7 @@ function BulkEditModal({ selectedIds, herds, partnerships, onClose, onSaved, toa
   const [vaccineProduct, setVaccineProduct] = useState('');
   const [vaccineLot, setVaccineLot] = useState('');
   const [vaccineDosage, setVaccineDosage] = useState('');
-  const [vaccineDate, setVaccineDate] = useState(new Date().toISOString().split('T')[0]);
+  const [vaccineDate, setVaccineDate] = useState(todayLocal());
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -647,12 +666,12 @@ function BulkEditModal({ selectedIds, herds, partnerships, onClose, onSaved, toa
         const { error } = await supabase.from('animals').update({ breeding_status: breedingStatus }).in('id', selectedIds);
         if (error) throw error;
       } else if (action === 'owner') {
-        const today = new Date().toISOString().split('T')[0];
+        const today = todayLocal();
         const ownershipRecords = selectedIds.map(animalId => ({ animal_id: animalId, partnership_id: ownerId, effective_date: today }));
         const { error } = await supabase.from('animal_ownership_history').insert(ownershipRecords);
         if (error) throw error;
       } else if (action === 'status') {
-        const today = new Date().toISOString().split('T')[0];
+        const today = todayLocal();
         const { error } = await supabase.from('animals').update({ status, status_date: today, is_active: status === 'active', updated_at: new Date().toISOString() }).in('id', selectedIds);
         if (error) throw error;
       } else if (action === 'sex') {
@@ -745,6 +764,14 @@ function AddAnimalModal({ herds, onClose, onSaved, toast }) {
   const handleSave = async () => {
     if (!form.sex) { toast('Sex is required', 'error'); return; }
     setSaving(true);
+    // Warn on duplicate ACTIVE VID — chat field entries match by VID, so two active animals
+    // sharing a tag can cause sales/deaths to hit the wrong animal.
+    if (form.vid) {
+      const { data: existing } = await supabase.from('animals').select('id').eq('vid', form.vid).eq('status', 'active').limit(1);
+      if (existing && existing.length > 0) {
+        if (!window.confirm(`⚠️ An ACTIVE animal with VID ${form.vid} already exists. Duplicate active tags can cause field entries (sales, deaths, treatments) to hit the wrong animal.\n\nAdd anyway?`)) { setSaving(false); return; }
+      }
+    }
     const payload = {
       vid: form.vid || null, eid: form.eid || null, sex: form.sex,
       herd_id: form.herd_id || null, date_of_birth: form.date_of_birth || null,
@@ -823,11 +850,11 @@ function AnimalDetailModal({ animal, herds, partnerships, animalOwners, onClose,
   // ──────────────────────────────────────────────────────────
 
   const [calvingForm, setCalvingForm] = useState({
-    calving_date: new Date().toISOString().split('T')[0],
+    calving_date: todayLocal(),
     calf_sex: 'heifer', calf_status: 'alive', udder_score: '', notes: '',
   });
   const [treatmentForm, setTreatmentForm] = useState({
-    treatment_date: new Date().toISOString().split('T')[0],
+    treatment_date: todayLocal(),
     treatment_type: 'vaccination', product_name: '', lot_number: '',
     dosage: '', reason: '', administered_by: '', withdrawal_date: '',
   });
@@ -843,6 +870,7 @@ function AnimalDetailModal({ animal, herds, partnerships, animalOwners, onClose,
     setCalvingRecords(data || []);
   };
   const fetchBreeding = async () => {
+    if (!animal.herd_id) { setBreedingEvents([]); return; } // .eq('herd_id', null) is a malformed filter
     const { data } = await supabase.from('breeding_events').select('*, breeding_event_sires(*, animals(vid))').eq('herd_id', animal.herd_id).order('start_date', { ascending: false });
     setBreedingEvents(data || []);
   };
@@ -872,7 +900,7 @@ function AnimalDetailModal({ animal, herds, partnerships, animalOwners, onClose,
     else {
       toast('Calving record saved!', 'success');
       setShowAddCalving(false);
-      setCalvingForm({ calving_date: new Date().toISOString().split('T')[0], calf_sex: 'heifer', calf_status: 'alive', udder_score: '', notes: '' });
+      setCalvingForm({ calving_date: todayLocal(), calf_sex: 'heifer', calf_status: 'alive', udder_score: '', notes: '' });
       fetchCalving();
     }
   };
@@ -920,7 +948,7 @@ function AnimalDetailModal({ animal, herds, partnerships, animalOwners, onClose,
     else {
       toast('Treatment record saved!', 'success');
       setShowAddTreatment(false);
-      setTreatmentForm({ treatment_date: new Date().toISOString().split('T')[0], treatment_type: 'vaccination', product_name: '', lot_number: '', dosage: '', reason: '', administered_by: '', withdrawal_date: '' });
+      setTreatmentForm({ treatment_date: todayLocal(), treatment_type: 'vaccination', product_name: '', lot_number: '', dosage: '', reason: '', administered_by: '', withdrawal_date: '' });
       fetchTreatments();
     }
   };
@@ -1563,7 +1591,7 @@ function PasturesPage({ toast }) {
 function RecordMovePage({ toast }) {
   const [herds, setHerds] = React.useState([]);
   const [pastures, setPastures] = React.useState([]);
-  const [form, setForm] = React.useState({ actual_entry_date: new Date().toISOString().split('T')[0] });
+  const [form, setForm] = React.useState({ actual_entry_date: todayLocal() });
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => { loadData(); }, []);
@@ -1621,7 +1649,7 @@ function RecordMovePage({ toast }) {
       console.error(error);
     } else {
       toast(`Moved ${selectedHerd?.name} to ${selectedPasture?.name}`, 'success');
-      setForm({ actual_entry_date: new Date().toISOString().split('T')[0] });
+      setForm({ actual_entry_date: todayLocal() });
     }
   }
 
@@ -1690,7 +1718,7 @@ function RecordMovePage({ toast }) {
         )}
 
         <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
-          <button className="btn btn-secondary" onClick={() => setForm({ actual_entry_date: new Date().toISOString().split('T')[0] })}>
+          <button className="btn btn-secondary" onClick={() => setForm({ actual_entry_date: todayLocal() })}>
             Clear
           </button>
           <button className="btn btn-primary" style={{ flex: 1 }} onClick={recordMove}>
@@ -2381,7 +2409,7 @@ function PlannedMovesPage({ toast }) {
             {pending.length} showing · {planned.filter(m => m.status === 'pending').length} total pending
           </div>
         </div>
-        <button className="btn btn-primary" onClick={() => { setShowAddForm(true); setEditingId(null); setForm({ planned_date: new Date().toISOString().split('T')[0] }); }}>
+        <button className="btn btn-primary" onClick={() => { setShowAddForm(true); setEditingId(null); setForm({ planned_date: todayLocal() }); }}>
           + Plan Move
         </button>
       </div>
@@ -2468,7 +2496,7 @@ function PlannedMovesPage({ toast }) {
 function CalvingGapPage({ toast }) {
   const today = new Date();
   const oneYearAgo = new Date(today); oneYearAgo.setFullYear(today.getFullYear() - 1);
-  const fmt = d => d.toISOString().split('T')[0];
+  const fmt = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
   const [herds, setHerds] = useState([]);
   const [herdFilter, setHerdFilter] = useState('');
@@ -2502,12 +2530,14 @@ function CalvingGapPage({ toast }) {
 
     // 2. Fetch all calving records for those cows
     const cowIds = cows.map(c => c.id);
-    const { data: calvings } = await supabase
+    // Chunked: a single .in() with 800+ UUIDs exceeds URL length limits and fails silently
+    const { data: calvings, error: calvErr } = await chunkedIn(cowIds, (chunk) => supabase
       .from('calving_records')
       .select('dam_id, calving_date')
-      .in('dam_id', cowIds)
+      .in('dam_id', chunk)
       .order('calving_date', { ascending: false })
-      .limit(10000);
+      .limit(10000));
+    if (calvErr) { toast('Error loading calving records: ' + calvErr.message, 'error'); setLoading(false); return; }
 
     // 3. Build map: dam_id -> all calving dates (most recent first)
     const calvingMap = {};
@@ -3000,9 +3030,12 @@ function PartnershipsPage({ toast }) {
     if (Math.abs(totalPct - 100) > 0.01) { toast(`Percentages must total 100%. Currently: ${totalPct.toFixed(1)}%`, 'error'); return; }
     const { error: pErr } = await supabase.from('partnerships').update({ name: editingP.name, description: editingP.description || null, is_active: editingP.is_active, updated_at: new Date().toISOString() }).eq('id', editingP.id);
     if (pErr) { toast('Error updating: ' + pErr.message, 'error'); return; }
-    await supabase.from('partnership_members').delete().eq('partnership_id', editingP.id);
-    const memberRows = editMembers.filter(m => m.member_name).map(m => ({ partnership_id: editingP.id, member_name: m.member_name, ownership_pct: parseFloat(m.ownership_pct), effective_date: new Date().toISOString().split('T')[0] }));
-    if (memberRows.length > 0) { const { error: mErr } = await supabase.from('partnership_members').insert(memberRows); if (mErr) { toast('Error saving members: ' + mErr.message, 'error'); return; } }
+    // Build and validate the replacement rows BEFORE deleting the old ones — delete-then-insert
+    // isn't atomic, so we minimize the window where a failed insert would leave the partnership empty.
+    const memberRows = editMembers.filter(m => m.member_name).map(m => ({ partnership_id: editingP.id, member_name: m.member_name, ownership_pct: parseFloat(m.ownership_pct), effective_date: todayLocal() }));
+    const { error: delErr } = await supabase.from('partnership_members').delete().eq('partnership_id', editingP.id);
+    if (delErr) { toast('Error clearing old members: ' + delErr.message + ' — members unchanged.', 'error'); return; }
+    if (memberRows.length > 0) { const { error: mErr } = await supabase.from('partnership_members').insert(memberRows); if (mErr) { toast('⚠️ CRITICAL: old members were deleted but new members failed to save (' + mErr.message + '). Re-open this partnership and re-enter member splits NOW.', 'error'); return; } }
     setEditingP(null); fetchPartnerships(); toast('Partnership updated!', 'success');
   };
 
@@ -3012,7 +3045,7 @@ function PartnershipsPage({ toast }) {
     if (Math.abs(totalPct - 100) > 0.01) { toast(`Ownership percentages must total 100%. Currently: ${totalPct}%`, 'error'); return; }
     const { data: p, error } = await supabase.from('partnerships').insert({ name: newP.name, description: newP.description || null }).select().single();
     if (error) { toast('Error: ' + error.message, 'error'); return; }
-    const memberRows = newMembers.filter(m => m.member_name).map(m => ({ partnership_id: p.id, member_name: m.member_name, ownership_pct: parseFloat(m.ownership_pct), effective_date: new Date().toISOString().split('T')[0] }));
+    const memberRows = newMembers.filter(m => m.member_name).map(m => ({ partnership_id: p.id, member_name: m.member_name, ownership_pct: parseFloat(m.ownership_pct), effective_date: todayLocal() }));
     if (memberRows.length > 0) { const { error: me } = await supabase.from('partnership_members').insert(memberRows); if (me) { toast('Error adding members: ' + me.message, 'error'); return; } }
     setShowAdd(false); setNewP({ name: '', description: '' }); setNewMembers([{ member_name: '', ownership_pct: '' }]);
     fetchPartnerships(); toast('Partnership created!', 'success');
@@ -3250,7 +3283,7 @@ function ImportPage({ toast }) {
             const previewRow = batchPreviewRows[idx];
             if (previewRow.owner_name) {
               const partnershipId = previewRow.owner_partnership_id || newPartnershipMap[previewRow.owner_name];
-              if (partnershipId) ownershipRecords.push({ animal_id: animal.id, partnership_id: partnershipId, percentage: 100, effective_date: previewRow.date_of_birth || previewRow.purchase_date || new Date().toISOString().split('T')[0] });
+              if (partnershipId) ownershipRecords.push({ animal_id: animal.id, partnership_id: partnershipId, percentage: 100, effective_date: previewRow.date_of_birth || previewRow.purchase_date || todayLocal() });
             }
           });
           if (ownershipRecords.length > 0) {
@@ -3411,44 +3444,61 @@ function ChatPage({ toast }) {
     const foundTags = foundAnimals.map(a => a.vid);
     const notFound = p.tags.filter(t => !foundTags.includes(t));
     if (foundAnimals.length === 0) throw new Error(`No active animals found with tags: ${p.tags.join(', ')}`);
-    const today = new Date().toISOString().split('T')[0];
+    // Duplicate-VID guard: if one tag matches multiple active animals, stop rather than sell the wrong one
+    const dupTags = foundTags.filter((t, i) => foundTags.indexOf(t) !== i);
+    if (dupTags.length > 0) throw new Error(`Tag(s) ${[...new Set(dupTags)].join(', ')} match more than one ACTIVE animal. Nothing was saved — resolve the duplicate in Animal Inventory, then re-enter.`);
+    const today = todayLocal();
     const { data: saleRecord, error: saleErr } = await supabase.from('sale_records').insert({ sale_date: today, sale_location: p.location, sale_type: 'auction', notes: p.text }).select().single();
     if (saleErr) throw new Error('Could not create sale record: ' + saleErr.message);
-    await supabase.from('sale_animals').insert(foundAnimals.map(a => ({ sale_record_id: saleRecord.id, animal_id: a.id })));
-    await supabase.from('animals').update({ status: 'sold', status_date: today, is_active: false, updated_at: new Date().toISOString() }).in('id', foundAnimals.map(a => a.id));
+    const { error: saLinkErr } = await supabase.from('sale_animals').insert(foundAnimals.map(a => ({ sale_record_id: saleRecord.id, animal_id: a.id })));
+    if (saLinkErr) throw new Error('Sale record created but animals could NOT be linked (' + saLinkErr.message + '). Check the sale in the database before re-entering.');
+    const { error: statusErr } = await supabase.from('animals').update({ status: 'sold', status_date: today, is_active: false, updated_at: new Date().toISOString() }).in('id', foundAnimals.map(a => a.id));
+    if (statusErr) throw new Error('Sale saved but animal statuses were NOT updated to sold (' + statusErr.message + '). Update them manually in Animal Inventory.');
     let resultMsg = `✓ Sale recorded at ${p.location}.\n${foundAnimals.length} animal(s) marked as SOLD: tags ${foundTags.join(', ')}.`;
     if (notFound.length > 0) resultMsg += `\n\n⚠️ These tags were not found: ${notFound.join(', ')}`;
     return resultMsg;
   };
 
   const executeDeath = async (p) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayLocal();
     const { data: foundAnimals, error: findErr } = await supabase.from('animals').select('id, vid').in('vid', p.tags).eq('status', 'active');
     if (findErr) throw new Error('Could not look up animals: ' + findErr.message);
     if (foundAnimals.length === 0) throw new Error(`No active animals found with tags: ${p.tags.join(', ')}`);
-    await supabase.from('death_records').insert(foundAnimals.map(a => ({ animal_id: a.id, death_date: today, cause_of_death: p.cause || 'Unknown', notes: p.text })));
-    await supabase.from('animals').update({ status: 'dead', status_date: today, is_active: false, updated_at: new Date().toISOString() }).in('id', foundAnimals.map(a => a.id));
+    const dVids = foundAnimals.map(a => a.vid);
+    const dDups = dVids.filter((t, i) => dVids.indexOf(t) !== i);
+    if (dDups.length > 0) throw new Error(`Tag(s) ${[...new Set(dDups)].join(', ')} match more than one ACTIVE animal. Nothing was saved — resolve the duplicate first.`);
+    const { error: drErr } = await supabase.from('death_records').insert(foundAnimals.map(a => ({ animal_id: a.id, death_date: today, cause_of_death: p.cause || 'Unknown', notes: p.text })));
+    if (drErr) throw new Error('Could not save death record: ' + drErr.message);
+    const { error: dsErr } = await supabase.from('animals').update({ status: 'dead', status_date: today, is_active: false, updated_at: new Date().toISOString() }).in('id', foundAnimals.map(a => a.id));
+    if (dsErr) throw new Error('Death record saved but animal statuses were NOT updated (' + dsErr.message + '). Update them manually in Animal Inventory.');
     return `✓ Death recorded for ${foundAnimals.length} animal(s): tags ${foundAnimals.map(a=>a.vid).join(', ')}.`;
   };
 
   const executeCalving = async (p) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayLocal();
     const { data: foundAnimals, error: findErr } = await supabase.from('animals').select('id, vid, status').in('vid', p.tags).eq('status', 'active');
     if (findErr) throw new Error('Could not look up animals: ' + findErr.message);
     if (foundAnimals.length === 0) throw new Error(`No active animals found with tags: ${p.tags.join(', ')}`);
+    if (foundAnimals.length > 1) throw new Error(`Multiple active animals match (${foundAnimals.map(a => a.vid).join(', ')}). Enter the calving from the dam's Animal Detail page to be sure it lands on the right cow.`);
     const dam = foundAnimals[0];
-    await supabase.from('calving_records').insert({ dam_id: dam.id, calving_date: today, calf_sex: p.calfSex || 'unknown', calf_status: p.calfStatus || 'alive', udder_score: p.udderScore || null, calving_ease: 'unassisted', notes: p.text });
+    const { error: crErr } = await supabase.from('calving_records').insert({ dam_id: dam.id, calving_date: today, calf_sex: p.calfSex || 'unknown', calf_status: p.calfStatus || 'alive', udder_score: p.udderScore || null, calving_ease: 'unassisted', notes: p.text });
+    if (crErr) throw new Error('Could not save calving record: ' + crErr.message);
     return `✓ Calving record saved for cow ${dam.vid}.\nCalf: ${p.calfSex || 'unknown sex'}, ${p.calfStatus || 'alive'}${p.udderScore ? `, udder score ${p.udderScore}` : ''}.`;
   };
 
   const executeHealth = async (p) => {
-    const today = new Date().toISOString().split('T')[0];
-    const tags = p.text.match(/\b\d{1,5}[A-Z]?\b/g)?.map(t => t.toUpperCase()) || [];
+    const today = todayLocal();
+    // Use the tags the user confirmed at parse time; fall back to re-extraction for older pending entries
+    const tags = p.tags && p.tags.length > 0 ? p.tags : (p.text.match(/\b\d{1,5}[A-Z]?\b/g)?.map(t => t.toUpperCase()) || []);
     if (tags.length === 0) throw new Error('No animal tags found. Please specify which animals were treated.');
     const { data: foundAnimals, error: findErr } = await supabase.from('animals').select('id, vid').in('vid', tags).eq('status', 'active');
     if (findErr) throw new Error('Could not look up animals: ' + findErr.message);
     if (foundAnimals.length === 0) throw new Error(`No active animals found with tags: ${tags.join(', ')}`);
-    await supabase.from('treatments').insert(foundAnimals.map(a => ({ animal_id: a.id, treatment_date: today, treatment_type: p.products.length > 0 ? 'vaccination' : 'general', product_name: p.products.join(', ') || null, lot_number: p.lotNumbers.join(', ') || null, reason: 'Field entry', notes: p.text })));
+    const hVids = foundAnimals.map(a => a.vid);
+    const hDups = hVids.filter((t, i) => hVids.indexOf(t) !== i);
+    if (hDups.length > 0) throw new Error(`Tag(s) ${[...new Set(hDups)].join(', ')} match more than one ACTIVE animal. Nothing was saved — resolve the duplicate first.`);
+    const { error: trErr } = await supabase.from('treatments').insert(foundAnimals.map(a => ({ animal_id: a.id, treatment_date: today, treatment_type: p.products.length > 0 ? 'vaccination' : 'general', product_name: p.products.join(', ') || null, lot_number: p.lotNumbers.join(', ') || null, reason: 'Field entry', notes: p.text })));
+    if (trErr) throw new Error('Could not save treatment records: ' + trErr.message);
     return `✓ Treatment records saved for ${foundAnimals.length} animal(s): ${foundAnimals.map(a => a.vid).join(', ')}.`;
   };
 
@@ -3522,7 +3572,9 @@ function ChatPage({ toast }) {
       addMsg('assistant', confirmMsg);
       logEntry.ai_interpretation = `Calving event pending: cow ${tags[0] || 'unknown'}, ${calfSex || 'unknown sex'} calf, ${calfStatus}`; logEntry.action_type = 'data_entry';
     } else if ((lower.includes('cow died') || lower.includes('bull died') || lower.includes('heifer died') || lower.includes('steer died') || lower.includes('found dead')) || (lower.includes('died') && !lower.includes('calf')) || (lower.includes('death') && !lower.includes('calf'))) {
-      const tags = text.match(/\b\d{1,5}[A-Z]?\b/g)?.map(t => t.toUpperCase()) || [];
+      // Strip head-count phrases ("3 died", "2 head") so counts aren't mistaken for tag numbers
+      const deathTagSource = text.replace(/\b\d{1,3}\s+(head|hd|cows?|calves|calf|bulls?|steers?|heifers?)\b/gi, '').replace(/\b\d{1,3}\s+(died|dead|found dead)\b/gi, '');
+      const tags = deathTagSource.match(/\b\d{1,5}[A-Z]?\b/g)?.map(t => t.toUpperCase()) || [];
       const cause = text.match(/(?:from|cause|due to)\s+([a-z\s]+?)(?:\.|,|$)/i)?.[1]?.trim() || null;
       setPending({ type: 'death', tags, cause, text });
       addMsg('assistant', `Death recorded for tag(s): ${tags.length > 0 ? tags.join(', ') : 'none found'}.\nCause: ${cause || 'not specified'}\n\nIs this correct? Reply YES to save or correct me.`);
@@ -3532,8 +3584,12 @@ function ChatPage({ toast }) {
       const productMatches = [...text.matchAll(/(?:with\s+)([\w\s]+?)(?:\s*\(lot|\s*,|\s+and\s+[A-Z]|\.)/gi)];
       productMatches.forEach(m => products.push(m[1].trim()));
       const lotNumbers = [...text.matchAll(/lot\s+(?:number\s+)?([0-9]+)/gi)].map(m => m[1]);
-      setPending({ type: 'health', text, products, lotNumbers });
-      addMsg('assistant', `Health event detected.\n\nProducts: ${products.length > 0 ? products.join(', ') : 'not specified'}\nLot numbers: ${lotNumbers.length > 0 ? lotNumbers.join(', ') : 'not specified'}\n\nThis will be logged. Reply YES to confirm or correct me.`);
+      // Extract tags now (not at execute time) so the user confirms the exact animals being written to.
+      // Strip dosage/lot phrases first so "5 cc" or "lot 12345" numbers aren't mistaken for tags.
+      const tagSource = text.replace(/\b\d+(\.\d+)?\s*(cc|ml|mls|ccs|mg|head|hd)\b/gi, '').replace(/lot\s+(?:number\s+)?[0-9]+/gi, '');
+      const healthTags = tagSource.match(/\b\d{1,5}[A-Z]?\b/g)?.map(t => t.toUpperCase()) || [];
+      setPending({ type: 'health', text, products, lotNumbers, tags: healthTags });
+      addMsg('assistant', `Health event detected.\n\nAnimal tags: ${healthTags.length > 0 ? healthTags.join(', ') : '⚠️ NONE FOUND — entry will fail; include tag numbers'}\nProducts: ${products.length > 0 ? products.join(', ') : 'not specified'}\nLot numbers: ${lotNumbers.length > 0 ? lotNumbers.join(', ') : 'not specified'}\n\nTreatment records will be written to the tags listed above. Reply YES to confirm or correct me.`);
       logEntry.ai_interpretation = `Health/vaccination event pending: ${products.join(', ')}`; logEntry.action_type = 'bulk_update';
     } else if (lower.includes('note for') || lower.includes('add note') || lower.includes('notes:') || lower.match(/tag \d+.*note/i) || lower.match(/cow \d+.*note/i)) {
       const tags = text.match(/\b\d{1,5}[A-Z]?\b/g)?.map(t => t.toUpperCase()) || [];
@@ -3588,7 +3644,7 @@ function ChatPage({ toast }) {
 
 // ===== INVENTORY CHANGE REPORT =====
 function InventoryChangeReport({ toast, herds }) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayLocal();
   const janFirst = new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0];
   const [startDate, setStartDate] = useState(janFirst);
   const [endDate, setEndDate] = useState(today);
@@ -3649,10 +3705,10 @@ function InventoryChangeReport({ toast, herds }) {
       let damsMap = {};
       const uniqueDamIds = [...new Set((calvingRaw || []).map(c => c.dam_id))];
       if (uniqueDamIds.length > 0) {
-        const { data: dams } = await supabase.from('animals')
+        const { data: dams } = await chunkedIn(uniqueDamIds, (chunk) => supabase.from('animals')
           .select('id, vid, herd_id, herds(name)')
-          .in('id', uniqueDamIds)
-          .limit(10000);
+          .in('id', chunk)
+          .limit(10000));
         (dams || []).forEach(d => { damsMap[d.id] = d; });
       }
       const calvingData = herdFilter
@@ -3940,7 +3996,7 @@ function ReportsPage({ toast }) {
   const [selectedHerd, setSelectedHerd] = useState('');
   const [selectedOwner, setSelectedOwner] = useState('');
   const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(todayLocal());
   const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
@@ -3963,7 +4019,9 @@ function ReportsPage({ toast }) {
       const ownedIds = new Set(ownership?.map(o => o.animal_id));
       scopeAnimals = scopeAnimals.filter(a => ownedIds.has(a.id));
     }
-    const { data: calvingData } = await supabase.from('calving_records').select('*').in('dam_id', scopeAnimals.map(a => a.id)).gte('calving_date', startDate).lte('calving_date', endDate).order('calving_date', { ascending: false }).limit(10000);
+    const { data: calvingData, error: calvRepErr } = await chunkedIn(scopeAnimals.map(a => a.id), (chunk) => supabase.from('calving_records').select('*').in('dam_id', chunk).gte('calving_date', startDate).lte('calving_date', endDate).order('calving_date', { ascending: false }).limit(10000));
+    if (calvRepErr) { toast('Error loading calving records: ' + calvRepErr.message, 'error'); return; }
+    calvingData?.sort((a, b) => (b.calving_date || '').localeCompare(a.calving_date || ''));
     const rows = [`Ranch Savvy - Calving Records Report`, `${reportScope === 'herd' ? 'Herd' : 'Owner'}: ${scopeName}`, `Period: ${startDate} to ${endDate}`, ``, `Calving Date,Dam VID,Calf Sex,Calf Status,Udder Score,Calving Ease,Notes`];
     calvingData?.forEach(c => { const dam = scopeAnimals.find(a => a.id === c.dam_id); rows.push([c.calving_date, dam?.vid || '', c.calf_sex, c.calf_status, c.udder_score || '', c.calving_ease?.replace(/_/g, ' ') || '', `"${(c.notes || '').replace(/"/g, '""')}"`].join(',')); });
     rows.push(''); rows.push(`Total Calvings: ${calvingData?.length || 0}`); rows.push(`Live Calves: ${calvingData?.filter(c => c.calf_status === 'alive').length || 0}`); rows.push(`Dead Calves: ${calvingData?.filter(c => c.calf_status === 'dead').length || 0}`);
@@ -3975,9 +4033,11 @@ function ReportsPage({ toast }) {
     const scopeId = reportScope === 'herd' ? selectedHerd : selectedOwner;
     if (!scopeId) { toast('Please select a herd or owner', 'error'); return; }
     const scopeName = reportScope === 'herd' ? herds.find(h => h.id === scopeId)?.name : partnerships.find(p => p.id === scopeId)?.name;
-    let q = supabase.from('animals').select('id, status, created_at').lte('created_at', startDate).limit(10000);
+    let q = supabase.from('animals').select('id, status, status_date, created_at').lte('created_at', startDate).limit(10000);
     if (reportScope === 'herd') q = q.eq('herd_id', scopeId);
-    const { data: beginningAnimals } = await q;
+    const { data: beginningAnimalsRaw } = await q;
+    // Beginning inventory = on the books at period start: exclude animals that left (sold/dead) BEFORE the start date
+    const beginningAnimals = (beginningAnimalsRaw || []).filter(a => a.status === 'active' || !a.status_date || a.status_date >= startDate);
     const csvContent = [
       `Ranch Savvy - Inventory Summary Report`, `${reportScope === 'herd' ? 'Herd' : 'Owner'}: ${scopeName}`,
       `Period: ${startDate} to ${endDate}`, ``, `Category,Head Count`,
@@ -4076,10 +4136,12 @@ function LogsPage({ toast }) {
   useEffect(() => { fetchLogs(); }, []);
 
   const handleRollback = async (log) => {
-    if (!window.confirm('Mark this entry as rolled back?')) return;
+    // NOTE: this only FLAGS the log entry — it does NOT reverse the underlying sale/death/status
+    // changes. True reversal requires storing affected animal IDs in conversation_log (schema change).
+    if (!window.confirm('This marks the log entry as rolled back, but does NOT undo the database changes (sale records, death records, status updates). You must reverse those manually in Animal Inventory.\n\nContinue?')) return;
     const { error } = await supabase.from('conversation_log').update({ status: 'rolled_back', rolled_back_at: new Date().toISOString() }).eq('id', log.id);
     if (error) toast('Error: ' + error.message, 'error');
-    else { toast('Entry marked as rolled back', 'success'); fetchLogs(); setSelected(null); }
+    else { toast('Flagged as rolled back — remember to reverse the data manually', 'success'); fetchLogs(); setSelected(null); }
   };
 
   const statusColor = (s) => ({ completed: 'var(--sage)', failed: '#e05555', rolled_back: 'var(--ash)', cancelled: 'var(--hay)' }[s] || 'var(--ash)');
@@ -4117,7 +4179,7 @@ function LogsPage({ toast }) {
               <div className="detail-card" style={{marginTop:'12px'}}><h3>Raw Input</h3><p style={{color:'var(--cream)', fontSize:'14px', lineHeight:'1.5'}}>{selected.raw_input}</p></div>
               {selected.ai_interpretation && <div className="detail-card" style={{marginTop:'12px'}}><h3>AI Interpretation</h3><p style={{color:'var(--cream)', fontSize:'14px'}}>{selected.ai_interpretation}</p></div>}
             </div>
-            <div className="modal-footer"><button className="btn btn-ghost" onClick={() => setSelected(null)}>Close</button>{selected.status === 'completed' && <button className="btn btn-danger" onClick={() => handleRollback(selected)}>↩ Roll Back Entry</button>}</div>
+            <div className="modal-footer"><button className="btn btn-ghost" onClick={() => setSelected(null)}>Close</button>{selected.status === 'completed' && <button className="btn btn-danger" onClick={() => handleRollback(selected)}>↩ Flag as Rolled Back</button>}</div>
           </div>
         </div>
       )}
