@@ -123,6 +123,9 @@
     .chat-input::placeholder { color: var(--ash); }
     .chat-send-btn { background: var(--rust); border: none; border-radius: 4px; padding: 10px 18px; color: white; font-size: 18px; cursor: pointer; transition: background 0.15s; height: 42px; }
     .chat-send-btn:hover { background: #a83a0c; }
+    .chat-date-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 20px; border-top: 1px solid rgba(139,69,19,0.3); background: rgba(212,168,71,0.07); font-size: 13px; color: var(--ash); }
+    .chat-date-bar label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--hay); }
+    .chat-date-bar .form-input { padding: 6px 10px; font-size: 13px; }
     .log-status-completed { color: #5cb85c; }
     .log-status-failed { color: #e05555; }
     .log-status-rolled_back { color: var(--ash); }
@@ -159,6 +162,17 @@
     .gap-critical { background: rgba(193,68,14,0.2); color: var(--rust); border: 1px solid rgba(193,68,14,0.4); }
     .gap-warn { background: rgba(212,168,71,0.15); color: var(--hay); border: 1px solid rgba(212,168,71,0.3); }
     .gap-ok { background: rgba(124,140,110,0.2); color: var(--sage); border: 1px solid rgba(124,140,110,0.3); }
+    /* Head Count report */
+    .hc-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+    .hc-result { position: sticky; top: 76px; }
+    .hc-count { font-family: 'Playfair Display', serif; font-size: 64px; font-weight: 700; color: var(--cream); line-height: 1; margin-top: 22px; font-variant-numeric: lining-nums tabular-nums; }
+    .hc-count-label { font-size: 13px; color: var(--sage); margin: 6px 0 16px; }
+    .hc-note { font-size: 13px; line-height: 1.5; color: var(--ash); padding: 8px 10px; border-left: 2px solid var(--hay); background: rgba(212,168,71,0.06); margin-top: 10px; }
+    .hc-group-label { display: block; font-size: 11px; color: var(--ash); margin-bottom: 6px; font-family: 'IBM Plex Mono', monospace; letter-spacing: 1px; }
+    .hc-check { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; color: var(--cream); }
+    .hc-check.muted { color: var(--ash); font-style: italic; }
+    .hc-layout .btn:disabled { opacity: 0.4; cursor: default; }
+    @media (max-width: 1000px) { .hc-layout { grid-template-columns: 1fr; } .hc-result { position: static; order: -1; } }
     @media (max-width: 768px) {
       .sidebar { width: 60px; }
       .logo h1, .logo span, .nav-item span, .nav-label { display: none; }
@@ -195,6 +209,47 @@ const todayLocal = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
+
+// Status changes record the date it HAPPENED, not the day it was entered. Blank or future dates are rejected.
+const checkEventDate = (d) => {
+  if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return 'Enter the date it happened.';
+  if (d > todayLocal()) return "The date can't be in the future.";
+  return null;
+};
+const STATUS_DATE_LABEL = { sold: 'Date Sold', dead: 'Date of Death', archived: 'Date Archived', active: 'Date Returned to Active' };
+
+// Field Entry: pull "when it happened" out of the text — "yesterday", "today", 9/18, 9/18/26, Sept 18, September 18th 2026.
+// Returns the date plus the text with that phrase cut out, so the date's numbers are never read as tag numbers.
+const FE_MONTHS = { january:1, jan:1, february:2, feb:2, march:3, mar:3, april:4, apr:4, may:5, june:6, jun:6, july:7, jul:7, august:8, aug:8, september:9, sept:9, sep:9, october:10, oct:10, november:11, nov:11, december:12, dec:12 };
+const extractEntryDate = (text) => {
+  const today = todayLocal();
+  const [ty, tm, td] = today.split('-').map(Number);
+  const ymd = (y, m, d) => {
+    const dt = new Date(y, m - 1, d);
+    if (dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) return null; // e.g. 2/30
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  };
+  // No year given: this year, unless that lands in the future — then last year (entering 12/28 in January)
+  const noYear = (m, d) => { const thisYear = ymd(ty, m, d); return thisYear && thisYear > today ? ymd(ty - 1, m, d) : thisYear; };
+  const cut = (phrase) => text.replace(phrase, ' ');
+  let m = text.match(/\byesterday\b/i);
+  if (m) { const dt = new Date(ty, tm - 1, td - 1); return { date: ymd(dt.getFullYear(), dt.getMonth() + 1, dt.getDate()), stripped: cut(m[0]) }; }
+  m = text.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{4}|\d{2}))?\b/);
+  if (m) {
+    const y = m[3] ? (m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3])) : null;
+    const date = y ? ymd(y, Number(m[1]), Number(m[2])) : noYear(Number(m[1]), Number(m[2]));
+    if (date) return { date, stripped: cut(m[0]) };
+  }
+  m = text.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec)\.?\s+(\d{1,2})(?:st|nd|rd|th)?\b(?:,?\s+(\d{4})\b)?/i);
+  if (m) {
+    const mo = FE_MONTHS[m[1].toLowerCase()], d = Number(m[2]);
+    const date = m[3] ? ymd(Number(m[3]), mo, d) : noYear(mo, d);
+    if (date) return { date, stripped: cut(m[0]) };
+  }
+  if (/\btoday\b/i.test(text)) return { date: today, stripped: text };
+  return { date: null, stripped: text };
+};
+const FE_DATED = ['sale', 'death', 'calving', 'health'];
 
 // Run a Supabase .in() query in chunks to avoid URL length limits (GET requests fail past ~8-16KB;
 // ~200 UUIDs per request is safe). buildQuery receives one chunk of ids and must return the query promise.
@@ -621,7 +676,7 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
 
       {showAdd && <AddAnimalModal herds={herds} partnerships={partnerships} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); fetchAnimals(); toast('Animal added successfully!', 'success'); }} toast={toast} />}
       {selectedAnimal && <AnimalDetailModal animal={selectedAnimal} herds={herds} partnerships={partnerships} animalOwners={animalOwners} onClose={() => setSelectedAnimal(null)} onSaved={() => { setSelectedAnimal(null); fetchAnimals(); toast('Animal updated!', 'success'); }} toast={toast} />}
-      {showBulkEdit && <BulkEditModal selectedIds={Array.from(selectedAnimals)} herds={herds} partnerships={partnerships} onClose={() => setShowBulkEdit(false)} onSaved={() => { setShowBulkEdit(false); setSelectedAnimals(new Set()); fetchAnimals(); toast('Bulk edit complete!', 'success'); }} toast={toast} />}
+      {showBulkEdit && <BulkEditModal selectedIds={Array.from(selectedAnimals)} herds={herds} partnerships={partnerships} onClose={() => setShowBulkEdit(false)} onSaved={(msg) => { setShowBulkEdit(false); setSelectedAnimals(new Set()); fetchAnimals(); toast(msg || 'Bulk edit complete!', 'success'); }} toast={toast} />}
     </div>
   );
 }
@@ -633,6 +688,9 @@ function BulkEditModal({ selectedIds, herds, partnerships, onClose, onSaved, toa
   const [breedingStatus, setBreedingStatus] = useState('');
   const [ownerId, setOwnerId] = useState('');
   const [status, setStatus] = useState('');
+  const [statusDate, setStatusDate] = useState(todayLocal());
+  const [saleLocation, setSaleLocation] = useState('');
+  const [deathCause, setDeathCause] = useState('');
   const [sex, setSex] = useState('');
   const [notes, setNotes] = useState('');
   const [notesMode, setNotesMode] = useState('append');
@@ -642,16 +700,144 @@ function BulkEditModal({ selectedIds, herds, partnerships, onClose, onSaved, toa
   const [vaccineDate, setVaccineDate] = useState(todayLocal());
   const [saving, setSaving] = useState(false);
 
+  // ── Status changes keep sale and death records in step with the animal, so Inventory Change agrees ──
+  //   Sold     → every selected head ends up on a sale record dated statusDate. A sale made up only of selected
+  //              head is re-dated; head on a sale shared with unselected head move to a new record; head with no
+  //              sale go on that new record. Any death record is removed (an animal can't be sold and dead).
+  //   Dead     → every selected head has a death record dated statusDate (existing ones re-dated); sale links removed.
+  //   Active   → sale links and death records removed — the undo for a mistaken sale or death.
+  //   Archived → records untouched.
+  // Sale records themselves are never deleted — an emptied one counts nothing in Inventory Change.
+  // Every step is worked out from current data, so re-running the same Bulk Edit after an error finishes the job.
+  // Returns a summary for the toast, or null if the user backs out at the confirm.
+  const applyStatusChange = async () => {
+    const ids = selectedIds, when = statusDate, sel = new Set(ids);
+    const loc = saleLocation.trim(), cause = deathCause.trim();
+    const day = (d) => (d ? String(d).split('T')[0] : '');
+    const hd = (n) => `${n} head`;
+    const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+    const read = async (table, cols, col, list) => {
+      if (!list.length) return [];
+      const { data, error } = await chunkedIn(list, (chunk) => supabase.from(table).select(cols).in(col, chunk).limit(10000));
+      if (error) throw new Error(`Couldn't read ${table} (${error.message}). Nothing was changed.`);
+      return data || [];
+    };
+    const done = [];
+    const fail = (step, msg) => {
+      const e = new Error(`${step} failed: ${msg}. ${done.length ? `Already saved: ${done.join('; ')}.` : 'Nothing was saved.'} Run the same Bulk Edit again to finish.`);
+      e.partial = done.length > 0;
+      throw e;
+    };
+    // Updates and deletes blocked by row-level security fail silently (0 rows), so each one returns its rows and is counted
+    const write = async (step, list, build, expected) => {
+      const { data, error } = await chunkedIn(list, build);
+      if (error) fail(step, error.message);
+      const n = (data || []).length;
+      if (n < expected) fail(step, `only ${n} of ${expected} rows changed — check this table's row-level security policies`);
+    };
+
+    const [links, deaths] = await Promise.all([
+      read('sale_animals', 'sale_record_id, animal_id', 'animal_id', ids),
+      read('death_records', 'id, animal_id, death_date, cause_of_death', 'animal_id', ids),
+    ]);
+    const linkedIds = [...new Set(links.map(l => l.animal_id))];
+    const warn = [];   // what the confirm spells out before anything existing is changed
+    let plan = {};
+
+    if (status === 'sold') {
+      const recIds = [...new Set(links.map(l => l.sale_record_id))];
+      const [recLinks, recs] = await Promise.all([
+        read('sale_animals', 'sale_record_id, animal_id', 'sale_record_id', recIds),
+        read('sale_records', 'id, sale_date, sale_location', 'id', recIds),
+      ]);
+      const covered = new Set(recIds.filter(r => recLinks.filter(l => l.sale_record_id === r).every(l => sel.has(l.animal_id))));
+      const moving = links.filter(l => !covered.has(l.sale_record_id));
+      const unlinked = ids.filter(id => !linkedIds.includes(id));
+      const redate = recs.filter(r => covered.has(r.id) && (day(r.sale_date) !== when || (loc && r.sale_location !== loc)));
+      if (redate.length) warn.push(`• ${redate.length === 1 ? 'The sale these head are on' : `${redate.length} sales these head are on`} will change to ${formatDate(when)}${loc ? `, ${loc}` : ''}.`);
+      if (moving.length) warn.push(`• ${hd(moving.length)} will move off a sale they share with other head, onto a new sale dated ${formatDate(when)}.`);
+      if (deaths.length) warn.push(`• ${plural(deaths.length, 'death record')} will be deleted — an animal can't be sold and dead.`);
+      plan = { redate, moving, unlinked };
+    } else if (status === 'dead') {
+      const has = new Set(deaths.map(d => d.animal_id));
+      const need = ids.filter(id => !has.has(id));
+      const redate = deaths.filter(d => day(d.death_date) !== when || (cause && d.cause_of_death !== cause));
+      if (redate.length) warn.push(`• ${plural(redate.length, 'existing death record')} will change to ${formatDate(when)}${cause ? `, cause "${cause}"` : ''}.`);
+      if (linkedIds.length) warn.push(`• ${hd(linkedIds.length)} will come off their sale record — an animal can't be dead and sold.`);
+      plan = { need, redate };
+    } else if (status === 'active') {
+      if (linkedIds.length) warn.push(`• ${hd(linkedIds.length)} will come off their sale record.`);
+      if (deaths.length) warn.push(`• ${plural(deaths.length, 'death record')} will be deleted.`);
+    }
+    if (warn.length && !window.confirm(`Mark ${hd(ids.length)} ${status}, ${formatDate(when)}?\n\n${warn.join('\n')}`)) return null;
+
+    if (status === 'sold') {
+      const { redate, moving, unlinked } = plan;
+      for (const r of redate) {
+        await write('Re-dating a sale', [r.id], (chunk) => supabase.from('sale_records').update(loc ? { sale_date: when, sale_location: loc } : { sale_date: when }).in('id', chunk).select('id'), 1);
+      }
+      if (redate.length) done.push(plural(redate.length, 'sale') + ' re-dated');
+      const newHead = unlinked.length + moving.length;
+      if (newHead) {
+        const { data: rec, error } = await supabase.from('sale_records').insert({ sale_date: when, sale_location: loc || 'Unknown Location', sale_type: 'auction', notes: `Bulk Edit: ${hd(newHead)}` }).select().single();
+        if (error) fail('Creating the sale record', error.message);
+        done.push('new sale record created');
+        if (unlinked.length) {
+          const { error: linkErr } = await supabase.from('sale_animals').insert(unlinked.map(id => ({ sale_record_id: rec.id, animal_id: id })));
+          if (linkErr) fail('Adding head to the sale', linkErr.message);
+          done.push(`${hd(unlinked.length)} added to it`);
+        }
+        for (const from of [...new Set(moving.map(l => l.sale_record_id))]) {
+          const movers = moving.filter(l => l.sale_record_id === from).map(l => l.animal_id);
+          await write('Moving head off a shared sale', movers, (chunk) => supabase.from('sale_animals').update({ sale_record_id: rec.id }).eq('sale_record_id', from).in('animal_id', chunk).select('animal_id'), movers.length);
+        }
+        if (moving.length) done.push(`${hd(moving.length)} moved to it`);
+      }
+      if (deaths.length) {
+        await write('Removing death records', deaths.map(d => d.id), (chunk) => supabase.from('death_records').delete().in('id', chunk).select('id'), deaths.length);
+        done.push(plural(deaths.length, 'death record') + ' removed');
+      }
+    } else if (status === 'dead') {
+      const { need, redate } = plan;
+      if (redate.length) {
+        await write('Re-dating death records', redate.map(d => d.id), (chunk) => supabase.from('death_records').update(cause ? { death_date: when, cause_of_death: cause } : { death_date: when }).in('id', chunk).select('id'), redate.length);
+        done.push(plural(redate.length, 'death record') + ' re-dated');
+      }
+      if (need.length) {
+        const { error } = await supabase.from('death_records').insert(need.map(id => ({ animal_id: id, death_date: when, cause_of_death: cause || 'Unknown', notes: 'Bulk Edit' })));
+        if (error) fail('Adding death records', error.message);
+        done.push(plural(need.length, 'death record') + ' added');
+      }
+      if (linkedIds.length) {
+        await write('Taking head off sale records', linkedIds, (chunk) => supabase.from('sale_animals').delete().in('animal_id', chunk).select('animal_id'), links.length);
+        done.push(`${hd(linkedIds.length)} taken off sales`);
+      }
+    } else if (status === 'active') {
+      if (linkedIds.length) {
+        await write('Taking head off sale records', linkedIds, (chunk) => supabase.from('sale_animals').delete().in('animal_id', chunk).select('animal_id'), links.length);
+        done.push(`${hd(linkedIds.length)} taken off sales`);
+      }
+      if (deaths.length) {
+        await write('Removing death records', deaths.map(d => d.id), (chunk) => supabase.from('death_records').delete().in('id', chunk).select('id'), deaths.length);
+        done.push(plural(deaths.length, 'death record') + ' removed');
+      }
+    }
+    await write('Updating animal status', ids, (chunk) => supabase.from('animals').update({ status, status_date: when, is_active: status === 'active', updated_at: new Date().toISOString() }).in('id', chunk).select('id'), ids.length);
+    return `${hd(ids.length)} marked ${status}, ${formatDate(when)}${done.length ? ` — ${done.join(', ')}` : ''}.`;
+  };
+
   const handleSave = async () => {
     if (!selectedIds || selectedIds.length === 0) { toast('No animals selected', 'error'); return; }
     if (action === 'herd' && !herdId) { toast('Please select a herd', 'error'); return; }
     if (action === 'breeding_status' && !breedingStatus) { toast('Please select a breeding status', 'error'); return; }
     if (action === 'owner' && !ownerId) { toast('Please select an owner', 'error'); return; }
     if (action === 'status' && !status) { toast('Please select a status', 'error'); return; }
+    if (action === 'status' && checkEventDate(statusDate)) { toast(checkEventDate(statusDate), 'error'); return; }
     if (action === 'sex' && !sex) { toast('Please select a sex/class', 'error'); return; }
     if (action === 'notes' && !notes.trim()) { toast('Please enter notes to add', 'error'); return; }
     if (action === 'vaccination' && !vaccineProduct.trim()) { toast('Please enter product name', 'error'); return; }
     setSaving(true);
+    let resultMsg;
     try {
       if (action === 'herd') {
         const { error } = await supabase.from('animals').update({ herd_id: herdId }).in('id', selectedIds);
@@ -665,9 +851,8 @@ function BulkEditModal({ selectedIds, herds, partnerships, onClose, onSaved, toa
         const { error } = await supabase.from('animal_ownership_history').insert(ownershipRecords);
         if (error) throw error;
       } else if (action === 'status') {
-        const today = todayLocal();
-        const { error } = await supabase.from('animals').update({ status, status_date: today, is_active: status === 'active', updated_at: new Date().toISOString() }).in('id', selectedIds);
-        if (error) throw error;
+        resultMsg = await applyStatusChange();
+        if (resultMsg === null) { setSaving(false); return; }   // backed out at the confirm — nothing written
       } else if (action === 'sex') {
         const { error } = await supabase.from('animals').update({ sex }).in('id', selectedIds);
         if (error) throw error;
@@ -686,8 +871,11 @@ function BulkEditModal({ selectedIds, herds, partnerships, onClose, onSaved, toa
         const { error } = await supabase.from('treatments').insert(treatmentRecords);
         if (error) throw error;
       }
-      onSaved();
-    } catch (error) { toast('Error: ' + error.message, 'error'); }
+      onSaved(resultMsg);
+    } catch (error) {
+      // A half-finished status change must not be missed — an alert stays up until read; plain errors get a toast
+      if (error.partial) window.alert(error.message); else toast('Error: ' + error.message, 'error');
+    }
     setSaving(false);
   };
 
@@ -712,7 +900,18 @@ function BulkEditModal({ selectedIds, herds, partnerships, onClose, onSaved, toa
           {action === 'herd' && <div className="form-group"><label className="form-label">New Herd</label><select className="form-select" value={herdId} onChange={e => setHerdId(e.target.value)}><option value="">Select a herd...</option>{herds.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select></div>}
           {action === 'breeding_status' && <div className="form-group"><label className="form-label">New Breeding Status</label><select className="form-select" value={breedingStatus} onChange={e => setBreedingStatus(e.target.value)}><option value="">Select status...</option><option value="open">Open</option><option value="bred_spring">Bred Spring</option><option value="bred_fall">Bred Fall</option><option value="dry">Dry</option><option value="nursing">Nursing</option><option value="unknown">Unknown</option></select></div>}
           {action === 'owner' && <div className="form-group"><label className="form-label">Assign to Owner</label><select className="form-select" value={ownerId} onChange={e => setOwnerId(e.target.value)}><option value="">Select owner...</option>{partnerships.filter(p => p.is_active !== false).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>}
-          {action === 'status' && <div className="form-group"><label className="form-label">New Status</label><select className="form-select" value={status} onChange={e => setStatus(e.target.value)}><option value="">Select status...</option><option value="active">Active</option><option value="sold">Sold</option><option value="dead">Dead</option><option value="archived">Archived</option></select></div>}
+          {action === 'status' && <div className="form-grid" style={{marginTop:'16px'}}>
+            <div className="form-group"><label className="form-label">New Status</label><select className="form-select" value={status} onChange={e => setStatus(e.target.value)}><option value="">Select status...</option><option value="active">Active</option><option value="sold">Sold</option><option value="dead">Dead</option><option value="archived">Archived</option></select></div>
+            <div className="form-group"><label className="form-label" htmlFor="bulk-status-date">{STATUS_DATE_LABEL[status] || 'Date It Happened'}</label><input id="bulk-status-date" type="date" className="form-input" value={statusDate} max={todayLocal()} onChange={e => setStatusDate(e.target.value)} /></div>
+            {status === 'sold' && <div className="form-group full"><label className="form-label" htmlFor="bulk-sale-location">Sold At / To</label><input id="bulk-sale-location" className="form-input" value={saleLocation} onChange={e => setSaleLocation(e.target.value)} placeholder="e.g. Herreid Livestock, or the buyer (optional)" /></div>}
+            {status === 'dead' && <div className="form-group full"><label className="form-label" htmlFor="bulk-death-cause">Cause of Death</label><input id="bulk-death-cause" className="form-input" value={deathCause} onChange={e => setDeathCause(e.target.value)} placeholder="e.g. bloat, pneumonia (optional)" /></div>}
+            {status && <p className="form-group full" style={{fontSize:'13px', color:'var(--ash)', lineHeight:1.5, margin:0}}>{{
+              sold: 'Puts these head on a sale record with this date, so the sale shows in Inventory Change. Head already on a sale get that sale re-dated.',
+              dead: 'Gives each head a death record with this date, so it shows in Inventory Change. Existing death records get re-dated.',
+              active: 'Puts them back on inventory and takes them off any sale or death record — the way to undo a mistaken sale or death.',
+              archived: 'Takes them off inventory without a sale or death record.',
+            }[status]}</p>}
+          </div>}
           {action === 'sex' && <div className="form-group"><label className="form-label">New Sex/Class</label><select className="form-select" value={sex} onChange={e => setSex(e.target.value)}><option value="">Select sex/class...</option><option value="cow">Cow</option><option value="heifer">Heifer</option><option value="bull">Bull</option><option value="steer">Steer</option><option value="calf_male">Bull Calf</option><option value="calf_female">Heifer Calf</option></select></div>}
           {action === 'notes' && <>
             <div className="form-group"><label className="form-label">Notes Mode</label><select className="form-select" value={notesMode} onChange={e => setNotesMode(e.target.value)}><option value="append">Append to existing notes</option><option value="prepend">Prepend to existing notes</option><option value="replace">Replace all notes</option></select></div>
@@ -1017,6 +1216,7 @@ function AnimalDetailModal({ animal, herds, partnerships, animalOwners, onClose,
               <div className="detail-card">
                 <h3>Current Status</h3>
                 <div className="detail-row"><span className="detail-key">Status</span><span className="detail-val"><span className={`status-dot status-${animal.status}`}></span>{animal.status}</span></div>
+                {animal.status !== 'active' && <div className="detail-row"><span className="detail-key">{STATUS_DATE_LABEL[animal.status] || 'Status Date'}</span><span className="detail-val">{formatDate(animal.status_date)}</span></div>}
                 <div className="detail-row"><span className="detail-key">Herd</span><span className="detail-val">{animal.herds?.name || '—'}</span></div>
                 <div className="detail-row"><span className="detail-key">Owner</span><span className="detail-val" style={{color:'var(--sage)'}}>{animalOwners?.[animal.id] || '—'}</span></div>
                 <div className="detail-row"><span className="detail-key">Breeding Status</span><span className="detail-val">{animal.breeding_status?.replace('_',' ') || '—'}</span></div>
@@ -2191,7 +2391,7 @@ function ImportPage({ toast }) {
 // ===== CHAT PAGE =====
 function ChatPage({ toast }) {
   const [messages, setMessages] = useState([
-    { role: 'assistant', text: "Welcome to Ranch Savvy Field Entry. Type or dictate what happened today — sales, treatments, moves, calvings, and more. I'll confirm before saving anything.", time: new Date() },
+    { role: 'assistant', text: "Welcome to Ranch Savvy Field Entry. Type or dictate what happened — sales, treatments, moves, calvings, and more. Say when it happened (\"yesterday\", \"9/18\", \"Sept 18\") or set the date before you confirm; otherwise it's today. I'll confirm before saving anything.", time: new Date() },
   ]);
   const [input, setInput] = useState('');
   const [pending, setPending] = useState(null);
@@ -2201,7 +2401,16 @@ function ChatPage({ toast }) {
   useEffect(() => { messagesEnd.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
   const addMsg = (role, text) => setMessages(m => [...m, { role, text, time: new Date() }]);
 
+  // Date the event happened: from the pending entry's date box; checked before any lookup or write
+  const entryDateOrThrow = (p) => {
+    const d = p.date || todayLocal();
+    const err = checkEventDate(d);
+    if (err) throw new Error(`${err} Fix the date box, then reply YES.`);
+    return d;
+  };
+
   const executeSale = async (p) => {
+    const when = entryDateOrThrow(p);
     const { data: foundAnimals, error: findErr } = await supabase.from('animals').select('id, vid, status').in('vid', p.tags).eq('status', 'active');
     if (findErr) throw new Error('Could not look up animals: ' + findErr.message);
     const foundTags = foundAnimals.map(a => a.vid);
@@ -2210,47 +2419,46 @@ function ChatPage({ toast }) {
     // Duplicate-VID guard: if one tag matches multiple active animals, stop rather than sell the wrong one
     const dupTags = foundTags.filter((t, i) => foundTags.indexOf(t) !== i);
     if (dupTags.length > 0) throw new Error(`Tag(s) ${[...new Set(dupTags)].join(', ')} match more than one ACTIVE animal. Nothing was saved — resolve the duplicate in Animal Inventory, then re-enter.`);
-    const today = todayLocal();
-    const { data: saleRecord, error: saleErr } = await supabase.from('sale_records').insert({ sale_date: today, sale_location: p.location, sale_type: 'auction', notes: p.text }).select().single();
+    const { data: saleRecord, error: saleErr } = await supabase.from('sale_records').insert({ sale_date: when, sale_location: p.location, sale_type: 'auction', notes: p.text }).select().single();
     if (saleErr) throw new Error('Could not create sale record: ' + saleErr.message);
     const { error: saLinkErr } = await supabase.from('sale_animals').insert(foundAnimals.map(a => ({ sale_record_id: saleRecord.id, animal_id: a.id })));
     if (saLinkErr) throw new Error('Sale record created but animals could NOT be linked (' + saLinkErr.message + '). Check the sale in the database before re-entering.');
-    const { error: statusErr } = await supabase.from('animals').update({ status: 'sold', status_date: today, is_active: false, updated_at: new Date().toISOString() }).in('id', foundAnimals.map(a => a.id));
+    const { error: statusErr } = await supabase.from('animals').update({ status: 'sold', status_date: when, is_active: false, updated_at: new Date().toISOString() }).in('id', foundAnimals.map(a => a.id));
     if (statusErr) throw new Error('Sale saved but animal statuses were NOT updated to sold (' + statusErr.message + '). Update them manually in Animal Inventory.');
-    let resultMsg = `✓ Sale recorded at ${p.location}.\n${foundAnimals.length} animal(s) marked as SOLD: tags ${foundTags.join(', ')}.`;
+    let resultMsg = `✓ Sale recorded at ${p.location}, ${formatDate(when)}.\n${foundAnimals.length} animal(s) marked as SOLD: tags ${foundTags.join(', ')}.`;
     if (notFound.length > 0) resultMsg += `\n\n⚠️ These tags were not found: ${notFound.join(', ')}`;
     return resultMsg;
   };
 
   const executeDeath = async (p) => {
-    const today = todayLocal();
+    const when = entryDateOrThrow(p);
     const { data: foundAnimals, error: findErr } = await supabase.from('animals').select('id, vid').in('vid', p.tags).eq('status', 'active');
     if (findErr) throw new Error('Could not look up animals: ' + findErr.message);
     if (foundAnimals.length === 0) throw new Error(`No active animals found with tags: ${p.tags.join(', ')}`);
     const dVids = foundAnimals.map(a => a.vid);
     const dDups = dVids.filter((t, i) => dVids.indexOf(t) !== i);
     if (dDups.length > 0) throw new Error(`Tag(s) ${[...new Set(dDups)].join(', ')} match more than one ACTIVE animal. Nothing was saved — resolve the duplicate first.`);
-    const { error: drErr } = await supabase.from('death_records').insert(foundAnimals.map(a => ({ animal_id: a.id, death_date: today, cause_of_death: p.cause || 'Unknown', notes: p.text })));
+    const { error: drErr } = await supabase.from('death_records').insert(foundAnimals.map(a => ({ animal_id: a.id, death_date: when, cause_of_death: p.cause || 'Unknown', notes: p.text })));
     if (drErr) throw new Error('Could not save death record: ' + drErr.message);
-    const { error: dsErr } = await supabase.from('animals').update({ status: 'dead', status_date: today, is_active: false, updated_at: new Date().toISOString() }).in('id', foundAnimals.map(a => a.id));
+    const { error: dsErr } = await supabase.from('animals').update({ status: 'dead', status_date: when, is_active: false, updated_at: new Date().toISOString() }).in('id', foundAnimals.map(a => a.id));
     if (dsErr) throw new Error('Death record saved but animal statuses were NOT updated (' + dsErr.message + '). Update them manually in Animal Inventory.');
-    return `✓ Death recorded for ${foundAnimals.length} animal(s): tags ${foundAnimals.map(a=>a.vid).join(', ')}.`;
+    return `✓ Death recorded for ${foundAnimals.length} animal(s), ${formatDate(when)}: tags ${foundAnimals.map(a=>a.vid).join(', ')}.`;
   };
 
   const executeCalving = async (p) => {
-    const today = todayLocal();
+    const when = entryDateOrThrow(p);
     const { data: foundAnimals, error: findErr } = await supabase.from('animals').select('id, vid, status').in('vid', p.tags).eq('status', 'active');
     if (findErr) throw new Error('Could not look up animals: ' + findErr.message);
     if (foundAnimals.length === 0) throw new Error(`No active animals found with tags: ${p.tags.join(', ')}`);
     if (foundAnimals.length > 1) throw new Error(`Multiple active animals match (${foundAnimals.map(a => a.vid).join(', ')}). Enter the calving from the dam's Animal Detail page to be sure it lands on the right cow.`);
     const dam = foundAnimals[0];
-    const { error: crErr } = await supabase.from('calving_records').insert({ dam_id: dam.id, calving_date: today, calf_sex: p.calfSex || 'unknown', calf_status: p.calfStatus || 'alive', udder_score: p.udderScore || null, calving_ease: 'unassisted', notes: p.text });
+    const { error: crErr } = await supabase.from('calving_records').insert({ dam_id: dam.id, calving_date: when, calf_sex: p.calfSex || 'unknown', calf_status: p.calfStatus || 'alive', udder_score: p.udderScore || null, calving_ease: 'unassisted', notes: p.text });
     if (crErr) throw new Error('Could not save calving record: ' + crErr.message);
-    return `✓ Calving record saved for cow ${dam.vid}.\nCalf: ${p.calfSex || 'unknown sex'}, ${p.calfStatus || 'alive'}${p.udderScore ? `, udder score ${p.udderScore}` : ''}.`;
+    return `✓ Calving record saved for cow ${dam.vid}, ${formatDate(when)}.\nCalf: ${p.calfSex || 'unknown sex'}, ${p.calfStatus || 'alive'}${p.udderScore ? `, udder score ${p.udderScore}` : ''}.`;
   };
 
   const executeHealth = async (p) => {
-    const today = todayLocal();
+    const when = entryDateOrThrow(p);
     // Use the tags the user confirmed at parse time; fall back to re-extraction for older pending entries
     const tags = p.tags && p.tags.length > 0 ? p.tags : (p.text.match(/\b\d{1,5}[A-Z]?\b/g)?.map(t => t.toUpperCase()) || []);
     if (tags.length === 0) throw new Error('No animal tags found. Please specify which animals were treated.');
@@ -2260,7 +2468,7 @@ function ChatPage({ toast }) {
     const hVids = foundAnimals.map(a => a.vid);
     const hDups = hVids.filter((t, i) => hVids.indexOf(t) !== i);
     if (hDups.length > 0) throw new Error(`Tag(s) ${[...new Set(hDups)].join(', ')} match more than one ACTIVE animal. Nothing was saved — resolve the duplicate first.`);
-    const { error: trErr } = await supabase.from('treatments').insert(foundAnimals.map(a => ({ animal_id: a.id, treatment_date: today, treatment_type: p.products.length > 0 ? 'vaccination' : 'general', product_name: p.products.join(', ') || null, lot_number: p.lotNumbers.join(', ') || null, reason: 'Field entry', notes: p.text })));
+    const { error: trErr } = await supabase.from('treatments').insert(foundAnimals.map(a => ({ animal_id: a.id, treatment_date: when, treatment_type: p.products.length > 0 ? 'vaccination' : 'general', product_name: p.products.join(', ') || null, lot_number: p.lotNumbers.join(', ') || null, reason: 'Field entry', notes: p.text })));
     if (trErr) throw new Error('Could not save treatment records: ' + trErr.message);
     return `✓ Treatment records saved for ${foundAnimals.length} animal(s): ${foundAnimals.map(a => a.vid).join(', ')}.`;
   };
@@ -2307,16 +2515,25 @@ function ChatPage({ toast }) {
       return;
     }
 
+    // When it happened: said in the text, else today. The date box under the chat can change it before YES.
+    // Tags, location and cause are read from `stripped` so a date like 9/18 never turns into tags 9 and 18.
+    const { date: saidDate, stripped } = extractEntryDate(text);
+    const entryDate = saidDate || todayLocal();
+    const daysBack = Math.round((new Date(todayLocal() + 'T12:00:00') - new Date(entryDate + 'T12:00:00')) / 86400000);
+    const dateLine = `Date: ${formatDate(entryDate)}${daysBack === 0 ? ' (today)' : daysBack === 1 ? ' (yesterday)' : ''}`
+      + (daysBack < 0 ? ' ⚠️ that is in the future — fix it in the date box.' : daysBack > 30 ? ` ⚠️ ${daysBack} days ago — make sure that's right.` : '')
+      + '\nChange the date in the box below if needed.';
+
     if (lower.includes('sold') || lower.includes('sale')) {
-      const locationMatch = text.match(/at\s+([A-Za-z][A-Za-z\s]+?)(?:,|\.|tags?|$)/i);
+      const locationMatch = stripped.match(/at\s+([A-Za-z][A-Za-z\s]+?)(?:,|\.|tags?|$)/i);
       const location = locationMatch?.[1]?.trim() || 'Unknown Location';
-      const afterTags = text.match(/tags?\s+([0-9A-Za-z,\s]+)/i)?.[1] || '';
-      const tags = afterTags ? afterTags.match(/[A-Z0-9]{1,6}/gi)?.map(t => t.toUpperCase()) || [] : text.match(/\b\d{1,5}[A-Z]?\b/g)?.map(t => t.toUpperCase()) || [];
-      setPending({ type: 'sale', tags, location, text });
-      addMsg('assistant', `Sale detected at ${location}.\n\nTags identified: ${tags.length > 0 ? tags.join(', ') : 'none found'}\n\nIs this correct? Reply YES to save or tell me what to correct.`);
+      const afterTags = stripped.match(/tags?\s+([0-9A-Za-z,\s]+)/i)?.[1] || '';
+      const tags = afterTags ? afterTags.match(/[A-Z0-9]{1,6}/gi)?.map(t => t.toUpperCase()) || [] : stripped.match(/\b\d{1,5}[A-Z]?\b/g)?.map(t => t.toUpperCase()) || [];
+      setPending({ type: 'sale', tags, location, text, date: entryDate });
+      addMsg('assistant', `Sale detected at ${location}.\n\nTags identified: ${tags.length > 0 ? tags.join(', ') : 'none found'}\n${dateLine}\n\nIs this correct? Reply YES to save or tell me what to correct.`);
       logEntry.ai_interpretation = `Sale pending: ${tags.length} head at ${location}`; logEntry.action_type = 'data_entry';
     } else if (lower.includes('calv') || lower.includes('gave birth') || lower.includes('born') || lower.includes('had a calf') || lower.includes('had a bull') || lower.includes('had a heifer') || lower.match(/had a (dead|alive|live)? ?(bull|heifer|male|female)? ?calf/i)) {
-      const tags = text.match(/\b\d{1,5}[A-Z]?\b/g)?.map(t => t.toUpperCase()) || [];
+      const tags = stripped.match(/\b\d{1,5}[A-Z]?\b/g)?.map(t => t.toUpperCase()) || [];
       let calfSex = null;
       if (lower.match(/\b(bull|male)\b/i) && !lower.includes('bull calf')) calfSex = 'bull';
       else if (lower.match(/\b(heifer|female)\b/i)) calfSex = 'heifer';
@@ -2326,21 +2543,23 @@ function ChatPage({ toast }) {
       if (lower.match(/dead|died|stillborn|still born/i)) calfStatus = 'dead';
       const udderMatch = text.match(/udder\s*(?:score)?\s*([A-F])/i);
       const udderScore = udderMatch ? udderMatch[1].toUpperCase() : null;
-      setPending({ type: 'calving', tags, calfSex, calfStatus, udderScore, text });
+      setPending({ type: 'calving', tags, calfSex, calfStatus, udderScore, text, date: entryDate });
       let confirmMsg = `Calving event detected${tags.length ? ` for cow ${tags[0]}` : ''}.\n\nDetected:\n`;
       if (calfSex) confirmMsg += `• Calf sex: ${calfSex}\n`;
       if (calfStatus) confirmMsg += `• Calf status: ${calfStatus}\n`;
       if (udderScore) confirmMsg += `• Udder score: ${udderScore}\n`;
-      confirmMsg += `\nReply YES to save, or provide corrections.`;
+      confirmMsg += `${dateLine}\n\nReply YES to save, or provide corrections.`;
       addMsg('assistant', confirmMsg);
       logEntry.ai_interpretation = `Calving event pending: cow ${tags[0] || 'unknown'}, ${calfSex || 'unknown sex'} calf, ${calfStatus}`; logEntry.action_type = 'data_entry';
     } else if ((lower.includes('cow died') || lower.includes('bull died') || lower.includes('heifer died') || lower.includes('steer died') || lower.includes('found dead')) || (lower.includes('died') && !lower.includes('calf')) || (lower.includes('death') && !lower.includes('calf'))) {
-      // Strip head-count phrases ("3 died", "2 head") so counts aren't mistaken for tag numbers
-      const deathTagSource = text.replace(/\b\d{1,3}\s+(head|hd|cows?|calves|calf|bulls?|steers?|heifers?)\b/gi, '').replace(/\b\d{1,3}\s+(died|dead|found dead)\b/gi, '');
+      // Strip head-count phrases ("3 died", "2 head") so counts aren't mistaken for tag numbers — but NOT a tag
+      // that happens to sit before "died": "Tag 234 died", "Cow 12 died", "tags 101 102 died" keep their tags.
+      const deathTagSource = stripped.replace(/\b\d{1,3}\s+(head|hd|cows?|calves|calf|bulls?|steers?|heifers?)\b/gi, '')
+        .replace(/\b\d{1,2}\s+(died|dead|found dead)\b/gi, (m, _w, at, str) => /(\b(?:tags?|cows?|bulls?|heifers?|steers?|calf|calves|number|no\.?)|#|\d|,|\band)\s*$/i.test(str.slice(0, at)) ? m : '');
       const tags = deathTagSource.match(/\b\d{1,5}[A-Z]?\b/g)?.map(t => t.toUpperCase()) || [];
-      const cause = text.match(/(?:from|cause|due to)\s+([a-z\s]+?)(?:\.|,|$)/i)?.[1]?.trim() || null;
-      setPending({ type: 'death', tags, cause, text });
-      addMsg('assistant', `Death recorded for tag(s): ${tags.length > 0 ? tags.join(', ') : 'none found'}.\nCause: ${cause || 'not specified'}\n\nIs this correct? Reply YES to save or correct me.`);
+      const cause = stripped.match(/(?:from|cause|due to)\s+([a-z\s]+?)(?:\.|,|$)/i)?.[1]?.trim() || null;
+      setPending({ type: 'death', tags, cause, text, date: entryDate });
+      addMsg('assistant', `Death detected for tag(s): ${tags.length > 0 ? tags.join(', ') : 'none found'}.\nCause: ${cause || 'not specified'}\n${dateLine}\n\nIs this correct? Reply YES to save or correct me.`);
       logEntry.ai_interpretation = `Death pending: tags ${tags.join(', ')}`; logEntry.action_type = 'data_entry';
     } else if (lower.includes('vaccin') || lower.includes('treated') || lower.includes('medicated') || lower.includes('castrat')) {
       const products = [];
@@ -2349,10 +2568,10 @@ function ChatPage({ toast }) {
       const lotNumbers = [...text.matchAll(/lot\s+(?:number\s+)?([0-9]+)/gi)].map(m => m[1]);
       // Extract tags now (not at execute time) so the user confirms the exact animals being written to.
       // Strip dosage/lot phrases first so "5 cc" or "lot 12345" numbers aren't mistaken for tags.
-      const tagSource = text.replace(/\b\d+(\.\d+)?\s*(cc|ml|mls|ccs|mg|head|hd)\b/gi, '').replace(/lot\s+(?:number\s+)?[0-9]+/gi, '');
+      const tagSource = stripped.replace(/\b\d+(\.\d+)?\s*(cc|ml|mls|ccs|mg|head|hd)\b/gi, '').replace(/lot\s+(?:number\s+)?[0-9]+/gi, '');
       const healthTags = tagSource.match(/\b\d{1,5}[A-Z]?\b/g)?.map(t => t.toUpperCase()) || [];
-      setPending({ type: 'health', text, products, lotNumbers, tags: healthTags });
-      addMsg('assistant', `Health event detected.\n\nAnimal tags: ${healthTags.length > 0 ? healthTags.join(', ') : '⚠️ NONE FOUND — entry will fail; include tag numbers'}\nProducts: ${products.length > 0 ? products.join(', ') : 'not specified'}\nLot numbers: ${lotNumbers.length > 0 ? lotNumbers.join(', ') : 'not specified'}\n\nTreatment records will be written to the tags listed above. Reply YES to confirm or correct me.`);
+      setPending({ type: 'health', text, products, lotNumbers, tags: healthTags, date: entryDate });
+      addMsg('assistant', `Health event detected.\n\nAnimal tags: ${healthTags.length > 0 ? healthTags.join(', ') : '⚠️ NONE FOUND — entry will fail; include tag numbers'}\nProducts: ${products.length > 0 ? products.join(', ') : 'not specified'}\nLot numbers: ${lotNumbers.length > 0 ? lotNumbers.join(', ') : 'not specified'}\n${dateLine}\n\nTreatment records will be written to the tags listed above. Reply YES to confirm or correct me.`);
       logEntry.ai_interpretation = `Health/vaccination event pending: ${products.join(', ')}`; logEntry.action_type = 'bulk_update';
     } else if (lower.includes('note for') || lower.includes('add note') || lower.includes('notes:') || lower.match(/tag \d+.*note/i) || lower.match(/cow \d+.*note/i)) {
       const tags = text.match(/\b\d{1,5}[A-Z]?\b/g)?.map(t => t.toUpperCase()) || [];
@@ -2363,7 +2582,7 @@ function ChatPage({ toast }) {
       addMsg('assistant', `Note detected for tag(s): ${tags.length > 0 ? tags.join(', ') : 'none found'}.\n\nNote: "${noteText}"\n\nReply YES to save.`);
       logEntry.ai_interpretation = `Note pending for ${tags.length} animal(s)`; logEntry.action_type = 'data_entry';
     } else {
-      addMsg('assistant', `I'm not sure what to record. Here are some examples:\n\n• "Sold 5 cows at Herreid Livestock, tags 101, 202, 303, 404, 505"\n• "Cow 607 calved today, heifer calf, udder score B"\n• "Tag 234 found dead today"\n• "Vaccinated all calves in Old Cows herd with Vision 7 (lot 12345)"\n\nWhat happened today?`);
+      addMsg('assistant', `I'm not sure what to record. Here are some examples:\n\n• "Sold 5 cows at Herreid Livestock, tags 101, 202, 303, 404, 505"\n• "Cow 607 calved today, heifer calf, udder score B"\n• "Tag 234 found dead yesterday"\n• "Vaccinated all calves in Old Cows herd with Vision 7 (lot 12345)"\n\nWhat happened?`);
       logEntry.action_type = 'query';
     }
     await supabase.from('conversation_log').insert(logEntry);
@@ -2393,6 +2612,14 @@ function ChatPage({ toast }) {
         {processing && <div className="chat-bubble assistant" style={{display:'flex', alignItems:'center', gap:'10px'}}><div className="spinner"></div> Saving to database...</div>}
         <div ref={messagesEnd} />
       </div>
+      {pending && FE_DATED.includes(pending.type) && (
+        <div className="chat-date-bar">
+          <label htmlFor="fe-date">Date it happened</label>
+          <input id="fe-date" type="date" className="form-input" value={pending.date || ''} max={todayLocal()} disabled={processing}
+            onChange={e => { const v = e.target.value; setPending(p => (p ? { ...p, date: v } : p)); }} />
+          <span>{{ sale: 'Sale', death: 'Death', calving: 'Calving', health: 'Treatment' }[pending.type]} is waiting — reply YES to save it with this date.</span>
+        </div>
+      )}
       <div className="chat-input-area">
         <textarea className="chat-input" placeholder="Type a field entry... (e.g. 'Sold 5 cows at Herreid, tags 101, 202, 303')" value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKey} rows={1} disabled={processing} />
         <button className="chat-send-btn" onClick={handleSend} disabled={processing} title="Send">➤</button>
@@ -2744,6 +2971,303 @@ function InventoryChangeReport({ toast, herds }) {
   );
 }
 
+// ===== HEAD COUNT REPORT =====
+// One total head count for Animal Inventory–style filters, as of any date. Never lists individual animals.
+//
+// How a past date is rebuilt (end of day):
+//   • On hand = arrived on/before the date AND (still active OR status_date is after the date)
+//       arrival = purchase_date → date_of_birth (raised, not purchased) → day the record was entered (created_at)
+//   • Owner   = latest animal_ownership_history row effective on/before the date. If every row is dated later
+//               (owner assigned after the fact via Bulk Edit), the first owner on file is used.
+//   • Herd, sex/class, breed status, tag color = CURRENT values. Nothing records history on those fields yet
+//     (herd_history is never written; Bulk Edit and Animal Detail overwrite in place).
+// Today (or a future date) = current records — identical to Animal Inventory with Status = active.
+
+const hcDateOnly = (d) => (d ? String(d).split('T')[0] : null);
+
+// created_at is a UTC timestamp — convert to the local calendar date (same reason todayLocal exists)
+const hcLocalDate = (ts) => {
+  if (!ts) return null;
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const hcTagColor = (c) => (c || '').trim().toLowerCase();
+const hcCap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+const HC_TAG_ORDER = ['yellow','red','blue','green','orange','white','black','pink','purple'];
+const HC_SEXES = ['cow','heifer','bull','steer','calf_male','calf_female'];
+const HC_BREEDING = ['open','bred_spring','bred_fall','dry','nursing','unknown'];
+
+const hcArrival = (a) => {
+  const purchase = hcDateOnly(a.purchase_date);
+  if (purchase) return { date: purchase, basis: 'purchase' };
+  const dob = hcDateOnly(a.date_of_birth);
+  if (!a.purchased && dob) return { date: dob, basis: 'birth' };
+  return { date: hcLocalDate(a.created_at) || '0000-01-01', basis: 'entered' };
+};
+
+// recs = one animal's ownership rows, sorted by effective date ascending: [{ partnership_id, date }]
+const hcOwnerAsOf = (recs, D) => {
+  if (!recs || recs.length === 0) return { id: null, fallback: false };
+  let id = null;
+  for (const r of recs) { if (r.date <= D) id = r.partnership_id; else break; }
+  return id ? { id, fallback: false } : { id: recs[0].partnership_id, fallback: true };
+};
+
+// f = { asOf, herds, sexes, breeding, owners, tagColors, dobFrom, dobTo }. Empty array = no filter on that field.
+// Returns the total plus counts behind the data-gap notes shown under it.
+const hcCount = (animals, ownershipByAnimal, f, today) => {
+  const isCurrent = !f.asOf || f.asOf >= today;
+  const D = isCurrent ? '9999-12-31' : f.asOf;
+  const r = { total: 0, isCurrent, arrivedUnknown: 0, noExitDate: 0, missingDob: 0, ownerFallback: 0 };
+  for (const a of animals) {
+    // 1. Attribute filters (current values) + owner as of the date
+    if (f.herds.length && !(f.herds.includes(a.herd_id) || (!a.herd_id && f.herds.includes('NO_HERD')))) continue;
+    if (f.sexes.length && !f.sexes.includes(a.sex)) continue;
+    if (f.breeding.length && !f.breeding.includes(a.breeding_status || 'NOT_SET')) continue;
+    if (f.tagColors.length && !f.tagColors.includes(hcTagColor(a.tag_color) || 'NO_TAG')) continue;
+    const owner = hcOwnerAsOf(ownershipByAnimal[a.id], D);
+    if (f.owners.length && !f.owners.includes(owner.id || 'NO_OWNER')) continue;
+    // 2. Birth date range — an animal with no DOB can't match a range
+    let dobMissing = false;
+    if (f.dobFrom || f.dobTo) {
+      const dob = hcDateOnly(a.date_of_birth);
+      if (!dob) dobMissing = true;
+      else if ((f.dobFrom && dob < f.dobFrom) || (f.dobTo && dob > f.dobTo)) continue;
+    }
+    // 3. On hand at end of day?
+    if (isCurrent) {
+      if (a.status !== 'active') continue;
+    } else {
+      const exit = a.status === 'active' ? null : hcDateOnly(a.status_date);
+      if (exit && exit <= D) continue;                        // sold / dead / archived on or before the date
+      const arrival = hcArrival(a);
+      if (arrival.date > D) {                                 // not here yet — unless its dates are just missing
+        if (arrival.basis === 'entered' && !dobMissing) r.arrivedUnknown++;
+        continue;
+      }
+      if (!exit && a.status !== 'active') {                   // gone now, but no exit date to place it in time
+        if (!dobMissing) r.noExitDate++;
+        continue;
+      }
+    }
+    if (dobMissing) { r.missingDob++; continue; }
+    r.total++;
+    if (owner.fallback) r.ownerFallback++;
+  }
+  return r;
+};
+
+const HcCheck = ({ checked, onChange, muted, children }) => (
+  <label className={`hc-check${muted ? ' muted' : ''}`}>
+    <input type="checkbox" checked={checked} onChange={onChange} />
+    {children}
+  </label>
+);
+
+function HeadCountReport({ toast, herds, partnerships }) {
+  const today = todayLocal();
+  const [animals, setAnimals] = useState([]);
+  const [ownershipByAnimal, setOwnershipByAnimal] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [asOfDate, setAsOfDate] = useState(today);
+  const [herdFilter, setHerdFilter] = useState([]);
+  const [sexFilter, setSexFilter] = useState([]);
+  const [breedingStatusFilter, setBreedingStatusFilter] = useState([]);
+  const [ownerFilter, setOwnerFilter] = useState([]);
+  const [tagColorFilter, setTagColorFilter] = useState([]);
+  const [dobStartDate, setDobStartDate] = useState('');
+  const [dobEndDate, setDobEndDate] = useState('');
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setLoadError('');
+    // .range() pagination ordered on a unique key so pages can't skip or repeat rows.
+    // Don't add .limit() here — see the 1,000-row note.
+    const fetchAll = async (table, columns) => {
+      const PAGE = 1000;
+      let rows = [];
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase.from(table).select(columns).order('id', { ascending: true }).range(from, from + PAGE - 1);
+        if (error) throw new Error(`${table}: ${error.message}`);
+        rows = rows.concat(data || []);
+        if (!data || data.length < PAGE) return rows;
+      }
+    };
+    try {
+      const [animalRows, ownerRows] = await Promise.all([
+        fetchAll('animals', 'id, sex, herd_id, date_of_birth, tag_color, breeding_status, status, status_date, purchased, purchase_date, created_at'),
+        fetchAll('animal_ownership_history', 'id, animal_id, partnership_id, effective_date'),
+      ]);
+      const byAnimal = {};
+      ownerRows.forEach(o => {
+        (byAnimal[o.animal_id] = byAnimal[o.animal_id] || []).push({ partnership_id: o.partnership_id, date: hcDateOnly(o.effective_date) || '' });
+      });
+      Object.values(byAnimal).forEach(list => list.sort((x, y) => x.date.localeCompare(y.date)));
+      setAnimals(animalRows);
+      setOwnershipByAnimal(byAnimal);
+    } catch (err) {
+      setLoadError(err.message);
+      toast('Error loading head count data: ' + err.message, 'error');
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  // Only offer tag colors that actually exist in the data (CSV import allows free text)
+  const tagColorOptions = useMemo(() => {
+    const present = new Set(animals.map(a => hcTagColor(a.tag_color)).filter(Boolean));
+    return [...HC_TAG_ORDER.filter(c => present.has(c)), ...[...present].filter(c => !HC_TAG_ORDER.includes(c)).sort()];
+  }, [animals]);
+
+  const result = useMemo(() => hcCount(animals, ownershipByAnimal, {
+    asOf: asOfDate, herds: herdFilter, sexes: sexFilter, breeding: breedingStatusFilter,
+    owners: ownerFilter, tagColors: tagColorFilter, dobFrom: dobStartDate, dobTo: dobEndDate,
+  }, today), [animals, ownershipByAnimal, asOfDate, today, herdFilter, sexFilter, breedingStatusFilter, ownerFilter, tagColorFilter, dobStartDate, dobEndDate]);
+
+  const toggle = (setArr, val) => setArr(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]);
+  const anyFilter = herdFilter.length > 0 || sexFilter.length > 0 || breedingStatusFilter.length > 0 || ownerFilter.length > 0 || tagColorFilter.length > 0 || !!dobStartDate || !!dobEndDate;
+  const clearFilters = () => { setHerdFilter([]); setSexFilter([]); setBreedingStatusFilter([]); setOwnerFilter([]); setTagColorFilter([]); setDobStartDate(''); setDobEndDate(''); };
+
+  // Plain-language echo of the filters so a screenshot or printout documents what was counted
+  const herdName = (id) => id === 'NO_HERD' ? 'No herd' : (herds.find(h => h.id === id)?.name || 'Unknown herd');
+  const ownerName = (id) => id === 'NO_OWNER' ? 'No owner' : (partnerships.find(p => p.id === id)?.name || 'Unknown owner');
+  const breedLabel = (bs) => bs === 'NOT_SET' ? 'Not set' : hcCap(bs.replace('_', ' '));
+  const tagLabel = (c) => c === 'NO_TAG' ? 'No tag color' : hcCap(c);
+  const listOrAll = (arr, label) => arr.length ? arr.map(label).join(', ') : 'All';
+  const dobSummary = dobStartDate && dobEndDate ? `${formatDate(dobStartDate)} – ${formatDate(dobEndDate)}`
+    : dobStartDate ? `On or after ${formatDate(dobStartDate)}`
+    : dobEndDate ? `On or before ${formatDate(dobEndDate)}` : 'All';
+  const summary = [
+    ['Herd', listOrAll(herdFilter, herdName)],
+    ['Sex / class', listOrAll(sexFilter, sexLabel)],
+    ['Breed status', listOrAll(breedingStatusFilter, breedLabel)],
+    ['Owner', listOrAll(ownerFilter, ownerName)],
+    ['Tag color', listOrAll(tagColorFilter, tagLabel)],
+    ['Date of birth', dobSummary],
+  ];
+  const isPast = !result.isCurrent;
+  const dobBackwards = dobStartDate && dobEndDate && dobStartDate > dobEndDate;
+
+  return (
+    <div className="hc-layout">
+      {/* ── Filters ── */}
+      <div className="detail-card">
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'12px'}}>
+          <h3>Filters</h3>
+          <button className="btn btn-ghost" onClick={clearFilters} disabled={!anyFilter} style={{padding:'5px 12px', whiteSpace:'nowrap'}}>Clear filters</button>
+        </div>
+        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(170px, 1fr))', gap:'20px 16px'}}>
+          <div>
+            <span className="hc-group-label">HERD</span>
+            <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
+              <HcCheck muted checked={herdFilter.includes('NO_HERD')} onChange={() => toggle(setHerdFilter, 'NO_HERD')}>No herd assigned</HcCheck>
+              {herds.map(h => (
+                <HcCheck key={h.id} checked={herdFilter.includes(h.id)} onChange={() => toggle(setHerdFilter, h.id)}>
+                  {h.name}{h.is_active === false && <span style={{color:'var(--ash)'}}> (archived)</span>}
+                </HcCheck>
+              ))}
+            </div>
+          </div>
+          <div>
+            <span className="hc-group-label">SEX/CLASS</span>
+            <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
+              {HC_SEXES.map(s => (
+                <HcCheck key={s} checked={sexFilter.includes(s)} onChange={() => toggle(setSexFilter, s)}>{sexLabel(s)}</HcCheck>
+              ))}
+            </div>
+          </div>
+          <div>
+            <span className="hc-group-label">BREED STATUS</span>
+            <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
+              <HcCheck muted checked={breedingStatusFilter.includes('NOT_SET')} onChange={() => toggle(setBreedingStatusFilter, 'NOT_SET')}>Not set</HcCheck>
+              {HC_BREEDING.map(bs => (
+                <HcCheck key={bs} checked={breedingStatusFilter.includes(bs)} onChange={() => toggle(setBreedingStatusFilter, bs)}>{breedLabel(bs)}</HcCheck>
+              ))}
+            </div>
+          </div>
+          <div>
+            <span className="hc-group-label">OWNER</span>
+            <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
+              <HcCheck muted checked={ownerFilter.includes('NO_OWNER')} onChange={() => toggle(setOwnerFilter, 'NO_OWNER')}>No owner assigned</HcCheck>
+              {partnerships.map(p => (
+                <HcCheck key={p.id} checked={ownerFilter.includes(p.id)} onChange={() => toggle(setOwnerFilter, p.id)}>
+                  {p.name}{p.is_active === false && <span style={{color:'var(--ash)'}}> (inactive)</span>}
+                </HcCheck>
+              ))}
+            </div>
+          </div>
+          <div>
+            <span className="hc-group-label">TAG COLOR</span>
+            <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
+              <HcCheck muted checked={tagColorFilter.includes('NO_TAG')} onChange={() => toggle(setTagColorFilter, 'NO_TAG')}>No tag color</HcCheck>
+              {tagColorOptions.map(c => (
+                <HcCheck key={c} checked={tagColorFilter.includes(c)} onChange={() => toggle(setTagColorFilter, c)}>
+                  <span style={{width:'12px', height:'12px', borderRadius:'50%', background:c, border:'1px solid rgba(184,169,154,0.5)', flexShrink:0}}></span>
+                  {tagLabel(c)}
+                </HcCheck>
+              ))}
+            </div>
+          </div>
+          <div>
+            <span className="hc-group-label">DATE OF BIRTH</span>
+            <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
+              <div>
+                <label htmlFor="hc-dob-from" style={{display:'block', fontSize:'12px', color:'var(--ash)', marginBottom:'4px'}}>From</label>
+                <input id="hc-dob-from" type="date" className="form-input" value={dobStartDate} onChange={e => setDobStartDate(e.target.value)} style={{width:'100%', padding:'6px 8px', fontSize:'13px'}} />
+              </div>
+              <div>
+                <label htmlFor="hc-dob-to" style={{display:'block', fontSize:'12px', color:'var(--ash)', marginBottom:'4px'}}>To</label>
+                <input id="hc-dob-to" type="date" className="form-input" value={dobEndDate} onChange={e => setDobEndDate(e.target.value)} style={{width:'100%', padding:'6px 8px', fontSize:'13px'}} />
+              </div>
+              {dobBackwards && <span style={{fontSize:'12px', color:'#e05555'}}>From is after To — nothing can match.</span>}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Result ── */}
+      <div className="detail-card hc-result">
+        <label className="form-label" htmlFor="hc-asof">Inventory date</label>
+        <div style={{display:'flex', gap:'8px', marginTop:'6px'}}>
+          <input id="hc-asof" type="date" className="form-input" value={asOfDate} max={today} onChange={e => setAsOfDate(e.target.value)} style={{flex:1, minWidth:0}} />
+          <button className="btn btn-ghost" onClick={() => setAsOfDate(today)} disabled={asOfDate === today}>Today</button>
+        </div>
+
+        {loading ? (
+          <div className="loading" style={{padding:'40px 0'}}><div className="spinner"></div> Loading animals...</div>
+        ) : loadError ? (
+          <div style={{marginTop:'20px'}}>
+            <div className="hc-note" style={{borderLeftColor:'#e05555'}}>Couldn't load animal records: {loadError}</div>
+            <button className="btn btn-secondary" onClick={loadData} style={{marginTop:'12px'}}>Try again</button>
+          </div>
+        ) : (
+          <>
+            <div className="hc-count">{result.total.toLocaleString('en-US')}</div>
+            <div className="hc-count-label">{isPast ? `head on hand end of day ${formatDate(asOfDate)}` : 'head on hand now'}</div>
+            <div style={{borderTop:'1px solid rgba(139,69,19,0.2)', paddingTop:'4px'}}>
+              {summary.map(([k, v]) => (
+                <div key={k} className="detail-row">
+                  <span className="detail-key">{k}</span>
+                  <span className="detail-val" style={{maxWidth:'65%', fontWeight: v === 'All' ? 400 : 600, color: v === 'All' ? 'var(--ash)' : 'var(--cream)'}}>{v}</span>
+                </div>
+              ))}
+            </div>
+            {isPast && <div className="hc-note">On-hand status and owner are rebuilt for this date. Herd, sex/class, breed status and tag color are each animal's current values — those fields don't keep history yet.</div>}
+            {isPast && result.arrivedUnknown > 0 && <div className="hc-note">{result.arrivedUnknown.toLocaleString('en-US')} head that match have no purchase or birth date and were entered after this date, so they're left out. If they were here, add a purchase date or DOB to their records.</div>}
+            {isPast && result.noExitDate > 0 && <div className="hc-note">{result.noExitDate.toLocaleString('en-US')} head that match are sold, dead or archived with no exit date on file, so they're left out.</div>}
+            {isPast && ownerFilter.length > 0 && result.ownerFallback > 0 && <div className="hc-note">{result.ownerFallback.toLocaleString('en-US')} head are counted under their first owner on file — that owner was assigned after this date.</div>}
+            {result.missingDob > 0 && <div className="hc-note">{result.missingDob.toLocaleString('en-US')} head that otherwise match have no birth date on file and are left out of the birth date range.</div>}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ===== REPORTS PAGE =====
 function ReportsPage({ toast }) {
   const [activeTab, setActiveTab] = useState('inventory_change');
@@ -2817,6 +3341,7 @@ function ReportsPage({ toast }) {
 
   const TABS = [
     { id: 'inventory_change', label: 'Inventory Change' },
+    { id: 'head_count',       label: 'Head Count' },
     { id: 'calving',          label: 'Calving Records' },
     { id: 'summary',          label: 'Summary' },
   ];
@@ -2841,6 +3366,10 @@ function ReportsPage({ toast }) {
 
       {activeTab === 'inventory_change' && (
         <InventoryChangeReport toast={toast} herds={herds} />
+      )}
+
+      {activeTab === 'head_count' && (
+        <HeadCountReport toast={toast} herds={herds} partnerships={partnerships} />
       )}
 
       {activeTab === 'calving' && (
