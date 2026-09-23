@@ -682,16 +682,34 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
 }
 
 // ===== BULK EDIT MODAL =====
+// Plain per-animal fields: one value written to every selected head. Same field list as the CSV import
+// (Owner, Status, Notes and Vaccination have their own handling below). Options are written out here rather
+// than reusing SEX_VALUES / BREEDING_VALUES, which are declared further down the file.
+const BULK_TAG_COLORS = ['yellow','red','blue','green','orange','white','black','pink','purple'];
+const BULK_FIELDS = {
+  vid:               { label: 'VID', input: 'text', clearable: true, uniqueTag: true, placeholder: 'e.g. H607' },
+  eid:               { label: 'EID', input: 'text', clearable: true, uniqueTag: true, placeholder: 'e.g. 982000123456789' },
+  tag_color:         { label: 'Tag Color', input: 'text', clearable: true, lower: true, list: BULK_TAG_COLORS, placeholder: 'e.g. yellow' },
+  sex:               { label: 'Sex/Class', input: 'select', options: [['cow','Cow'],['heifer','Heifer'],['bull','Bull'],['steer','Steer'],['calf_male','Bull Calf'],['calf_female','Heifer Calf']] },
+  breed:             { label: 'Breed', input: 'text', clearable: true, placeholder: 'e.g. Angus, Sim-Angus' },
+  date_of_birth:     { label: 'Date of Birth', input: 'date', clearable: true },
+  breeding_status:   { label: 'Breeding Status', input: 'select', clearable: true, options: [['open','Open'],['bred_spring','Bred Spring'],['bred_fall','Bred Fall'],['dry','Dry'],['nursing','Nursing'],['unknown','Unknown']] },
+  herd_id:           { label: 'Herd', input: 'herd', clearable: true },
+  purchased:         { label: 'Purchased', input: 'select', options: [['true','Yes — purchased'],['false','No — raised']] },
+  purchase_date:     { label: 'Purchase Date', input: 'date', clearable: true },
+  purchase_location: { label: 'Purchase Location', input: 'text', clearable: true, placeholder: 'e.g. Herreid Livestock' },
+  purchase_price_per_head: { label: 'Purchase Price ($/hd)', input: 'number', clearable: true, placeholder: 'e.g. 1250' },
+};
+
 function BulkEditModal({ selectedIds, herds, partnerships, onClose, onSaved, toast }) {
-  const [action, setAction] = useState('herd');
-  const [herdId, setHerdId] = useState('');
-  const [breedingStatus, setBreedingStatus] = useState('');
+  const [action, setAction] = useState('herd_id');
+  const [fieldValue, setFieldValue] = useState('');
+  const [clearField, setClearField] = useState(false);
   const [ownerId, setOwnerId] = useState('');
   const [status, setStatus] = useState('');
   const [statusDate, setStatusDate] = useState(todayLocal());
   const [saleLocation, setSaleLocation] = useState('');
   const [deathCause, setDeathCause] = useState('');
-  const [sex, setSex] = useState('');
   const [notes, setNotes] = useState('');
   const [notesMode, setNotesMode] = useState('append');
   const [vaccineProduct, setVaccineProduct] = useState('');
@@ -699,6 +717,35 @@ function BulkEditModal({ selectedIds, herds, partnerships, onClose, onSaved, toa
   const [vaccineDosage, setVaccineDosage] = useState('');
   const [vaccineDate, setVaccineDate] = useState(todayLocal());
   const [saving, setSaving] = useState(false);
+
+  const field = BULK_FIELDS[action];
+  // A tag number belongs to one animal — with several selected, the only sensible bulk change is to clear it
+  const tagLocked = !!(field?.uniqueTag && selectedIds.length > 1);
+  const changeAction = (a) => { setAction(a); setFieldValue(''); setClearField(!!(BULK_FIELDS[a]?.uniqueTag && selectedIds.length > 1)); };
+
+  // Chunked so big selections don't overrun the URL limit; counts rows because updates blocked by RLS fail silently
+  const updateAnimals = async (patch) => {
+    const { data, error } = await chunkedIn(selectedIds, (chunk) => supabase.from('animals').update({ ...patch, updated_at: new Date().toISOString() }).in('id', chunk).select('id'));
+    if (error) throw error;
+    const n = (data || []).length;
+    if (n < selectedIds.length) throw new Error(`only ${n} of ${selectedIds.length} animals changed — check row-level security on animals`);
+  };
+
+  // Calf codes carry the birth-year letter (P/607 = 2026). When DOB changes, swap the letter on any existing code.
+  const syncCalfCodes = async (dob) => {
+    const letter = getYearLetter(parseInt(dob.slice(0, 4), 10));
+    const { data, error } = await chunkedIn(selectedIds, (chunk) => supabase.from('animals').select('id, calf_id_code').in('id', chunk).not('calf_id_code', 'is', null));
+    if (error) throw error;
+    let changed = 0;
+    for (const a of data || []) {
+      const m = /^([A-Z?])\/(.+)$/.exec(a.calf_id_code || '');
+      if (!m || m[1] === letter) continue;
+      const { error: e } = await supabase.from('animals').update({ calf_id_code: `${letter}/${m[2]}` }).eq('id', a.id);
+      if (e) throw e;
+      changed++;
+    }
+    return changed;
+  };
 
   // ── Status changes keep sale and death records in step with the animal, so Inventory Change agrees ──
   //   Sold     → every selected head ends up on a sale record dated statusDate. A sale made up only of selected
@@ -826,38 +873,75 @@ function BulkEditModal({ selectedIds, herds, partnerships, onClose, onSaved, toa
     return `${hd(ids.length)} marked ${status}, ${formatDate(when)}${done.length ? ` — ${done.join(', ')}` : ''}.`;
   };
 
+  // Validates and writes one BULK_FIELDS field. Returns the toast message, or null if the user backs out.
+  const applyFieldChange = async () => {
+    const f = field, n = selectedIds.length;
+    let value = null, shown = '';
+    if (!clearField) {
+      const raw = String(fieldValue ?? '').trim();
+      if (!raw) throw new Error(`Enter a ${f.label}${f.clearable ? ', or tick Clear' : ''}`);
+      if (f.input === 'date') {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) throw new Error(`Enter a valid ${f.label}`);
+        if (raw > todayLocal()) throw new Error(`${f.label} can't be in the future`);
+        value = raw; shown = formatDate(raw);
+      } else if (f.input === 'number') {
+        const num = parseFloat(raw.replace(/[$,]/g, ''));
+        if (!isFinite(num) || num < 0) throw new Error(`${f.label} must be a number`);
+        value = num; shown = `$${num.toLocaleString()}`;
+      } else if (action === 'purchased') {
+        value = raw === 'true'; shown = value ? 'Yes' : 'No';
+      } else if (f.input === 'select') {
+        value = raw; shown = (f.options.find(o => o[0] === raw) || [raw, raw])[1];
+      } else if (f.input === 'herd') {
+        value = raw; shown = herds.find(h => h.id === raw)?.name || 'herd';
+      } else {
+        value = f.lower ? raw.toLowerCase() : raw; shown = value;
+      }
+    }
+
+    if (f.uniqueTag) {
+      if (value !== null && n > 1) throw new Error(`Each animal needs its own ${f.label} — select one animal to set it`);
+      if (value !== null) {
+        // Field entries match on tag, so a second ACTIVE animal with this tag would send sales/deaths to the wrong head
+        const { data: dup, error } = await supabase.from('animals').select('id').eq(action, value).eq('status', 'active').neq('id', selectedIds[0]).limit(1);
+        if (error) throw error;
+        if (dup?.length && !window.confirm(`⚠️ An ACTIVE animal already has ${f.label} ${value}. Duplicate active tags can cause field entries (sales, deaths, treatments) to hit the wrong animal.\n\nSet it anyway?`)) return null;
+      } else if (!window.confirm(`Clear the ${f.label} on ${n} head? Field entries find animals by tag, so these head won't match by ${f.label} until retagged.`)) return null;
+    } else if (value === null && !window.confirm(`Clear ${f.label} on ${n} head?`)) return null;
+
+    await updateAnimals({ [action]: value });
+    let extra = '';
+    if (action === 'date_of_birth' && value) {
+      const codes = await syncCalfCodes(value);
+      if (codes) extra = ` — ${codes} calf code${codes === 1 ? '' : 's'} updated to the new birth year`;
+    }
+    return `${f.label} ${value === null ? 'cleared' : `set to ${shown}`} on ${n} head${extra}.`;
+  };
+
   const handleSave = async () => {
     if (!selectedIds || selectedIds.length === 0) { toast('No animals selected', 'error'); return; }
-    if (action === 'herd' && !herdId) { toast('Please select a herd', 'error'); return; }
-    if (action === 'breeding_status' && !breedingStatus) { toast('Please select a breeding status', 'error'); return; }
     if (action === 'owner' && !ownerId) { toast('Please select an owner', 'error'); return; }
     if (action === 'status' && !status) { toast('Please select a status', 'error'); return; }
     if (action === 'status' && checkEventDate(statusDate)) { toast(checkEventDate(statusDate), 'error'); return; }
-    if (action === 'sex' && !sex) { toast('Please select a sex/class', 'error'); return; }
     if (action === 'notes' && !notes.trim()) { toast('Please enter notes to add', 'error'); return; }
     if (action === 'vaccination' && !vaccineProduct.trim()) { toast('Please enter product name', 'error'); return; }
     setSaving(true);
     let resultMsg;
     try {
-      if (action === 'herd') {
-        const { error } = await supabase.from('animals').update({ herd_id: herdId }).in('id', selectedIds);
-        if (error) throw error;
-      } else if (action === 'breeding_status') {
-        const { error } = await supabase.from('animals').update({ breeding_status: breedingStatus }).in('id', selectedIds);
-        if (error) throw error;
+      if (field) {
+        resultMsg = await applyFieldChange();
+        if (resultMsg === null) { setSaving(false); return; }   // backed out at the confirm — nothing written
       } else if (action === 'owner') {
         const today = todayLocal();
-        const ownershipRecords = selectedIds.map(animalId => ({ animal_id: animalId, partnership_id: ownerId, effective_date: today }));
+        const ownershipRecords = selectedIds.map(animalId => ({ animal_id: animalId, partnership_id: ownerId, percentage: 100, effective_date: today }));
         const { error } = await supabase.from('animal_ownership_history').insert(ownershipRecords);
         if (error) throw error;
       } else if (action === 'status') {
         resultMsg = await applyStatusChange();
-        if (resultMsg === null) { setSaving(false); return; }   // backed out at the confirm — nothing written
-      } else if (action === 'sex') {
-        const { error } = await supabase.from('animals').update({ sex }).in('id', selectedIds);
-        if (error) throw error;
+        if (resultMsg === null) { setSaving(false); return; }
       } else if (action === 'notes') {
-        const { data: animals } = await supabase.from('animals').select('id, notes').in('id', selectedIds);
+        const { data: animals, error: readErr } = await chunkedIn(selectedIds, (chunk) => supabase.from('animals').select('id, notes').in('id', chunk));
+        if (readErr) throw readErr;
         for (const animal of animals) {
           let newNotes = '';
           if (notesMode === 'append') newNotes = animal.notes ? `${animal.notes}\n\n${notes}` : notes;
@@ -879,6 +963,18 @@ function BulkEditModal({ selectedIds, herds, partnerships, onClose, onSaved, toa
     setSaving(false);
   };
 
+  const renderFieldInput = () => {
+    const f = field, common = { className: 'form-input', value: fieldValue, disabled: clearField, onChange: e => setFieldValue(e.target.value) };
+    if (f.input === 'select') return <select {...common} className="form-select"><option value="">Select {f.label.toLowerCase()}...</option>{f.options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>;
+    if (f.input === 'herd') return <select {...common} className="form-select"><option value="">Select a herd...</option>{herds.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select>;
+    if (f.input === 'date') return <input {...common} type="date" max={todayLocal()} />;
+    if (f.input === 'number') return <input {...common} type="number" min="0" step="0.01" inputMode="decimal" placeholder={f.placeholder} />;
+    return <>
+      <input {...common} placeholder={f.placeholder} list={f.list ? `bulk-list-${action}` : undefined} />
+      {f.list && <datalist id={`bulk-list-${action}`}>{f.list.map(v => <option key={v} value={v} />)}</datalist>}
+    </>;
+  };
+
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal">
@@ -886,19 +982,46 @@ function BulkEditModal({ selectedIds, herds, partnerships, onClose, onSaved, toa
         <div className="modal-body">
           <p style={{color:'var(--ash)', fontSize:'13px', marginBottom:'20px'}}>Update {selectedIds.length} selected animals</p>
           <div className="form-group">
-            <label className="form-label">Action</label>
-            <select className="form-select" value={action} onChange={e => setAction(e.target.value)}>
-              <option value="herd">Move to Herd</option>
-              <option value="breeding_status">Change Breeding Status</option>
-              <option value="owner">Assign Owner</option>
-              <option value="status">Change Status</option>
-              <option value="sex">Change Sex/Class</option>
-              <option value="notes">Add Notes</option>
-              <option value="vaccination">Add Vaccination</option>
+            <label className="form-label">Field / Action</label>
+            <select className="form-select" value={action} onChange={e => changeAction(e.target.value)}>
+              <optgroup label="Identification">
+                <option value="vid">VID</option>
+                <option value="eid">EID</option>
+                <option value="tag_color">Tag Color</option>
+              </optgroup>
+              <optgroup label="Animal">
+                <option value="sex">Sex/Class</option>
+                <option value="breed">Breed</option>
+                <option value="date_of_birth">Date of Birth</option>
+                <option value="breeding_status">Breeding Status</option>
+              </optgroup>
+              <optgroup label="Herd & Ownership">
+                <option value="herd_id">Move to Herd</option>
+                <option value="owner">Assign Owner</option>
+              </optgroup>
+              <optgroup label="Purchase">
+                <option value="purchased">Purchased (Yes/No)</option>
+                <option value="purchase_date">Purchase Date</option>
+                <option value="purchase_location">Purchase Location</option>
+                <option value="purchase_price_per_head">Purchase Price</option>
+              </optgroup>
+              <optgroup label="Status & Records">
+                <option value="status">Change Status (Sold / Dead / Active / Archived)</option>
+                <option value="notes">Notes</option>
+                <option value="vaccination">Add Vaccination</option>
+              </optgroup>
             </select>
           </div>
-          {action === 'herd' && <div className="form-group"><label className="form-label">New Herd</label><select className="form-select" value={herdId} onChange={e => setHerdId(e.target.value)}><option value="">Select a herd...</option>{herds.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select></div>}
-          {action === 'breeding_status' && <div className="form-group"><label className="form-label">New Breeding Status</label><select className="form-select" value={breedingStatus} onChange={e => setBreedingStatus(e.target.value)}><option value="">Select status...</option><option value="open">Open</option><option value="bred_spring">Bred Spring</option><option value="bred_fall">Bred Fall</option><option value="dry">Dry</option><option value="nursing">Nursing</option><option value="unknown">Unknown</option></select></div>}
+          {field && <>
+            {tagLocked
+              ? <p style={{fontSize:'13px', color:'var(--ash)', lineHeight:1.5, margin:'0 0 12px'}}>Each animal carries its own {field.label}, so with {selectedIds.length} selected the only bulk change is clearing it. To set a {field.label}, select one animal.</p>
+              : <div className="form-group"><label className="form-label">New {field.label}</label>{renderFieldInput()}</div>}
+            {field.clearable && <label style={{display:'flex', alignItems:'center', gap:'8px', fontSize:'13px', color:'var(--ash)', cursor: tagLocked ? 'default' : 'pointer'}}>
+              <input type="checkbox" checked={clearField} disabled={tagLocked} onChange={e => setClearField(e.target.checked)} />
+              Clear {field.label} (leave it blank) on all selected
+            </label>}
+            {action === 'date_of_birth' && <p style={{fontSize:'12px', color:'var(--ash)', marginTop:'10px'}}>Calf ID codes on these head are re-lettered to match the new birth year.</p>}
+          </>}
           {action === 'owner' && <div className="form-group"><label className="form-label">Assign to Owner</label><select className="form-select" value={ownerId} onChange={e => setOwnerId(e.target.value)}><option value="">Select owner...</option>{partnerships.filter(p => p.is_active !== false).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>}
           {action === 'status' && <div className="form-grid" style={{marginTop:'16px'}}>
             <div className="form-group"><label className="form-label">New Status</label><select className="form-select" value={status} onChange={e => setStatus(e.target.value)}><option value="">Select status...</option><option value="active">Active</option><option value="sold">Sold</option><option value="dead">Dead</option><option value="archived">Archived</option></select></div>
@@ -912,7 +1035,6 @@ function BulkEditModal({ selectedIds, herds, partnerships, onClose, onSaved, toa
               archived: 'Takes them off inventory without a sale or death record.',
             }[status]}</p>}
           </div>}
-          {action === 'sex' && <div className="form-group"><label className="form-label">New Sex/Class</label><select className="form-select" value={sex} onChange={e => setSex(e.target.value)}><option value="">Select sex/class...</option><option value="cow">Cow</option><option value="heifer">Heifer</option><option value="bull">Bull</option><option value="steer">Steer</option><option value="calf_male">Bull Calf</option><option value="calf_female">Heifer Calf</option></select></div>}
           {action === 'notes' && <>
             <div className="form-group"><label className="form-label">Notes Mode</label><select className="form-select" value={notesMode} onChange={e => setNotesMode(e.target.value)}><option value="append">Append to existing notes</option><option value="prepend">Prepend to existing notes</option><option value="replace">Replace all notes</option></select></div>
             <div className="form-group"><label className="form-label">Notes to Add</label><textarea className="form-textarea" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Enter notes here..." rows={4} /></div>
