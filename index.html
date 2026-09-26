@@ -933,7 +933,7 @@ function BulkEditModal({ selectedIds, herds, partnerships, onClose, onSaved, toa
         if (resultMsg === null) { setSaving(false); return; }   // backed out at the confirm — nothing written
       } else if (action === 'owner') {
         const today = todayLocal();
-        const ownershipRecords = selectedIds.map(animalId => ({ animal_id: animalId, partnership_id: ownerId, percentage: 100, effective_date: today }));
+        const ownershipRecords = selectedIds.map(animalId => ({ animal_id: animalId, partnership_id: ownerId, effective_date: today }));
         const { error } = await supabase.from('animal_ownership_history').insert(ownershipRecords);
         if (error) throw error;
       } else if (action === 'status') {
@@ -2368,7 +2368,7 @@ function ImportPage({ toast }) {
             const previewRow = batchPreviewRows[idx];
             if (previewRow.owner_name) {
               const partnershipId = previewRow.owner_partnership_id || newPartnershipMap[previewRow.owner_name];
-              if (partnershipId) ownershipRecords.push({ animal_id: animal.id, partnership_id: partnershipId, percentage: 100, effective_date: previewRow.date_of_birth || previewRow.purchase_date || todayLocal() });
+              if (partnershipId) ownershipRecords.push({ animal_id: animal.id, partnership_id: partnershipId, effective_date: previewRow.date_of_birth || previewRow.purchase_date || todayLocal() });
             }
           });
           if (ownershipRecords.length > 0) {
