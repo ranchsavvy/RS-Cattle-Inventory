@@ -2559,6 +2559,7 @@ const UPDATE_FIELDS = [
   { key: 'days_bred', label: 'Days Bred / Fetal Age', hint: 'Days — sets expected calving date', preg: true },
   { key: 'calving_period', label: 'Calving Period', hint: 'e.g. Early / Mid / Late, 1st cycle', preg: true },
   { key: 'herd_name', label: 'Herd', hint: 'Moves the animal — must match a herd name' },
+  { key: 'owner', label: 'Owner', hint: 'Partnership name — must already exist in Partnerships' },
   { key: 'tag_color', label: 'Tag Color', hint: '' },
   { key: 'breed', label: 'Breed', hint: '' },
   { key: 'date_of_birth', label: 'Date of Birth', hint: 'MM/DD/YYYY or YYYY-MM-DD' },
@@ -2571,6 +2572,7 @@ const UPDATE_FIELD_GUESS = [ // order matters: days before result so "Days Bred"
   ['calving_period', /(period|calving[ _]?(group|window)|cycle)/i],
   ['breeding_status', /(preg|result|breeding[ _]?status|^status$|^bred$|^open$|^o\/b$)/i],
   ['herd_name', /^herd([ _]?name)?$/i],
+  ['owner', /^(owner|ownership|owned[ _]?by|partnership|partner)$/i],
   ['tag_color', /colou?r/i],
   ['breed', /^breed$/i],
   ['date_of_birth', /(birth|dob)/i],
@@ -2594,7 +2596,7 @@ begin
     create table if not exists public.preg_checks (
       id bigint generated always as identity primary key,
       animal_id %s not null references public.animals(id) on delete cascade,
-      herd_id %s references public.herds(id) on delete set null,  -- herd at time of check, for open % by herd
+      herd_id %s references public.herds(id) on delete set null,  -- herd at time of check (open rate by herd)
       check_date date not null,
       result text not null check (result in ('open','bred')),
       days_bred integer check (days_bred between 0 and 300),
@@ -2616,6 +2618,7 @@ create policy "authenticated full access" on public.preg_checks for all to authe
 const normVid = (v) => { const s = String(v ?? '').trim().toUpperCase(); return /^\d+$/.test(s) ? String(parseInt(s, 10)) : s; };
 const normEid = (v) => String(v ?? '').replace(/[\s\-.]/g, '');
 const normId = (v) => String(v ?? '').trim().toLowerCase();
+const normName = (v) => String(v ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
 const MATCH_NORM = { vid: normVid, eid: normEid, id: normId };
 const MATCH_LABEL = { vid: 'VID', eid: 'EID', id: 'RS ID' };
 
@@ -2649,6 +2652,11 @@ function UpdateAnimalsImport({ toast }) {
   const [method, setMethod] = useState('ultrasound');
   const [technician, setTechnician] = useState('');
   const [herds, setHerds] = useState([]);
+  const [partnerships, setPartnerships] = useState([]);
+  const [ownerNow, setOwnerNow] = useState(null); // animal_id -> latest ownership row { id, partnership_id, effective_date }
+  const [ownerDefault, setOwnerDefault] = useState('');
+  const [ownerDate, setOwnerDate] = useState(todayLocal());
+  const [undoing, setUndoing] = useState(false);
   const [animals, setAnimals] = useState(null);
   const [pregTableOk, setPregTableOk] = useState(null);
   const [showSql, setShowSql] = useState(false);
@@ -2662,6 +2670,7 @@ function UpdateAnimalsImport({ toast }) {
   const fileRef = useRef();
 
   const herdName = (id) => herds.find(h => String(h.id) === String(id))?.name || '—';
+  const ownerName = (id) => id == null ? '' : (partnerships.find(p => String(p.id) === String(id))?.name || '(unknown owner)');
 
   const checkPregTable = useCallback(async () => {
     const { error } = await supabase.from('preg_checks').select('id').limit(1);
@@ -2671,7 +2680,19 @@ function UpdateAnimalsImport({ toast }) {
 
   useEffect(() => {
     supabase.from('herds').select('*').order('name').then(({ data }) => setHerds(data || []));
+    supabase.from('partnerships').select('*').order('name').then(({ data }) => setPartnerships(data || []));
     checkPregTable();
+    (async () => {
+      // Current owner = latest effective_date, same rule as Animal Inventory and the Head Count report
+      const PAGE = 1000; const latest = {};
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase.from('animal_ownership_history').select('id, animal_id, partnership_id, effective_date').order('id', { ascending: true }).range(from, from + PAGE - 1);
+        if (error) { toast(`Couldn't load ownership history: ${error.message}`, 'error'); return; }
+        (data || []).forEach(o => { const cur = latest[o.animal_id]; if (!cur || String(o.effective_date) > String(cur.effective_date)) latest[o.animal_id] = o; });
+        if (!data || data.length < PAGE) break;
+      }
+      setOwnerNow(latest);
+    })();
     (async () => {
       const PAGE = 1000; let rows = [];
       for (let from = 0; ; from += PAGE) {
@@ -2727,6 +2748,9 @@ function UpdateAnimalsImport({ toast }) {
   const buildPreview = () => {
     if (!tagCol) { toast(`Pick the column that holds the ${MATCH_LABEL[matchBy]}`, 'error'); return; }
     if (!animals) { toast('Still loading animals — try again in a second', 'error'); return; }
+    const ownerOn = !!(columnMap.owner || ownerDefault);
+    if (ownerOn && !ownerNow) { toast('Still loading ownership history — try again in a second', 'error'); return; }
+    if (ownerOn && !ownerDate) { toast('Pick an effective date for the ownership change', 'error'); return; }
     const norm = MATCH_NORM[matchBy];
     const index = {}; // normalized tag -> [animals]
     animals.forEach(a => { const k = norm(a[matchBy]); if (k) (index[k] = index[k] || []).push(a); });
@@ -2813,6 +2837,26 @@ function UpdateAnimalsImport({ toast }) {
           else change('vid', 'VID', a.vid, vid);
         }
       }
+      // Ownership — a new dated row in animal_ownership_history (never overwrites the old owner)
+      const ownerRaw = val('owner');
+      const targetOwner = ownerRaw
+        ? partnerships.find(p => normName(p.name) === normName(ownerRaw))
+        : (ownerDefault ? partnerships.find(p => String(p.id) === ownerDefault) : null);
+      if (ownerRaw && !targetOwner) r.errors.push(`Unknown owner "${ownerRaw}" — add it under Partnerships first`);
+      else if (targetOwner) {
+        const cur = ownerNow?.[a.id];
+        if (targetOwner.is_active === false) r.errors.push(`Owner "${targetOwner.name}" is archived`);
+        else if (!cur || String(cur.partnership_id) !== String(targetOwner.id)) {
+          const curDate = cur ? String(cur.effective_date).slice(0, 10) : null;
+          if (curDate && ownerDate < curDate) r.errors.push(`Already has an owner change dated ${curDate} — use that date or later`);
+          else {
+            // Same date as the current entry: correct that row instead of stacking two owners on one day
+            r.owner = { partnership_id: targetOwner.id, replaceRowId: curDate === ownerDate ? cur.id : null, oldPartnershipId: cur?.partnership_id ?? null };
+            r.changes.push({ label: r.owner.replaceRowId ? `Owner (fixes ${curDate} entry)` : 'Owner', from: cur ? ownerName(cur.partnership_id) : '', to: targetOwner.name });
+          }
+        }
+      }
+
       const note = val('notes');
       if (note) r.notesAppend = note;
       return r;
@@ -2871,11 +2915,14 @@ function UpdateAnimalsImport({ toast }) {
     const fieldRows = ok.filter(r => Object.keys(r.patch).length);
     const noteRows = ok.filter(r => r.notesAppend);
     const pregRows = ok.filter(r => r.preg);
-    if (!fieldRows.length && !noteRows.length && !pregRows.length) { toast('Nothing to change', 'error'); return; }
-    if (!window.confirm(`Update ${fieldRows.length + noteRows.filter(r => !Object.keys(r.patch).length).length} animals${pregRows.length ? ` and record ${pregRows.length} preg checks` : ''}?`)) return;
+    const ownerRows = ok.filter(r => r.owner);
+    const touched = new Set([...fieldRows, ...noteRows, ...ownerRows].map(r => r.animal.id)).size;
+    if (!touched && !pregRows.length) { toast('Nothing to change', 'error'); return; }
+    if (!window.confirm(`Update ${touched} animals${ownerRows.length ? ` (${ownerRows.length} owner changes effective ${ownerDate})` : ''}${pregRows.length ? ` and record ${pregRows.length} preg checks` : ''}?`)) return;
     setApplying(true);
     const failed = [];
-    let updated = 0, notesDone = 0, pregDone = 0;
+    const ownerUndo = { inserted: [], replaced: [] };
+    let updated = 0, notesDone = 0, pregDone = 0, ownersDone = 0;
     const stamp = new Date().toISOString();
     try {
       // 1. Field changes — rows with an identical patch go up together
@@ -2897,7 +2944,21 @@ function UpdateAnimalsImport({ toast }) {
         const { error } = await supabase.from('animals').update({ notes: r.animal.notes ? `${r.animal.notes}\n\n${text}` : text, updated_at: stamp }).eq('id', r.animal.id);
         if (error) failed.push({ tag: r.tag, why: `notes: ${error.message}` }); else notesDone++;
       }
-      // 3. Preg history
+      // 3. Ownership — new rows for real changes; same-day corrections update the existing row
+      const inserts = ownerRows.filter(r => !r.owner.replaceRowId);
+      for (let i = 0; i < inserts.length; i += 200) {
+        setProgress(`Recording owners… ${i}/${ownerRows.length}`);
+        const batch = inserts.slice(i, i + 200);
+        const { data, error } = await supabase.from('animal_ownership_history').insert(batch.map(r => ({ animal_id: r.animal.id, partnership_id: r.owner.partnership_id, effective_date: ownerDate }))).select('id');
+        if (error) batch.forEach(r => failed.push({ tag: r.tag, why: `owner: ${error.message}` }));
+        else { ownersDone += (data || []).length; ownerUndo.inserted.push(...(data || []).map(d => d.id)); }
+      }
+      for (const r of ownerRows.filter(r => r.owner.replaceRowId)) {
+        const { data, error } = await supabase.from('animal_ownership_history').update({ partnership_id: r.owner.partnership_id }).eq('id', r.owner.replaceRowId).select('id');
+        if (error || !data?.length) failed.push({ tag: r.tag, why: `owner: ${error?.message || 'not saved (row-level security?)'}` });
+        else { ownersDone++; ownerUndo.replaced.push({ id: r.owner.replaceRowId, partnership_id: r.owner.oldPartnershipId }); }
+      }
+      // 4. Preg history
       if (pregRows.length) {
         const records = pregRows.map(r => ({
           animal_id: r.animal.id, herd_id: r.animal.herd_id || null, check_date: checkDate, ...r.preg,
@@ -2910,10 +2971,10 @@ function UpdateAnimalsImport({ toast }) {
           else pregDone += (data || []).length;
         }
       }
-      const summary = `${updated} animals updated, ${notesDone} notes, ${pregDone} preg checks (${counts.opens} open) from ${fileName}${failed.length ? `; ${failed.length} failed` : ''}`;
+      const summary = `${updated} animals updated, ${ownersDone} owner changes (eff. ${ownerDate}), ${notesDone} notes, ${pregDone} preg checks (${counts.opens} open) from ${fileName}${failed.length ? `; ${failed.length} failed` : ''}`;
       const { error: logErr } = await supabase.from('conversation_log').insert({ input_type: 'csv', raw_input: `CSV update: ${fileName}`, ai_interpretation: summary, action_type: 'data_entry', status: failed.length ? 'failed' : 'completed' });
       if (logErr) console.warn('Entry log not written:', logErr.message);
-      setResult({ updated, notesDone, pregDone, failed, appliedRows: fieldRows });
+      setResult({ updated, notesDone, pregDone, ownersDone, ownerUndo, failed, appliedRows: fieldRows });
       setStep('done');
       toast(failed.length ? `Done with ${failed.length} failures` : 'Records updated!', failed.length ? 'error' : 'success');
     } catch (err) {
@@ -2921,6 +2982,26 @@ function UpdateAnimalsImport({ toast }) {
     }
     setProgress('');
     setApplying(false);
+  };
+
+  const undoOwners = async () => {
+    const { inserted, replaced } = result.ownerUndo;
+    if (!window.confirm(`Reverse ${inserted.length + replaced.length} owner changes from this import?`)) return;
+    setUndoing(true);
+    let bad = 0;
+    for (let i = 0; i < inserted.length; i += 200) {
+      const { error } = await supabase.from('animal_ownership_history').delete().in('id', inserted.slice(i, i + 200));
+      if (error) bad += Math.min(200, inserted.length - i);
+    }
+    for (const u of replaced) {
+      const { error } = await supabase.from('animal_ownership_history').update({ partnership_id: u.partnership_id }).eq('id', u.id);
+      if (error) bad++;
+    }
+    setUndoing(false);
+    if (bad) { toast(`${bad} owner changes couldn't be reversed`, 'error'); return; }
+    setResult(res => ({ ...res, ownersDone: 0, ownerUndo: { inserted: [], replaced: [] }, ownersUndone: true }));
+    await supabase.from('conversation_log').insert({ input_type: 'csv', raw_input: `CSV update undo: ${fileName}`, ai_interpretation: `Reversed ${inserted.length + replaced.length} owner changes`, action_type: 'data_entry', status: 'completed' });
+    toast('Owner changes reversed', 'success');
   };
 
   const reset = () => { setStep('upload'); setCsvData(null); setColumnMap({}); setValueMap({}); setPreview([]); setMissing([]); setResult(null); setTagCol(''); };
@@ -3001,6 +3082,22 @@ function UpdateAnimalsImport({ toast }) {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          <div className="detail-card" style={{marginBottom:'16px'}}>
+            <h3>Ownership</h3>
+            <p style={{color:'var(--ash)', fontSize:'13px', marginTop:'6px'}}>
+              {columnMap.owner ? <>Owner comes from the <strong style={{color:'var(--cream)'}}>{columnMap.owner}</strong> column. Rows with a blank owner use the fallback below.</> : 'Map an Owner column above, or set one owner for every row in the file.'}
+              {' '}The old owner stays in history; the new one starts on the effective date.
+            </p>
+            <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))', gap:'14px', marginTop:'12px'}}>
+              <div className="form-group"><label className="form-label">{columnMap.owner ? 'Fallback owner (blank cells)' : 'Owner for every row'}</label>
+                <select className="form-select" value={ownerDefault} onChange={e => setOwnerDefault(e.target.value)}>
+                  <option value="">— don't change owner —</option>
+                  {partnerships.filter(p => p.is_active !== false).map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
+                </select></div>
+              {(columnMap.owner || ownerDefault) && <div className="form-group"><label className="form-label">Effective date</label><input type="date" className="form-input" value={ownerDate} onChange={e => setOwnerDate(e.target.value)} /></div>}
+            </div>
           </div>
 
           {columnMap.breeding_status && (
@@ -3127,15 +3224,17 @@ function UpdateAnimalsImport({ toast }) {
         <div style={{textAlign:'center', padding:'40px 20px'}}>
           <h2 style={{fontFamily:'Playfair Display, serif', fontSize:'32px', color:'var(--cream)', marginBottom:'16px'}}>Records Updated</h2>
           <div style={{display:'flex', gap:'16px', justifyContent:'center', marginBottom:'24px', flexWrap:'wrap'}}>
-            <div className="stat-card" style={{minWidth:'140px'}}><div className="stat-label">Animals Updated</div><div className="stat-value" style={{color:'var(--sage)'}}>{result.updated}</div></div>
+            {(result.updated > 0 || !(result.ownersDone || result.ownersUndone || result.pregDone || result.notesDone)) && <div className="stat-card" style={{minWidth:'140px'}}><div className="stat-label">Animals Updated</div><div className="stat-value" style={{color:'var(--sage)'}}>{result.updated}</div></div>}
+            {(result.ownersDone > 0 || result.ownersUndone) && <div className="stat-card" style={{minWidth:'140px'}}><div className="stat-label">Owner Changes</div><div className="stat-value" style={{color:'var(--rust)'}}>{result.ownersUndone ? 'undone' : result.ownersDone}</div></div>}
             {result.pregDone > 0 && <div className="stat-card" style={{minWidth:'140px'}}><div className="stat-label">Preg Checks</div><div className="stat-value" style={{color:'var(--hay)'}}>{result.pregDone}</div></div>}
             {result.notesDone > 0 && <div className="stat-card" style={{minWidth:'140px'}}><div className="stat-label">Notes Added</div><div className="stat-value" style={{color:'var(--ash)'}}>{result.notesDone}</div></div>}
             {result.failed.length > 0 && <div className="stat-card" style={{minWidth:'140px'}}><div className="stat-label">Failed</div><div className="stat-value" style={{color:'#e05555'}}>{result.failed.length}</div></div>}
           </div>
           {result.failed.length > 0 && <div style={{textAlign:'left', maxWidth:'640px', margin:'0 auto 20px', background:'rgba(224,85,85,0.1)', border:'1px solid rgba(224,85,85,0.3)', borderRadius:'6px', padding:'12px 16px'}}>{result.failed.map((f, i) => <p key={i} style={{color:'var(--ash)', fontSize:'13px'}}>{f.tag}: {f.why}</p>)}</div>}
-          {result.appliedRows.length > 0 && <p style={{color:'var(--ash)', fontSize:'12px', maxWidth:'560px', margin:'0 auto 16px'}}>The undo file holds the old values of every field changed. Run it back through this page (match on RS ID) to restore them. It doesn't remove notes or preg-check records.</p>}
+          {result.appliedRows.length > 0 && <p style={{color:'var(--ash)', fontSize:'12px', maxWidth:'560px', margin:'0 auto 16px'}}>The undo file holds the old values of every field changed. Owner changes have their own undo button, available until you leave this screen. Run it back through this page (match on RS ID) to restore them. It doesn't remove notes or preg-check records.</p>}
           <div style={{display:'flex', gap:'12px', justifyContent:'center', flexWrap:'wrap'}}>
             {result.appliedRows.length > 0 && <button className="btn btn-secondary" onClick={() => downloadUndo(result.appliedRows)}>⤓ Download Undo File</button>}
+            {(result.ownerUndo.inserted.length + result.ownerUndo.replaced.length) > 0 && <button className="btn btn-secondary" onClick={undoOwners} disabled={undoing}>{undoing ? 'Reversing…' : '↶ Undo Owner Changes'}</button>}
             <button className="btn btn-secondary" onClick={reset}>Update Another File</button>
             <button className="btn btn-primary" onClick={() => window.location.reload()}>View Animals →</button>
           </div>
