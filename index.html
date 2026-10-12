@@ -1148,6 +1148,7 @@ function AnimalDetailModal({ animal, herds, partnerships, animalOwners, onClose,
   const [tab, setTab] = useState('details');
   const [calvingRecords, setCalvingRecords] = useState([]);
   const [breedingEvents, setBreedingEvents] = useState([]);
+  const [pregChecks, setPregChecks] = useState([]);
   const [treatments, setTreatments] = useState([]);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ ...animal, herd_id: animal.herd_id || '' });
@@ -1185,6 +1186,8 @@ function AnimalDetailModal({ animal, herds, partnerships, animalOwners, onClose,
     setCalvingRecords(data || []);
   };
   const fetchBreeding = async () => {
+    // preg_checks may not exist yet (created from Import → Update Existing); an error just means no history
+    supabase.from('preg_checks').select('*').eq('animal_id', animal.id).order('check_date', { ascending: false }).then(({ data, error }) => setPregChecks(error ? [] : (data || [])));
     if (!animal.herd_id) { setBreedingEvents([]); return; } // .eq('herd_id', null) is a malformed filter
     const { data } = await supabase.from('breeding_events').select('*, breeding_event_sires(*, animals(vid))').eq('herd_id', animal.herd_id).order('start_date', { ascending: false });
     setBreedingEvents(data || []);
@@ -1467,6 +1470,19 @@ function AnimalDetailModal({ animal, herds, partnerships, animalOwners, onClose,
 
           {tab === 'breeding' && (
             <div>
+              {pregChecks.length > 0 && (
+                <div className="detail-card" style={{marginBottom:'12px'}}>
+                  <h3 style={{marginBottom:'8px'}}>Preg Checks</h3>
+                  {pregChecks.map(p => (
+                    <div key={p.id} className="detail-row">
+                      <span className="detail-key">{formatDate(p.check_date)}</span>
+                      <span className="detail-val" style={{color: p.result === 'open' ? '#e05555' : 'var(--sage)'}}>
+                        {p.result.toUpperCase()}{p.days_bred != null ? ` · ${p.days_bred} days` : ''}{p.calving_period ? ` · ${p.calving_period}` : ''}{p.expected_calving_date ? ` · due ${formatDate(p.expected_calving_date)}` : ''}{p.technician ? ` · ${p.technician}` : ''}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
               {breedingEvents.length === 0 ? <div className="empty-state"><h3>No breeding records</h3><p>Breeding events for this herd will appear here.</p></div>
               : breedingEvents.map(b => (
                 <div key={b.id} className="detail-card" style={{marginBottom:'12px'}}>
@@ -2244,15 +2260,24 @@ function parseCSVDate(val) {
 }
 
 function parseCSV(text) {
-  const lines = text.trim().split('\n');
+  // Quote-aware: commas or line breaks inside "quoted cells" stay in the cell. Handles CRLF and Excel's BOM.
+  text = String(text || '').replace(/^\uFEFF/, '');
+  const records = []; let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else inQuotes = false; }
+      else field += c;
+    } else if (c === '"') inQuotes = true;
+    else if (c === ',') { row.push(field); field = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(field); records.push(row); row = []; field = ''; }
+    else field += c;
+  }
+  if (field !== '' || row.length) { row.push(field); records.push(row); }
+  const lines = records.filter(r => r.some(v => v.trim()));
   if (lines.length < 2) return { headers: [], rows: [] };
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-  const rows = lines.slice(1).map(line => {
-    const vals = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-    const obj = {};
-    headers.forEach((h, i) => { obj[h] = vals[i] || ''; });
-    return obj;
-  }).filter(r => Object.values(r).some(v => v));
+  const headers = lines[0].map(h => h.trim());
+  const rows = lines.slice(1).map(vals => { const obj = {}; headers.forEach((h, i) => { obj[h] = (vals[i] || '').trim(); }); return obj; });
   return { headers, rows };
 }
 
@@ -2265,6 +2290,21 @@ function validateOwner(ownerName, partnerships) {
 }
 
 function ImportPage({ toast }) {
+  const [mode, setMode] = useState('add');
+  const tab = (m, label) => (
+    <button onClick={() => setMode(m)} style={{flex:1, padding:'12px', border:'none', cursor:'pointer', fontFamily:'IBM Plex Mono, monospace', fontSize:'12px', letterSpacing:'1px', textTransform:'uppercase', background: mode===m ? 'var(--rust)' : 'var(--charcoal)', color: mode===m ? 'var(--cream)' : 'var(--ash)'}}>{label}</button>
+  );
+  return (
+    <div>
+      <div style={{display:'flex', marginBottom:'20px', borderRadius:'6px', overflow:'hidden', border:'1px solid rgba(139,69,19,0.4)'}}>
+        {tab('add', '+ Add New Animals')}{tab('update', '↻ Update Existing')}
+      </div>
+      {mode === 'add' ? <AddAnimalsImport toast={toast} /> : <UpdateAnimalsImport toast={toast} />}
+    </div>
+  );
+}
+
+function AddAnimalsImport({ toast }) {
   const [step, setStep] = useState('upload');
   const [csvData, setCsvData] = useState(null);
   const [columnMap, setColumnMap] = useState({});
@@ -2504,6 +2544,601 @@ function ImportPage({ toast }) {
             {importResult.failed > 0 && <div className="stat-card" style={{minWidth:'140px'}}><div className="stat-label">Failed</div><div className="stat-value" style={{color:'#e05555'}}>{importResult.failed}</div></div>}
           </div>
           <div style={{display:'flex', gap:'12px', justifyContent:'center'}}><button className="btn btn-secondary" onClick={reset}>Import Another File</button><button className="btn btn-primary" onClick={() => window.location.reload()}>View Animals →</button></div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===== CSV UPDATE: EXISTING ANIMALS =====
+// Matches CSV rows to ACTIVE animals by VID, EID or RS ID and changes fields in place. Never inserts animals.
+// Built for preg-check files: result codes (O/B, Open/Bred, days) are mapped to breeding_status, and each
+// row can also write a dated preg_checks record — history the single breeding_status field can't hold.
+const UPDATE_FIELDS = [
+  { key: 'breeding_status', label: 'Preg Result / Breeding Status', hint: 'O/B, Open/Bred, P, days bred… mapped below' },
+  { key: 'days_bred', label: 'Days Bred / Fetal Age', hint: 'Days — sets expected calving date', preg: true },
+  { key: 'calving_period', label: 'Calving Period', hint: 'e.g. Early / Mid / Late, 1st cycle', preg: true },
+  { key: 'herd_name', label: 'Herd', hint: 'Moves the animal — must match a herd name' },
+  { key: 'tag_color', label: 'Tag Color', hint: '' },
+  { key: 'breed', label: 'Breed', hint: '' },
+  { key: 'date_of_birth', label: 'Date of Birth', hint: 'MM/DD/YYYY or YYYY-MM-DD' },
+  { key: 'eid', label: 'EID', hint: 'Sets EID (when matching on VID)' },
+  { key: 'vid', label: 'VID', hint: 'Sets VID (when matching on EID)' },
+  { key: 'notes', label: 'Notes', hint: 'Appended to existing notes' },
+];
+const UPDATE_FIELD_GUESS = [ // order matters: days before result so "Days Bred" isn't taken as the result
+  ['days_bred', /^(days?([ _]?bred)?|fetal([ _]?age)?|dbred|days[ _]?preg(nant)?|age[ _]?of[ _]?preg.*)$/i],
+  ['calving_period', /(period|calving[ _]?(group|window)|cycle)/i],
+  ['breeding_status', /(preg|result|breeding[ _]?status|^status$|^bred$|^open$|^o\/b$)/i],
+  ['herd_name', /^herd([ _]?name)?$/i],
+  ['tag_color', /colou?r/i],
+  ['breed', /^breed$/i],
+  ['date_of_birth', /(birth|dob)/i],
+  ['notes', /(note|comment|remark)/i],
+];
+const MATCH_GUESS = {
+  vid: /^(vid|tag|tag[ _]?(#|no|num(ber)?)|visual([ _]?id)?|cow[ _]?(#|id|tag)?|id[ _]?#?)$/i,
+  eid: /(eid|rfid|electronic|button)/i,
+  id: /^(rs[ _]?id|animal[ _]?id|id)$/i,
+};
+const PREG_METHODS = [['ultrasound','Ultrasound'],['palpation','Palpation'],['blood','Blood test'],['','—']];
+const GESTATION_DAYS = 283;
+
+const PREG_CHECKS_SQL = `-- Run once in Supabase → SQL Editor. Creates preg-check history with the same id types as animals/herds.
+do $$
+declare animal_t text; herd_t text;
+begin
+  select format_type(atttypid, atttypmod) into animal_t from pg_attribute where attrelid = 'public.animals'::regclass and attname = 'id';
+  select format_type(atttypid, atttypmod) into herd_t   from pg_attribute where attrelid = 'public.herds'::regclass   and attname = 'id';
+  execute format($f$
+    create table if not exists public.preg_checks (
+      id bigint generated always as identity primary key,
+      animal_id %s not null references public.animals(id) on delete cascade,
+      herd_id %s references public.herds(id) on delete set null,  -- herd at time of check, for open % by herd
+      check_date date not null,
+      result text not null check (result in ('open','bred')),
+      days_bred integer check (days_bred between 0 and 300),
+      calving_period text,
+      expected_calving_date date,
+      method text,
+      technician text,
+      source text,
+      notes text,
+      created_at timestamptz not null default now()
+    )$f$, animal_t, herd_t);
+end $$;
+create index if not exists preg_checks_animal_idx on public.preg_checks (animal_id, check_date desc);
+create index if not exists preg_checks_date_idx on public.preg_checks (check_date);
+alter table public.preg_checks enable row level security;
+drop policy if exists "authenticated full access" on public.preg_checks;
+create policy "authenticated full access" on public.preg_checks for all to authenticated using (true) with check (true);`;
+
+const normVid = (v) => { const s = String(v ?? '').trim().toUpperCase(); return /^\d+$/.test(s) ? String(parseInt(s, 10)) : s; };
+const normEid = (v) => String(v ?? '').replace(/[\s\-.]/g, '');
+const normId = (v) => String(v ?? '').trim().toLowerCase();
+const MATCH_NORM = { vid: normVid, eid: normEid, id: normId };
+const MATCH_LABEL = { vid: 'VID', eid: 'EID', id: 'RS ID' };
+
+const guessBreedingStatus = (raw, bredDefault) => {
+  const v = String(raw ?? '').trim().toLowerCase().replace(/\s+/g, '_');
+  if (!v) return '';
+  if (BREEDING_VALUES.includes(v)) return v;
+  if (['o','op','opn','open','empty','mt','neg','negative','n','no','-','x'].includes(v)) return 'open';
+  if (['b','bred','p','pg','preg','pregnant','pos','positive','y','yes','+','e','m','l','early','mid','middle','late','1st','2nd','3rd','first','second','third'].includes(v)) return bredDefault;
+  if (/^\d+(\.\d+)?$/.test(v)) return Number(v) > 0 ? bredDefault : 'open';
+  if (v.startsWith('bred') || v.startsWith('preg')) return bredDefault;
+  if (v.startsWith('open')) return 'open';
+  return '';
+};
+const isNumeric = (v) => /^\d+(\.\d+)?$/.test(String(v ?? '').trim());
+const addDays = (isoDate, n) => { const d = new Date(isoDate + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const csvCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+
+function UpdateAnimalsImport({ toast }) {
+  const [step, setStep] = useState('upload');
+  const [fileName, setFileName] = useState('');
+  const [csvData, setCsvData] = useState(null);
+  const [matchBy, setMatchBy] = useState('vid');
+  const [herdScope, setHerdScope] = useState('');
+  const [tagCol, setTagCol] = useState('');
+  const [columnMap, setColumnMap] = useState({});
+  const [bredDefault, setBredDefault] = useState('bred_spring');
+  const [valueMap, setValueMap] = useState({});
+  const [recordPreg, setRecordPreg] = useState(true);
+  const [checkDate, setCheckDate] = useState(todayLocal());
+  const [method, setMethod] = useState('ultrasound');
+  const [technician, setTechnician] = useState('');
+  const [herds, setHerds] = useState([]);
+  const [animals, setAnimals] = useState(null);
+  const [pregTableOk, setPregTableOk] = useState(null);
+  const [showSql, setShowSql] = useState(false);
+  const [preview, setPreview] = useState([]);
+  const [missing, setMissing] = useState([]);
+  const [showMissing, setShowMissing] = useState(false);
+  const [filter, setFilter] = useState('all');
+  const [applying, setApplying] = useState(false);
+  const [progress, setProgress] = useState('');
+  const [result, setResult] = useState(null);
+  const fileRef = useRef();
+
+  const herdName = (id) => herds.find(h => String(h.id) === String(id))?.name || '—';
+
+  const checkPregTable = useCallback(async () => {
+    const { error } = await supabase.from('preg_checks').select('id').limit(1);
+    setPregTableOk(!error);
+    if (error) setRecordPreg(false);
+  }, []);
+
+  useEffect(() => {
+    supabase.from('herds').select('*').order('name').then(({ data }) => setHerds(data || []));
+    checkPregTable();
+    (async () => {
+      const PAGE = 1000; let rows = [];
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase.from('animals').select('id, vid, eid, sex, herd_id, breeding_status, tag_color, breed, date_of_birth, notes').eq('status', 'active').order('id', { ascending: true }).range(from, from + PAGE - 1);
+        if (error) { toast(`Couldn't load animals: ${error.message}`, 'error'); return; }
+        rows = rows.concat(data || []);
+        if (!data || data.length < PAGE) break;
+      }
+      setAnimals(rows);
+    })();
+  }, []);
+
+  const handleFile = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const { headers, rows } = parseCSV(e.target.result);
+      if (!headers.length || !rows.length) { toast('No rows found in that file', 'error'); return; }
+      setFileName(file.name);
+      setCsvData({ headers, rows });
+      // Guess the tag column for the chosen match type, then the field columns (each header used once)
+      const used = new Set();
+      const tag = headers.find(h => MATCH_GUESS[matchBy].test(h.trim())) || '';
+      if (tag) used.add(tag);
+      setTagCol(tag);
+      const map = {};
+      UPDATE_FIELD_GUESS.forEach(([key, re]) => {
+        if (key === matchBy) return;
+        const h = headers.find(h => !used.has(h) && re.test(h.trim()));
+        if (h) { map[key] = h; used.add(h); }
+      });
+      setColumnMap(map);
+      setValueMap({});
+      setStep('map');
+    };
+    reader.readAsText(file);
+  };
+
+  // Distinct values in the result column, with counts, so odd codes get a human decision
+  const resultValues = useMemo(() => {
+    const col = columnMap.breeding_status;
+    if (!csvData || !col) return [];
+    const counts = {};
+    csvData.rows.forEach(r => { const v = String(r[col] ?? '').trim(); counts[v] = (counts[v] || 0) + 1; });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  }, [csvData, columnMap.breeding_status]);
+
+  const mappedStatus = (raw) => {
+    const v = String(raw ?? '').trim();
+    return v in valueMap ? valueMap[v] : guessBreedingStatus(v, bredDefault);
+  };
+
+  const buildPreview = () => {
+    if (!tagCol) { toast(`Pick the column that holds the ${MATCH_LABEL[matchBy]}`, 'error'); return; }
+    if (!animals) { toast('Still loading animals — try again in a second', 'error'); return; }
+    const norm = MATCH_NORM[matchBy];
+    const index = {}; // normalized tag -> [animals]
+    animals.forEach(a => { const k = norm(a[matchBy]); if (k) (index[k] = index[k] || []).push(a); });
+    const vidIndex = {}, eidIndex = {};
+    animals.forEach(a => { if (a.vid) (vidIndex[normVid(a.vid)] = vidIndex[normVid(a.vid)] || []).push(a.id); if (a.eid) (eidIndex[normEid(a.eid)] = eidIndex[normEid(a.eid)] || []).push(a.id); });
+    const seen = {};
+    const doPreg = recordPreg && pregTableOk && !!columnMap.breeding_status;
+
+    const rows = csvData.rows.map((row, i) => {
+      const rowNum = i + 2; // spreadsheet row (header is row 1)
+      const tag = String(row[tagCol] ?? '').trim();
+      const r = { rowNum, tag, animal: null, patch: {}, changes: [], notesAppend: '', preg: null, errors: [], warnings: [] };
+      if (!tag) { r.errors.push('No tag'); return r; }
+      let candidates = index[norm(tag)] || [];
+      if (herdScope) {
+        const inScope = candidates.filter(a => String(a.herd_id) === herdScope);
+        if (!inScope.length && candidates.length) { r.errors.push(`Not in ${herdName(herdScope)} — found in ${[...new Set(candidates.map(a => herdName(a.herd_id)))].join(', ')}`); return r; }
+        candidates = inScope;
+      }
+      if (!candidates.length) { r.errors.push(`No active animal with ${MATCH_LABEL[matchBy]} ${tag}`); return r; }
+      if (candidates.length > 1) { r.errors.push(`${candidates.length} active animals share this tag (${candidates.map(a => herdName(a.herd_id)).join(', ')}) — set a herd scope or fix the duplicate`); return r; }
+      const a = candidates[0];
+      r.animal = a;
+      if (seen[a.id]) { r.errors.push(`Same animal as row ${seen[a.id]}`); return r; }
+      seen[a.id] = rowNum;
+
+      const val = (key) => columnMap[key] ? String(row[columnMap[key]] ?? '').trim() : '';
+      const change = (field, label, from, to, display) => {
+        if ((from ?? '') === (to ?? '')) return;
+        r.patch[field] = to; r.changes.push({ label, from: display ? display(from) : from, to: display ? display(to) : to });
+      };
+
+      // Breeding status / preg result
+      const rawResult = val('breeding_status');
+      if (columnMap.breeding_status && rawResult) {
+        const status = mappedStatus(rawResult);
+        if (!status) r.warnings.push(`Result "${rawResult}" not mapped — skipped`);
+        else {
+          if (!['cow', 'heifer'].includes(a.sex)) r.errors.push(`Breeding status on a ${a.sex} — check the tag`);
+          change('breeding_status', 'Status', a.breeding_status, status, v => v ? v.replace('_', ' ') : '—');
+          if (doPreg && (status === 'open' || status.startsWith('bred'))) {
+            const rawDays = val('days_bred') || (!columnMap.days_bred && isNumeric(rawResult) ? rawResult : '');
+            let days = null;
+            if (rawDays) {
+              if (isNumeric(rawDays)) days = Math.round(Number(rawDays));
+              else if (columnMap.days_bred && columnMap.days_bred !== columnMap.breeding_status) r.warnings.push(`Days "${rawDays}" isn't a number — not recorded`);
+            }
+            if (status === 'open') days = null;
+            if (days !== null && (days < 25 || days > 290)) { r.warnings.push(`${days} days bred looks off — not recorded`); days = null; }
+            r.preg = {
+              result: status === 'open' ? 'open' : 'bred',
+              days_bred: days,
+              calving_period: status === 'open' ? null : (val('calving_period') || null),
+              expected_calving_date: days !== null ? addDays(checkDate, GESTATION_DAYS - days) : null,
+            };
+          }
+        }
+      }
+
+      // Plain fields
+      const herdRaw = val('herd_name');
+      if (herdRaw) {
+        const h = herds.find(h => h.name.toLowerCase() === herdRaw.toLowerCase());
+        if (!h) r.errors.push(`Unknown herd "${herdRaw}"`);
+        else change('herd_id', 'Herd', a.herd_id, h.id, herdName);
+      }
+      const color = val('tag_color').toLowerCase();
+      if (color) change('tag_color', 'Tag color', a.tag_color, color);
+      const breed = val('breed');
+      if (breed) change('breed', 'Breed', a.breed, breed);
+      const dobRaw = val('date_of_birth');
+      if (dobRaw) { const d = parseCSVDate(dobRaw); if (!d) r.errors.push(`Bad date "${dobRaw}"`); else change('date_of_birth', 'DOB', a.date_of_birth, d); }
+      if (matchBy !== 'eid') {
+        const eid = normEid(val('eid'));
+        if (eid && eid !== normEid(a.eid)) {
+          if ((eidIndex[eid] || []).some(id => id !== a.id)) r.errors.push(`EID ${eid} already on another active animal`);
+          else change('eid', 'EID', a.eid, eid);
+        }
+      }
+      if (matchBy !== 'vid') {
+        const vid = val('vid');
+        if (vid && normVid(vid) !== normVid(a.vid)) {
+          if ((vidIndex[normVid(vid)] || []).some(id => id !== a.id)) r.errors.push(`VID ${vid} already on another active animal`);
+          else change('vid', 'VID', a.vid, vid);
+        }
+      }
+      const note = val('notes');
+      if (note) r.notesAppend = note;
+      return r;
+    });
+
+    // Females in the scoped herd that the file never mentioned — lost tags, missed cows, or dead/sold not recorded
+    let miss = [];
+    if (herdScope) {
+      const hit = new Set(rows.filter(r => r.animal).map(r => r.animal.id));
+      miss = animals.filter(a => String(a.herd_id) === herdScope && ['cow', 'heifer'].includes(a.sex) && !hit.has(a.id));
+    }
+    setPreview(rows);
+    setMissing(miss);
+    setFilter('all');
+    setStep('preview');
+  };
+
+  const counts = useMemo(() => {
+    const ok = preview.filter(r => r.animal && !r.errors.length);
+    return {
+      changes: ok.filter(r => r.changes.length || r.notesAppend).length,
+      preg: ok.filter(r => r.preg).length,
+      opens: ok.filter(r => r.preg?.result === 'open' || r.patch.breeding_status === 'open').length,
+      noChange: ok.filter(r => !r.changes.length && !r.notesAppend && !r.preg).length,
+      errors: preview.filter(r => r.errors.length).length,
+      warnings: preview.filter(r => !r.errors.length && r.warnings.length).length,
+    };
+  }, [preview]);
+
+  const visibleRows = preview.filter(r =>
+    filter === 'all' ? true :
+    filter === 'errors' ? r.errors.length > 0 :
+    filter === 'changes' ? (!r.errors.length && (r.changes.length || r.notesAppend)) :
+    filter === 'opens' ? (!r.errors.length && (r.preg?.result === 'open' || r.patch.breeding_status === 'open')) :
+    filter === 'warnings' ? (!r.errors.length && r.warnings.length) : true);
+
+  // Before-values of every changed field, matched on RS ID — re-run it through this page to put fields back
+  const downloadUndo = (rows) => {
+    const fields = ['breeding_status', 'herd_name', 'tag_color', 'breed', 'date_of_birth', 'eid', 'vid'];
+    const lines = [['rs_id', ...fields].join(',')];
+    rows.forEach(r => {
+      const a = r.animal, p = r.patch;
+      lines.push([a.id,
+        'breeding_status' in p ? a.breeding_status : '', 'herd_id' in p ? herdName(a.herd_id) : '',
+        'tag_color' in p ? a.tag_color : '', 'breed' in p ? a.breed : '', 'date_of_birth' in p ? a.date_of_birth : '',
+        'eid' in p ? a.eid : '', 'vid' in p ? a.vid : ''].map(csvCell).join(','));
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a'); link.href = url; link.download = `ranch_savvy_undo_${todayLocal()}.csv`; link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const apply = async () => {
+    const ok = preview.filter(r => r.animal && !r.errors.length);
+    const fieldRows = ok.filter(r => Object.keys(r.patch).length);
+    const noteRows = ok.filter(r => r.notesAppend);
+    const pregRows = ok.filter(r => r.preg);
+    if (!fieldRows.length && !noteRows.length && !pregRows.length) { toast('Nothing to change', 'error'); return; }
+    if (!window.confirm(`Update ${fieldRows.length + noteRows.filter(r => !Object.keys(r.patch).length).length} animals${pregRows.length ? ` and record ${pregRows.length} preg checks` : ''}?`)) return;
+    setApplying(true);
+    const failed = [];
+    let updated = 0, notesDone = 0, pregDone = 0;
+    const stamp = new Date().toISOString();
+    try {
+      // 1. Field changes — rows with an identical patch go up together
+      const groups = {};
+      fieldRows.forEach(r => { const k = JSON.stringify(r.patch); (groups[k] = groups[k] || []).push(r); });
+      let done = 0;
+      for (const [k, rows] of Object.entries(groups)) {
+        const ids = rows.map(r => r.animal.id);
+        setProgress(`Updating animals… ${done}/${fieldRows.length}`);
+        const { data, error } = await chunkedIn(ids, (chunk) => supabase.from('animals').update({ ...JSON.parse(k), updated_at: stamp }).in('id', chunk).select('id'));
+        const got = new Set((data || []).map(d => d.id));
+        rows.forEach(r => { if (!error && got.has(r.animal.id)) updated++; else failed.push({ tag: r.tag, why: error?.message || 'not saved (row-level security?)' }); });
+        done += rows.length;
+      }
+      // 2. Notes — appended per animal, matching Bulk Edit's format
+      for (const r of noteRows) {
+        setProgress(`Adding notes… ${notesDone}/${noteRows.length}`);
+        const text = `${checkDate}: ${r.notesAppend}`;
+        const { error } = await supabase.from('animals').update({ notes: r.animal.notes ? `${r.animal.notes}\n\n${text}` : text, updated_at: stamp }).eq('id', r.animal.id);
+        if (error) failed.push({ tag: r.tag, why: `notes: ${error.message}` }); else notesDone++;
+      }
+      // 3. Preg history
+      if (pregRows.length) {
+        const records = pregRows.map(r => ({
+          animal_id: r.animal.id, herd_id: r.animal.herd_id || null, check_date: checkDate, ...r.preg,
+          method: method || null, technician: technician.trim() || null, source: `csv: ${fileName}`.slice(0, 200),
+        }));
+        for (let i = 0; i < records.length; i += 200) {
+          setProgress(`Recording preg checks… ${i}/${records.length}`);
+          const { data, error } = await supabase.from('preg_checks').insert(records.slice(i, i + 200)).select('id');
+          if (error) failed.push({ tag: `preg rows ${i + 1}–${Math.min(i + 200, records.length)}`, why: error.message });
+          else pregDone += (data || []).length;
+        }
+      }
+      const summary = `${updated} animals updated, ${notesDone} notes, ${pregDone} preg checks (${counts.opens} open) from ${fileName}${failed.length ? `; ${failed.length} failed` : ''}`;
+      const { error: logErr } = await supabase.from('conversation_log').insert({ input_type: 'csv', raw_input: `CSV update: ${fileName}`, ai_interpretation: summary, action_type: 'data_entry', status: failed.length ? 'failed' : 'completed' });
+      if (logErr) console.warn('Entry log not written:', logErr.message);
+      setResult({ updated, notesDone, pregDone, failed, appliedRows: fieldRows });
+      setStep('done');
+      toast(failed.length ? `Done with ${failed.length} failures` : 'Records updated!', failed.length ? 'error' : 'success');
+    } catch (err) {
+      toast(`Update failed: ${err.message}`, 'error');
+    }
+    setProgress('');
+    setApplying(false);
+  };
+
+  const reset = () => { setStep('upload'); setCsvData(null); setColumnMap({}); setValueMap({}); setPreview([]); setMissing([]); setResult(null); setTagCol(''); };
+
+  const mono = { fontFamily: 'IBM Plex Mono, monospace' };
+  const chip = (key, label, n, color) => (
+    <button key={key} className={`btn ${filter === key ? 'btn-secondary' : 'btn-ghost'}`} onClick={() => setFilter(key)} style={{ fontSize: '12px', padding: '6px 12px' }}>
+      <span style={{ color }}>{n}</span>&nbsp;{label}
+    </button>
+  );
+  const sampleOf = (col) => (csvData?.rows.find(r => String(r[col] ?? '').trim())?.[col]) || '—';
+
+  return (
+    <div>
+      <div style={{display:'flex', gap:'0', marginBottom:'28px', background:'var(--charcoal)', borderRadius:'6px', border:'1px solid rgba(139,69,19,0.3)', overflow:'hidden'}}>
+        {['upload','map','preview','done'].map((s, i) => (
+          <div key={s} style={{flex:1, padding:'12px', textAlign:'center', ...mono, fontSize:'11px', letterSpacing:'2px', textTransform:'uppercase', background: step===s?'rgba(193,68,14,0.2)':'transparent', color: step===s?'var(--hay)':'var(--ash)', borderRight: i<3?'1px solid rgba(139,69,19,0.3)':'none'}}>
+            {i+1}. {s}
+          </div>
+        ))}
+      </div>
+
+      {step === 'upload' && (
+        <div>
+          <div className="detail-card" style={{marginBottom:'20px'}}>
+            <h3>Update Existing Animals</h3>
+            <p style={{color:'var(--ash)', fontSize:'14px', lineHeight:'1.7', marginTop:'8px'}}>
+              Each row is matched to an <strong style={{color:'var(--cream)'}}>active</strong> animal by tag and only the columns you map get changed. Nothing new is created.
+              Blank cells leave the existing value alone. Use this for preg-check results, retagging, herd moves, or fixing a batch of records.
+            </p>
+          </div>
+          <div className="detail-card" style={{marginBottom:'20px'}}>
+            <h3>Matching</h3>
+            <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))', gap:'14px', marginTop:'10px'}}>
+              <div className="form-group"><label className="form-label">Match rows on</label>
+                <select className="form-select" value={matchBy} onChange={e => setMatchBy(e.target.value)}>
+                  <option value="vid">VID (visual tag)</option><option value="eid">EID (electronic tag)</option><option value="id">RS ID (undo files)</option>
+                </select></div>
+              <div className="form-group"><label className="form-label">Limit to herd (recommended)</label>
+                <select className="form-select" value={herdScope} onChange={e => setHerdScope(e.target.value)}>
+                  <option value="">All herds</option>{herds.map(h => <option key={h.id} value={String(h.id)}>{h.name}</option>)}
+                </select></div>
+            </div>
+            <p style={{color:'var(--ash)', fontSize:'12px', marginTop:'8px'}}>Picking a herd settles tags that repeat across herds, and the preview will list cows in that herd the file didn't include.</p>
+          </div>
+          <div style={{border:'2px dashed rgba(139,69,19,0.4)', borderRadius:'6px', padding:'48px 20px', textAlign:'center', cursor:'pointer', background:'var(--charcoal)'}} onClick={() => fileRef.current?.click()} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); handleFile(e.dataTransfer.files[0]); }}>
+            <p style={{color:'var(--cream)', fontSize:'15px', fontWeight:'600', marginBottom:'6px'}}>Drop CSV file here or click to browse</p>
+            <p style={{color:'var(--ash)', fontSize:'13px'}}>{animals ? `${animals.length.toLocaleString()} active animals loaded` : 'Loading animals…'}</p>
+            <input ref={fileRef} type="file" accept=".csv,text/csv" style={{display:'none'}} onChange={e => { handleFile(e.target.files[0]); e.target.value = ''; }} />
+          </div>
+        </div>
+      )}
+
+      {step === 'map' && csvData && (
+        <div>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px', gap:'12px', flexWrap:'wrap'}}>
+            <div><h2 style={{fontFamily:'Playfair Display, serif', fontSize:'20px', color:'var(--cream)'}}>Map Your Columns</h2><p style={{color:'var(--ash)', fontSize:'13px', marginTop:'4px'}}>{fileName} · {csvData.rows.length} rows · matching on {MATCH_LABEL[matchBy]}{herdScope ? ` in ${herdName(herdScope)}` : ''}</p></div>
+            <button className="btn btn-ghost" onClick={reset}>← Back</button>
+          </div>
+
+          <div className="detail-card" style={{marginBottom:'16px'}}>
+            <div className="form-group"><label className="form-label" style={{color:'var(--rust)'}}>* Column with the {MATCH_LABEL[matchBy]}</label>
+              <select className="form-select" value={tagCol} onChange={e => setTagCol(e.target.value)}><option value="">-- Pick column --</option>{csvData.headers.map(h => <option key={h} value={h}>{h}</option>)}</select>
+              {tagCol && <span style={{color:'var(--sage)', fontSize:'12px', ...mono, marginTop:'6px', display:'block'}}>e.g. {sampleOf(tagCol)}</span>}
+            </div>
+          </div>
+
+          <div className="table-wrap" style={{marginBottom:'16px'}}>
+            <table>
+              <thead><tr><th>Ranch Savvy Field</th><th>Your CSV Column</th><th>Sample</th></tr></thead>
+              <tbody>
+                {UPDATE_FIELDS.filter(f => f.key !== matchBy).map(f => (
+                  <tr key={f.key}>
+                    <td><div style={{color:'var(--cream)', fontSize:'13px'}}>{f.label}</div>{f.hint && <div style={{color:'var(--ash)', fontSize:'11px'}}>{f.hint}</div>}</td>
+                    <td><select className="form-select" value={columnMap[f.key] || ''} onChange={e => setColumnMap(m => ({...m, [f.key]: e.target.value}))} style={{minWidth:'160px'}}><option value="">-- Skip --</option>{csvData.headers.map(h => <option key={h} value={h}>{h}</option>)}</select></td>
+                    <td style={{color:'var(--sage)', fontSize:'13px', ...mono}}>{columnMap[f.key] ? sampleOf(columnMap[f.key]) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {columnMap.breeding_status && (
+            <div className="detail-card" style={{marginBottom:'16px'}}>
+              <h3>Preg Results → Breeding Status</h3>
+              <div className="form-group" style={{maxWidth:'260px', marginTop:'10px'}}><label className="form-label">Bred cows calve in</label>
+                <select className="form-select" value={bredDefault} onChange={e => { setBredDefault(e.target.value); setValueMap({}); }}><option value="bred_spring">Spring (bred spring)</option><option value="bred_fall">Fall (bred fall)</option></select></div>
+              <div className="table-wrap" style={{marginTop:'10px'}}>
+                <table>
+                  <thead><tr><th>Value in file</th><th>Rows</th><th>Set status to</th></tr></thead>
+                  <tbody>
+                    {resultValues.map(([v, n]) => {
+                      const cur = mappedStatus(v);
+                      return (
+                        <tr key={v}>
+                          <td style={mono}>{v === '' ? <span style={{color:'var(--ash)'}}>(blank)</span> : v}</td>
+                          <td style={{color:'var(--ash)'}}>{n}</td>
+                          <td>{v === '' ? <span style={{color:'var(--ash)', fontSize:'12px'}}>left unchanged</span> :
+                            <select className="form-select" value={cur} onChange={e => setValueMap(m => ({...m, [v]: e.target.value}))} style={{minWidth:'150px', borderColor: cur ? undefined : '#e05555'}}>
+                              <option value="">— skip —</option>{BREEDING_VALUES.map(b => <option key={b} value={b}>{b.replace('_', ' ')}</option>)}
+                            </select>}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {resultValues.length > 12 && <p style={{color:'var(--ash)', fontSize:'12px', marginTop:'8px'}}>Lots of distinct values — if this column is days bred, numbers map to bred and 0 to open automatically.</p>}
+
+              <div style={{borderTop:'1px solid rgba(139,69,19,0.3)', marginTop:'16px', paddingTop:'14px'}}>
+                {pregTableOk === false ? (
+                  <div>
+                    <p style={{color:'var(--hay)', fontSize:'13px'}}>Preg-check history isn't set up yet, so only breeding status will change (no dated record, days bred, or calving date).</p>
+                    <div style={{display:'flex', gap:'10px', marginTop:'10px', flexWrap:'wrap'}}>
+                      <button className="btn btn-secondary" onClick={() => setShowSql(s => !s)}>{showSql ? 'Hide' : 'Show'} setup SQL</button>
+                      <button className="btn btn-ghost" onClick={checkPregTable}>I ran it — check again</button>
+                    </div>
+                    {showSql && <div style={{marginTop:'10px'}}>
+                      <p style={{color:'var(--ash)', fontSize:'12px', marginBottom:'6px'}}>Supabase → SQL Editor → New query → paste → Run.</p>
+                      <textarea readOnly value={PREG_CHECKS_SQL} onFocus={e => e.target.select()} style={{width:'100%', height:'220px', ...mono, fontSize:'11px', background:'var(--charcoal)', color:'var(--cream)', border:'1px solid rgba(139,69,19,0.4)', borderRadius:'4px', padding:'8px'}} />
+                      <button className="btn btn-ghost" style={{marginTop:'6px'}} onClick={() => { navigator.clipboard?.writeText(PREG_CHECKS_SQL); toast('SQL copied', 'success'); }}>Copy SQL</button>
+                    </div>}
+                  </div>
+                ) : (
+                  <div>
+                    <label style={{display:'flex', gap:'8px', alignItems:'center', color:'var(--cream)', fontSize:'14px', cursor:'pointer'}}>
+                      <input type="checkbox" checked={recordPreg} disabled={!pregTableOk} onChange={e => setRecordPreg(e.target.checked)} /> Record as a preg check (keeps history, days bred, expected calving date)
+                    </label>
+                    {recordPreg && <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:'14px', marginTop:'12px'}}>
+                      <div className="form-group"><label className="form-label">Check date</label><input type="date" className="form-input" value={checkDate} onChange={e => setCheckDate(e.target.value || todayLocal())} /></div>
+                      <div className="form-group"><label className="form-label">Method</label><select className="form-select" value={method} onChange={e => setMethod(e.target.value)}>{PREG_METHODS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
+                      <div className="form-group"><label className="form-label">Vet / technician</label><input className="form-input" value={technician} onChange={e => setTechnician(e.target.value)} placeholder="optional" /></div>
+                    </div>}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div style={{display:'flex', justifyContent:'flex-end', gap:'10px'}}><button className="btn btn-ghost" onClick={reset}>← Back</button><button className="btn btn-primary" onClick={buildPreview} disabled={!tagCol || !animals}>Preview Changes →</button></div>
+        </div>
+      )}
+
+      {step === 'preview' && (
+        <div>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px', gap:'12px', flexWrap:'wrap'}}>
+            <div><h2 style={{fontFamily:'Playfair Display, serif', fontSize:'20px', color:'var(--cream)'}}>Preview Changes</h2><p style={{color:'var(--ash)', fontSize:'13px', marginTop:'4px'}}>Nothing is saved until you click Apply. Rows with errors are skipped.</p></div>
+            <button className="btn btn-ghost" onClick={() => setStep('map')}>← Remap</button>
+          </div>
+          <div style={{display:'flex', gap:'8px', flexWrap:'wrap', marginBottom:'14px'}}>
+            {chip('all', 'rows', preview.length, 'var(--cream)')}
+            {chip('changes', 'with changes', counts.changes, 'var(--sage)')}
+            {counts.opens > 0 && chip('opens', 'open', counts.opens, '#e05555')}
+            {counts.warnings > 0 && chip('warnings', 'warnings', counts.warnings, 'var(--hay)')}
+            {counts.errors > 0 && chip('errors', 'skipped', counts.errors, '#e05555')}
+          </div>
+          <p style={{color:'var(--ash)', fontSize:'13px', marginBottom:'14px'}}>
+            {counts.preg > 0 && <span>{counts.preg} preg checks will be recorded for {checkDate}. </span>}
+            {counts.noChange > 0 && <span>{counts.noChange} rows already match RS. </span>}
+          </p>
+
+          {missing.length > 0 && (
+            <div style={{background:'rgba(212,160,23,0.08)', border:'1px solid rgba(212,160,23,0.3)', borderRadius:'6px', padding:'12px 16px', marginBottom:'16px'}}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:'10px'}}>
+                <span style={{color:'var(--hay)', fontSize:'13px'}}>{missing.length} active cows/heifers in {herdName(herdScope)} aren't in this file — missed, lost tag, or dead/sold not recorded?</span>
+                <button className="btn btn-ghost" style={{fontSize:'12px'}} onClick={() => setShowMissing(s => !s)}>{showMissing ? 'Hide' : 'Show'}</button>
+              </div>
+              {showMissing && <p style={{color:'var(--ash)', fontSize:'12px', ...mono, marginTop:'8px', lineHeight:'1.8'}}>{missing.map(a => a.vid || a.eid || '(no tag)').sort((x, y) => String(x).localeCompare(String(y), undefined, { numeric: true })).join(' · ')}</p>}
+            </div>
+          )}
+
+          <div className="table-wrap" style={{marginBottom:'20px'}}>
+            <table>
+              <thead><tr><th>Row</th><th>Tag</th><th>Herd</th><th>Changes</th><th>Preg</th><th></th></tr></thead>
+              <tbody>
+                {visibleRows.map(r => (
+                  <tr key={r.rowNum} style={{opacity: r.errors.length ? 0.55 : 1}}>
+                    <td style={{color:'var(--ash)', fontSize:'12px'}}>{r.rowNum}</td>
+                    <td className="td-mono">{r.tag || '—'}</td>
+                    <td style={{fontSize:'12px', color:'var(--ash)'}}>{r.animal ? herdName(r.animal.herd_id) : '—'}</td>
+                    <td style={{fontSize:'12px'}}>
+                      {r.changes.map((c, i) => <div key={i}><span style={{color:'var(--ash)'}}>{c.label}:</span> <span style={{color:'var(--ash)', textDecoration:'line-through'}}>{c.from || '—'}</span> → <span style={{color: c.to === 'open' ? '#e05555' : 'var(--sage)'}}>{c.to}</span></div>)}
+                      {r.notesAppend && <div><span style={{color:'var(--ash)'}}>Note:</span> <span style={{color:'var(--cream)'}}>+ {r.notesAppend}</span></div>}
+                      {!r.changes.length && !r.notesAppend && !r.errors.length && <span style={{color:'var(--ash)'}}>no change</span>}
+                      {r.errors.map((e, i) => <div key={'e'+i} style={{color:'#e05555'}}>⚠ {e}</div>)}
+                      {r.warnings.map((w, i) => <div key={'w'+i} style={{color:'var(--hay)'}}>△ {w}</div>)}
+                    </td>
+                    <td style={{fontSize:'12px', ...mono}}>{r.preg ? <span style={{color: r.preg.result === 'open' ? '#e05555' : 'var(--sage)'}}>{r.preg.result.toUpperCase()}{r.preg.days_bred !== null ? ` ${r.preg.days_bred}d` : ''}{r.preg.calving_period ? ` · ${r.preg.calving_period}` : ''}{r.preg.expected_calving_date ? <div style={{color:'var(--ash)'}}>due {r.preg.expected_calving_date}</div> : null}</span> : '—'}</td>
+                    <td>{r.errors.length ? <span style={{color:'#e05555', fontSize:'11px', ...mono}}>SKIP</span> : (r.changes.length || r.notesAppend || r.preg) ? <span style={{color:'var(--sage)', fontSize:'11px', ...mono}}>✓</span> : null}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{display:'flex', justifyContent:'flex-end', alignItems:'center', gap:'10px', flexWrap:'wrap'}}>
+            {progress && <span style={{color:'var(--ash)', fontSize:'12px', ...mono}}>{progress}</span>}
+            <button className="btn btn-ghost" onClick={() => setStep('map')} disabled={applying}>← Remap</button>
+            <button className="btn btn-primary" onClick={apply} disabled={applying || (counts.changes === 0 && counts.preg === 0)}>{applying ? 'Saving…' : `Apply ${counts.changes} changes${counts.preg ? ` + ${counts.preg} preg checks` : ''}`}</button>
+          </div>
+        </div>
+      )}
+
+      {step === 'done' && result && (
+        <div style={{textAlign:'center', padding:'40px 20px'}}>
+          <h2 style={{fontFamily:'Playfair Display, serif', fontSize:'32px', color:'var(--cream)', marginBottom:'16px'}}>Records Updated</h2>
+          <div style={{display:'flex', gap:'16px', justifyContent:'center', marginBottom:'24px', flexWrap:'wrap'}}>
+            <div className="stat-card" style={{minWidth:'140px'}}><div className="stat-label">Animals Updated</div><div className="stat-value" style={{color:'var(--sage)'}}>{result.updated}</div></div>
+            {result.pregDone > 0 && <div className="stat-card" style={{minWidth:'140px'}}><div className="stat-label">Preg Checks</div><div className="stat-value" style={{color:'var(--hay)'}}>{result.pregDone}</div></div>}
+            {result.notesDone > 0 && <div className="stat-card" style={{minWidth:'140px'}}><div className="stat-label">Notes Added</div><div className="stat-value" style={{color:'var(--ash)'}}>{result.notesDone}</div></div>}
+            {result.failed.length > 0 && <div className="stat-card" style={{minWidth:'140px'}}><div className="stat-label">Failed</div><div className="stat-value" style={{color:'#e05555'}}>{result.failed.length}</div></div>}
+          </div>
+          {result.failed.length > 0 && <div style={{textAlign:'left', maxWidth:'640px', margin:'0 auto 20px', background:'rgba(224,85,85,0.1)', border:'1px solid rgba(224,85,85,0.3)', borderRadius:'6px', padding:'12px 16px'}}>{result.failed.map((f, i) => <p key={i} style={{color:'var(--ash)', fontSize:'13px'}}>{f.tag}: {f.why}</p>)}</div>}
+          {result.appliedRows.length > 0 && <p style={{color:'var(--ash)', fontSize:'12px', maxWidth:'560px', margin:'0 auto 16px'}}>The undo file holds the old values of every field changed. Run it back through this page (match on RS ID) to restore them. It doesn't remove notes or preg-check records.</p>}
+          <div style={{display:'flex', gap:'12px', justifyContent:'center', flexWrap:'wrap'}}>
+            {result.appliedRows.length > 0 && <button className="btn btn-secondary" onClick={() => downloadUndo(result.appliedRows)}>⤓ Download Undo File</button>}
+            <button className="btn btn-secondary" onClick={reset}>Update Another File</button>
+            <button className="btn btn-primary" onClick={() => window.location.reload()}>View Animals →</button>
+          </div>
         </div>
       )}
     </div>
