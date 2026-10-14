@@ -76,6 +76,7 @@
     .badge-heifer { background: rgba(123,167,188,0.2); color: var(--sky); border: 1px solid rgba(123,167,188,0.4); }
     .badge-bull { background: rgba(193,68,14,0.2); color: #e8836a; border: 1px solid rgba(193,68,14,0.4); }
     .badge-steer { background: rgba(212,168,71,0.15); color: var(--hay); border: 1px solid rgba(212,168,71,0.3); }
+    .badge-horse { background: rgba(139,69,19,0.25); color: #d9a066; border: 1px solid rgba(139,69,19,0.45); }
     .badge-calf { background: rgba(184,169,154,0.15); color: var(--ash); border: 1px solid rgba(184,169,154,0.3); }
     .status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
     .status-active { background: #5cb85c; }
@@ -270,7 +271,7 @@ const formatDate = (d) => {
     .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
-const sexLabel = (s) => ({ cow:'Cow', heifer:'Heifer', bull:'Bull', steer:'Steer', calf_male:'Bull Calf', calf_female:'Heifer Calf' }[s] || s);
+const sexLabel = (s) => ({ cow:'Cow', heifer:'Heifer', bull:'Bull', steer:'Steer', calf_male:'Bull Calf', calf_female:'Heifer Calf', horse:'Horse' }[s] || s);
 
 function Toast({ message, type, onClose }) {
   useEffect(() => { const t = setTimeout(onClose, 3500); return () => clearTimeout(t); }, []);
@@ -532,7 +533,7 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
               <div>
                 <label style={{display:'block', fontSize:'11px', color:'var(--ash)', marginBottom:'6px', fontFamily:'IBM Plex Mono, monospace', letterSpacing:'1px'}}>SEX/CLASS</label>
                 <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
-                  {['cow','heifer','bull','steer','calf_male','calf_female'].map(s => (
+                  {['cow','heifer','bull','steer','calf_male','calf_female','horse'].map(s => (
                     <label key={s} style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'13px', color:'var(--cream)'}}>
                       <input type="checkbox" checked={sexFilter.includes(s)} onChange={() => toggleFilter(sexFilter, setSexFilter, s)} />
                       {sexLabel(s)}
@@ -690,7 +691,7 @@ const BULK_FIELDS = {
   vid:               { label: 'VID', input: 'text', clearable: true, uniqueTag: true, placeholder: 'e.g. H607' },
   eid:               { label: 'EID', input: 'text', clearable: true, uniqueTag: true, placeholder: 'e.g. 982000123456789' },
   tag_color:         { label: 'Tag Color', input: 'text', clearable: true, lower: true, list: BULK_TAG_COLORS, placeholder: 'e.g. yellow' },
-  sex:               { label: 'Sex/Class', input: 'select', options: [['cow','Cow'],['heifer','Heifer'],['bull','Bull'],['steer','Steer'],['calf_male','Bull Calf'],['calf_female','Heifer Calf']] },
+  sex:               { label: 'Sex/Class', input: 'select', options: [['cow','Cow'],['heifer','Heifer'],['bull','Bull'],['steer','Steer'],['calf_male','Bull Calf'],['calf_female','Heifer Calf'],['horse','Horse']] },
   breed:             { label: 'Breed', input: 'text', clearable: true, placeholder: 'e.g. Angus, Sim-Angus' },
   date_of_birth:     { label: 'Date of Birth', input: 'date', clearable: true },
   breeding_status:   { label: 'Breeding Status', input: 'select', clearable: true, options: [['open','Open'],['bred_spring','Bred Spring'],['bred_fall','Bred Fall'],['dry','Dry'],['nursing','Nursing'],['unknown','Unknown']] },
@@ -1112,7 +1113,7 @@ function AddAnimalModal({ herds, onClose, onSaved, toast }) {
           <div className="form-grid">
             <div className="form-group"><label className="form-label">Visual ID (VID)</label><input className="form-input" placeholder="e.g. 607" value={form.vid} onChange={e => set('vid', e.target.value)} /></div>
             <div className="form-group"><label className="form-label">Electronic ID (EID)</label><input className="form-input" placeholder="e.g. 982000123456789" value={form.eid} onChange={e => set('eid', e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">Sex / Class *</label><select className="form-select" value={form.sex} onChange={e => set('sex', e.target.value)}><option value="cow">Cow</option><option value="heifer">Heifer</option><option value="bull">Bull</option><option value="steer">Steer</option><option value="calf_male">Bull Calf</option><option value="calf_female">Heifer Calf</option></select></div>
+            <div className="form-group"><label className="form-label">Sex / Class *</label><select className="form-select" value={form.sex} onChange={e => set('sex', e.target.value)}><option value="cow">Cow</option><option value="heifer">Heifer</option><option value="bull">Bull</option><option value="steer">Steer</option><option value="calf_male">Bull Calf</option><option value="calf_female">Heifer Calf</option><option value="horse">Horse</option></select></div>
             <div className="form-group"><label className="form-label">Herd</label><select className="form-select" value={form.herd_id} onChange={e => set('herd_id', e.target.value)}><option value="">-- Select Herd --</option>{herds.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select></div>
             <div className="form-group"><label className="form-label">Date of Birth</label><input type="date" className="form-input" value={form.date_of_birth} onChange={e => set('date_of_birth', e.target.value)} /></div>
             <div className="form-group"><label className="form-label">Breed</label><input className="form-input" placeholder="e.g. Angus, Sim-Angus" value={form.breed} onChange={e => set('breed', e.target.value)} /></div>
@@ -1313,7 +1314,7 @@ function AnimalDetailModal({ animal, herds, partnerships, animalOwners, onClose,
             <div className="form-grid">
               <div className="form-group"><label className="form-label">VID</label><input className="form-input" value={form.vid || ''} onChange={e => setForm(f => ({...f, vid: e.target.value}))} /></div>
               <div className="form-group"><label className="form-label">EID</label><input className="form-input" value={form.eid || ''} onChange={e => setForm(f => ({...f, eid: e.target.value}))} /></div>
-              <div className="form-group"><label className="form-label">Sex</label><select className="form-select" value={form.sex} onChange={e => setForm(f => ({...f, sex: e.target.value}))}><option value="cow">Cow</option><option value="heifer">Heifer</option><option value="bull">Bull</option><option value="steer">Steer</option><option value="calf_male">Bull Calf</option><option value="calf_female">Heifer Calf</option></select></div>
+              <div className="form-group"><label className="form-label">Sex</label><select className="form-select" value={form.sex} onChange={e => setForm(f => ({...f, sex: e.target.value}))}><option value="cow">Cow</option><option value="heifer">Heifer</option><option value="bull">Bull</option><option value="steer">Steer</option><option value="calf_male">Bull Calf</option><option value="calf_female">Heifer Calf</option><option value="horse">Horse</option></select></div>
               <div className="form-group"><label className="form-label">Herd</label><select className="form-select" value={form.herd_id} onChange={e => setForm(f => ({...f, herd_id: e.target.value}))}><option value="">-- None --</option>{herds.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select></div>
               <div className="form-group"><label className="form-label">Breeding Status</label><select className="form-select" value={form.breeding_status || ''} onChange={e => setForm(f => ({...f, breeding_status: e.target.value}))}><option value="">-- None --</option><option value="open">Open</option><option value="bred_spring">Bred - Spring</option><option value="bred_fall">Bred - Fall</option><option value="dry">Dry</option><option value="nursing">Nursing</option><option value="unknown">Unknown</option></select></div>
               <div className="form-group"><label className="form-label">Breed</label><input className="form-input" value={form.breed || ''} onChange={e => setForm(f => ({...f, breed: e.target.value}))} /></div>
@@ -1873,8 +1874,8 @@ function HerdsPage({ toast, navigateToAnimals }) {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [editingHerd, setEditingHerd] = useState(null);
-  const [newHerd, setNewHerd] = useState({ name: '', notes: '', default_au: '', starting_weight: '', weight_date: '', adg: '' });
-  const [form, setForm] = useState({ name: '', notes: '', default_au: '', starting_weight: '', weight_date: '', adg: '' });
+  const [newHerd, setNewHerd] = useState({ name: '', notes: '', enterprise: '', default_au: '', starting_weight: '', weight_date: '', adg: '' });
+  const [form, setForm] = useState({ name: '', notes: '', enterprise: '', default_au: '', starting_weight: '', weight_date: '', adg: '' });
 
   const fetchHerds = async () => {
     setLoading(true);
@@ -1884,7 +1885,56 @@ function HerdsPage({ toast, navigateToAnimals }) {
     setLoading(false);
   };
 
-  useEffect(() => { fetchHerds(); }, []);
+  // Enterprise tags (editable list in the `enterprises` table; names should match Ambrook)
+  const [enterprises, setEnterprises] = useState([]);
+  const [showEnt, setShowEnt] = useState(false);
+  const [newEnt, setNewEnt] = useState('');
+  const [entEdits, setEntEdits] = useState({});
+  const fetchEnterprises = async () => {
+    const { data, error } = await supabase.from('enterprises').select('*').order('name');
+    if (error) toast('Error loading enterprises: ' + error.message, 'error');
+    else setEnterprises(data || []);
+  };
+  const activeEntNames = enterprises.filter(e => e.is_active).map(e => e.name);
+  const entUseCount = (name) => herds.filter(h => h.enterprise === name).length;
+
+  const addEnterprise = async () => {
+    const name = newEnt.trim();
+    if (!name) return;
+    if (enterprises.some(e => e.name.toLowerCase() === name.toLowerCase())) { toast('That enterprise already exists', 'error'); return; }
+    const { error } = await supabase.from('enterprises').insert({ name });
+    if (error) toast('Error: ' + error.message, 'error');
+    else { setNewEnt(''); fetchEnterprises(); toast('Enterprise added', 'success'); }
+  };
+
+  const renameEnterprise = async (ent) => {
+    const name = (entEdits[ent.id] ?? ent.name).trim();
+    if (!name || name === ent.name) return;
+    if (enterprises.some(e => e.id !== ent.id && e.name.toLowerCase() === name.toLowerCase())) { toast('That name is already used', 'error'); return; }
+    const { error } = await supabase.from('enterprises').update({ name }).eq('id', ent.id);
+    if (error) { toast('Error: ' + error.message, 'error'); return; }
+    // carry the rename through to every herd tagged with the old name
+    const { error: hErr } = await supabase.from('herds').update({ enterprise: name }).eq('enterprise', ent.name);
+    if (hErr) toast('Enterprise renamed, but herds were not updated: ' + hErr.message, 'error');
+    else toast(`Renamed to "${name}"`, 'success');
+    setEntEdits(x => { const y = {...x}; delete y[ent.id]; return y; });
+    fetchEnterprises(); fetchHerds();
+  };
+
+  const toggleEnterprise = async (ent) => {
+    const { error } = await supabase.from('enterprises').update({ is_active: !ent.is_active }).eq('id', ent.id);
+    if (error) toast('Error: ' + error.message, 'error'); else fetchEnterprises();
+  };
+
+  const deleteEnterprise = async (ent) => {
+    const n = entUseCount(ent.name);
+    if (n > 0) { toast(`${n} herd(s) still use "${ent.name}" — retag them or archive the enterprise instead`, 'error'); return; }
+    if (!confirm(`Delete enterprise "${ent.name}"?`)) return;
+    const { error } = await supabase.from('enterprises').delete().eq('id', ent.id);
+    if (error) toast('Error: ' + error.message, 'error'); else fetchEnterprises();
+  };
+
+  useEffect(() => { fetchHerds(); fetchEnterprises(); }, []);
 
   const [herdCounts, setHerdCounts] = useState({});
   useEffect(() => {
@@ -1900,6 +1950,7 @@ function HerdsPage({ toast, navigateToAnimals }) {
     const payload = {
       name: newHerd.name,
       notes: newHerd.notes || null,
+      enterprise: newHerd.enterprise || null,
       default_au: newHerd.default_au ? parseFloat(newHerd.default_au) : null,
       starting_weight: newHerd.starting_weight ? parseFloat(newHerd.starting_weight) : null,
       weight_date: newHerd.weight_date || null,
@@ -1907,7 +1958,7 @@ function HerdsPage({ toast, navigateToAnimals }) {
     };
     const { error } = await supabase.from('herds').insert(payload);
     if (error) toast('Error: ' + error.message, 'error');
-    else { setShowAdd(false); setNewHerd({ name: '', notes: '', default_au: '', starting_weight: '', weight_date: '', adg: '' }); fetchHerds(); toast('Herd created!', 'success'); }
+    else { setShowAdd(false); setNewHerd({ name: '', notes: '', enterprise: '', default_au: '', starting_weight: '', weight_date: '', adg: '' }); fetchHerds(); toast('Herd created!', 'success'); }
   };
 
   const saveEdit = async () => {
@@ -1915,6 +1966,7 @@ function HerdsPage({ toast, navigateToAnimals }) {
     const payload = {
       name: form.name,
       notes: form.notes || null,
+      enterprise: form.enterprise || null,
       default_au: form.default_au ? parseFloat(form.default_au) : null,
       starting_weight: form.starting_weight ? parseFloat(form.starting_weight) : null,
       weight_date: form.weight_date || null,
@@ -1944,6 +1996,7 @@ function HerdsPage({ toast, navigateToAnimals }) {
   return (
     <div>
       <div style={{display:'flex', justifyContent:'flex-end', marginBottom:'20px'}}>
+        <button className="btn btn-secondary" style={{marginRight:'8px'}} onClick={() => setShowEnt(true)}>Manage Enterprises</button>
         <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Herd</button>
       </div>
       {loading ? <div className="loading"><div className="spinner"></div> Loading...</div> : (
@@ -1955,6 +2008,9 @@ function HerdsPage({ toast, navigateToAnimals }) {
                 <span style={{fontFamily:'IBM Plex Mono', fontSize:'24px', color:'var(--hay)', fontWeight:'700'}}>{herdCounts[h.id] || 0}</span>
               </div>
               <div style={{color:'var(--ash)', fontSize:'12px', fontFamily:'IBM Plex Mono', marginBottom:'8px'}}>HEAD ACTIVE</div>
+              <div style={{fontSize:'11px', fontFamily:'IBM Plex Mono', marginBottom:'8px', color: h.enterprise ? 'var(--sage)' : '#e8836a'}}>
+                ENTERPRISE: {h.enterprise || 'NOT TAGGED'}
+              </div>
 
               {calculateCurrentAU(h) && (
                 <div style={{background:'rgba(139,69,19,0.2)', padding:'8px', borderRadius:'4px', marginBottom:'8px'}}>
@@ -1990,6 +2046,41 @@ function HerdsPage({ toast, navigateToAnimals }) {
         </div>
       )}
 
+      {/* MANAGE ENTERPRISES MODAL */}
+      {showEnt && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowEnt(false)}>
+          <div className="modal" style={{maxWidth:'560px'}}>
+            <div className="modal-header">
+              <h2 className="modal-title">Enterprises</h2>
+              <button className="modal-close" onClick={() => setShowEnt(false)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div style={{fontSize:'12px', color:'var(--ash)', marginBottom:'12px'}}>Names should match Ambrook exactly. Renaming here updates every herd tagged with the old name.</div>
+              <div style={{display:'flex', gap:'8px', marginBottom:'16px'}}>
+                <input className="form-input" style={{flex:1}} placeholder="New enterprise name" value={newEnt} onChange={e => setNewEnt(e.target.value)} onKeyDown={e => e.key === 'Enter' && addEnterprise()} />
+                <button className="btn btn-primary" onClick={addEnterprise}>Add</button>
+              </div>
+              {enterprises.length === 0 && <div style={{color:'var(--ash)', fontSize:'13px'}}>No enterprises yet.</div>}
+              {enterprises.map(ent => {
+                const val = entEdits[ent.id] ?? ent.name;
+                return (
+                  <div key={ent.id} style={{display:'flex', gap:'6px', alignItems:'center', marginBottom:'8px', opacity: ent.is_active ? 1 : 0.55}}>
+                    <input className="form-input" style={{flex:1}} value={val} onChange={e => setEntEdits(x => ({...x, [ent.id]: e.target.value}))} onKeyDown={e => e.key === 'Enter' && renameEnterprise(ent)} />
+                    <span style={{fontFamily:'IBM Plex Mono', fontSize:'11px', color:'var(--ash)', minWidth:'52px', textAlign:'right'}}>{entUseCount(ent.name)} herd{entUseCount(ent.name) === 1 ? '' : 's'}</span>
+                    {val.trim() !== ent.name && <button className="btn btn-primary" style={{padding:'6px 10px', fontSize:'12px'}} onClick={() => renameEnterprise(ent)}>Save</button>}
+                    <button className="btn btn-ghost" style={{padding:'6px 10px', fontSize:'12px'}} onClick={() => toggleEnterprise(ent)}>{ent.is_active ? 'Archive' : 'Restore'}</button>
+                    <button className="btn btn-ghost" style={{padding:'6px 10px', fontSize:'12px'}} onClick={() => deleteEnterprise(ent)}>✕</button>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={() => setShowEnt(false)}>Done</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ADD HERD MODAL */}
       {showAdd && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowAdd(false)}>
@@ -2003,6 +2094,14 @@ function HerdsPage({ toast, navigateToAnimals }) {
                 <div className="form-group full">
                   <label className="form-label">Herd Name *</label>
                   <input className="form-input" placeholder="e.g. Old Cows, Blue Steers" value={newHerd.name} onChange={e => setNewHerd(f => ({...f, name: e.target.value}))} />
+                </div>
+                <div className="form-group full">
+                  <label className="form-label">Enterprise (Ambrook)</label>
+                  <select className="form-select" value={newHerd.enterprise || ''} onChange={e => setNewHerd(f => ({...f, enterprise: e.target.value}))}>
+                    <option value="">-- Select Enterprise --</option>
+                    {activeEntNames.map(en => <option key={en} value={en}>{en}</option>)}
+                    {newHerd.enterprise && !activeEntNames.includes(newHerd.enterprise) && <option value={newHerd.enterprise}>{newHerd.enterprise} (archived / not in list)</option>}
+                  </select>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Default AU (Cows/Bulls)</label>
@@ -2050,6 +2149,14 @@ function HerdsPage({ toast, navigateToAnimals }) {
                 <div className="form-group full">
                   <label className="form-label">Herd Name *</label>
                   <input className="form-input" value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} />
+                </div>
+                <div className="form-group full">
+                  <label className="form-label">Enterprise (Ambrook)</label>
+                  <select className="form-select" value={form.enterprise || ''} onChange={e => setForm(f => ({...f, enterprise: e.target.value}))}>
+                    <option value="">-- Select Enterprise --</option>
+                    {activeEntNames.map(en => <option key={en} value={en}>{en}</option>)}
+                    {form.enterprise && !activeEntNames.includes(form.enterprise) && <option value={form.enterprise}>{form.enterprise} (archived / not in list)</option>}
+                  </select>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Default AU (Cows/Bulls)</label>
@@ -2247,7 +2354,7 @@ const IMPORT_COLUMNS = [
   { key: 'purchase_price_per_head', label: 'Purchase Price', required: false, hint: 'Dollar amount per head (e.g. 1250)' },
   { key: 'notes', label: 'Notes', required: false, hint: 'Any additional notes' },
 ];
-const SEX_VALUES = ['cow','heifer','bull','steer','calf_male','calf_female'];
+const SEX_VALUES = ['cow','heifer','bull','steer','calf_male','calf_female','horse'];
 const BREEDING_VALUES = ['open','bred_spring','bred_fall','dry','nursing','unknown'];
 
 function parseCSVDate(val) {
@@ -3852,7 +3959,7 @@ const hcLocalDate = (ts) => {
 const hcTagColor = (c) => (c || '').trim().toLowerCase();
 const hcCap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 const HC_TAG_ORDER = ['yellow','red','blue','green','orange','white','black','pink','purple'];
-const HC_SEXES = ['cow','heifer','bull','steer','calf_male','calf_female'];
+const HC_SEXES = ['cow','heifer','bull','steer','calf_male','calf_female','horse'];
 const HC_BREEDING = ['open','bred_spring','bred_fall','dry','nursing','unknown'];
 
 const hcArrival = (a) => {
