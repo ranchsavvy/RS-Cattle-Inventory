@@ -191,6 +191,11 @@
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
+// Read before the Supabase client consumes the URL: a password-reset email link lands here with type=recovery
+const ARRIVED_FROM_RESET_LINK = /type=recovery/.test(window.location.hash + window.location.search);
+// Where reset emails send people back to — this page. Must be listed in Supabase → Authentication → URL Configuration → Redirect URLs.
+const APP_URL = window.location.origin + window.location.pathname;
+
 const supabase = window.supabase.createClient(
   'https://tthhlfuqsomgulasjszv.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR0aGhsZnVxc29tZ3VsYXNqc3p2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODM4MjksImV4cCI6MjA4Njc1OTgyOX0.gI_88rFGPbkFgdZccBmcq4LfRJPl-_UuU4JLCI1kvG8'
@@ -300,6 +305,207 @@ const NAV_ICONS = {
   calving_gap: (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="12" cy="16" r="2"/></svg>),
 };
 
+// ===== PROJECTS (Ambrook) =====
+// A project tag rides on the animal, not the herd, so it survives herd moves. Names should match Ambrook Projects.
+// animals.project references projects.name with ON UPDATE CASCADE, so a rename here re-tags every animal in one step,
+// and ON DELETE RESTRICT stops a project that still has cattle from being deleted.
+const PROJECTS_SQL = `-- Run in Supabase → SQL Editor. Safe to re-run: adds whatever is missing.
+-- Ambrook-style projects that stay with an animal across herds, plus a dated log of every project change.
+
+-- 1. Projects
+create table if not exists public.projects (
+  id bigint generated always as identity primary key,
+  name text not null unique,
+  is_active boolean not null default true,
+  notes text,
+  created_at timestamptz not null default now()
+);
+alter table public.projects enable row level security;
+drop policy if exists "authenticated full access" on public.projects;
+create policy "authenticated full access" on public.projects for all to authenticated using (true) with check (true);
+insert into public.projects (name) values ('2027 Blue Steers') on conflict (name) do nothing;
+
+-- 2. Current project on the animal, and the date it joined that project
+alter table public.animals add column if not exists project text
+  references public.projects(name) on update cascade on delete restrict;
+alter table public.animals add column if not exists project_date date;
+create index if not exists animals_project_idx on public.animals (project) where project is not null;
+
+-- 3. Project history: one row per change, dated when it took effect (transfers between projects)
+do $$
+declare animal_t text;
+begin
+  select format_type(atttypid, atttypmod) into animal_t from pg_attribute where attrelid = 'public.animals'::regclass and attname = 'id';
+  execute format($f$
+    create table if not exists public.project_history (
+      id bigint generated always as identity primary key,
+      animal_id %s not null references public.animals(id) on delete cascade,
+      from_project text references public.projects(name) on update cascade on delete restrict,
+      to_project   text references public.projects(name) on update cascade on delete restrict,
+      effective_date date not null,
+      created_at timestamptz not null default now()
+    )$f$, animal_t);
+end $$;
+create index if not exists project_history_animal_idx on public.project_history (animal_id, effective_date, id);
+alter table public.project_history enable row level security;
+drop policy if exists "authenticated full access" on public.project_history;
+create policy "authenticated full access" on public.project_history for all to authenticated using (true) with check (true);
+
+-- 4. Backfill: animals already tagged get a starting history row dated at arrival
+update public.animals set project_date = coalesce(purchase_date, case when not coalesce(purchased, false) then date_of_birth end, created_at::date)
+  where project is not null and project_date is null;
+insert into public.project_history (animal_id, from_project, to_project, effective_date)
+  select a.id, null, a.project, a.project_date from public.animals a
+  where a.project is not null and not exists (select 1 from public.project_history h where h.animal_id = a.id);
+
+-- 5. Every project change writes history, whichever screen or import made it.
+--    The app sends project_date with a change to backdate it; otherwise it's dated today (or the purchase date for a new animal).
+create or replace function public.animals_project_date() returns trigger language plpgsql as $f$
+begin
+  -- A project rename cascades into animals.project; the old name is already gone from projects. Not a transfer.
+  if tg_op = 'UPDATE' and old.project is not null and new.project is not null
+     and not exists (select 1 from public.projects where name = old.project) then return new; end if;
+  if tg_op = 'INSERT' then
+    if new.project is not null then new.project_date := coalesce(new.project_date, new.purchase_date, current_date); end if;
+  elsif new.project is distinct from old.project then
+    if new.project_date is null or new.project_date is not distinct from old.project_date then new.project_date := current_date; end if;
+  end if;
+  return new;
+end $f$;
+create or replace function public.animals_project_history() returns trigger language plpgsql as $f$
+begin
+  if tg_op = 'UPDATE' and old.project is not null and new.project is not null
+     and not exists (select 1 from public.projects where name = old.project) then return null; end if;   -- rename, not a transfer
+  if tg_op = 'INSERT' then
+    if new.project is not null then
+      insert into public.project_history (animal_id, from_project, to_project, effective_date) values (new.id, null, new.project, new.project_date);
+    end if;
+  elsif new.project is distinct from old.project then
+    insert into public.project_history (animal_id, from_project, to_project, effective_date) values (new.id, old.project, new.project, new.project_date);
+  end if;
+  return null;
+end $f$;
+drop trigger if exists animals_project_date_trg on public.animals;
+create trigger animals_project_date_trg before insert or update of project, project_date on public.animals
+  for each row execute function public.animals_project_date();
+drop trigger if exists animals_project_history_trg on public.animals;
+create trigger animals_project_history_trg after insert or update of project on public.animals
+  for each row execute function public.animals_project_history();`;
+
+const fmtMoney = (n) => `$${Math.round(n).toLocaleString()}`;
+
+function ProjectsModal({ projects, projectsReady, animals, onChanged, onView, onClose, toast }) {
+  const [newName, setNewName] = useState('');
+  const [edits, setEdits] = useState({});
+
+  // Per-project roll-up from the loaded inventory — head by status and purchase cost, for squaring up with Ambrook
+  const stats = useMemo(() => {
+    const s = {};
+    animals.forEach(a => {
+      if (!a.project) return;
+      const t = s[a.project] = s[a.project] || { total: 0, active: 0, sold: 0, dead: 0, other: 0, cost: 0, priced: 0 };
+      t.total++;
+      if (['active', 'sold', 'dead'].includes(a.status)) t[a.status]++; else t.other++;
+      if (a.purchase_price_per_head) { t.cost += Number(a.purchase_price_per_head); t.priced++; }
+    });
+    return s;
+  }, [animals]);
+
+  const add = async () => {
+    const name = newName.trim().replace(/\s+/g, ' ');
+    if (!name) return;
+    if (projects.some(p => p.name.toLowerCase() === name.toLowerCase())) { toast('That project already exists', 'error'); return; }
+    const { error } = await supabase.from('projects').insert({ name });
+    if (error) toast('Error: ' + error.message, 'error');
+    else { setNewName(''); onChanged(); toast('Project added', 'success'); }
+  };
+  const rename = async (p) => {
+    const name = (edits[p.id] ?? p.name).trim().replace(/\s+/g, ' ');
+    if (!name || name === p.name) return;
+    if (projects.some(x => x.id !== p.id && x.name.toLowerCase() === name.toLowerCase())) { toast('That name is already used', 'error'); return; }
+    const n = stats[p.name]?.total || 0;
+    if (n && !confirm(`Rename "${p.name}" to "${name}"? ${n} animal${n === 1 ? '' : 's'} will carry the new name.`)) return;
+    const { error } = await supabase.from('projects').update({ name }).eq('id', p.id);
+    if (error) { toast('Error: ' + error.message, 'error'); return; }
+    setEdits(x => { const y = { ...x }; delete y[p.id]; return y; });
+    onChanged(true); toast('Project renamed', 'success');
+  };
+  const toggle = async (p) => {
+    const { error } = await supabase.from('projects').update({ is_active: !p.is_active }).eq('id', p.id);
+    if (error) toast('Error: ' + error.message, 'error'); else onChanged();
+  };
+  const remove = async (p) => {
+    const n = stats[p.name]?.total || 0;
+    if (n > 0) { toast(`${n} animal(s) still carry "${p.name}" — clear them or archive the project instead`, 'error'); return; }
+    if (!confirm(`Delete project "${p.name}"?`)) return;
+    const { error } = await supabase.from('projects').delete().eq('id', p.id);
+    if (error?.code === '23503') toast(`"${p.name}" has cattle in its history — archive it instead so past reports keep working`, 'error');
+    else if (error) toast('Error: ' + error.message, 'error'); else onChanged();
+  };
+
+  const mono = { fontFamily: 'IBM Plex Mono', fontSize: '11px', color: 'var(--ash)' };
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{maxWidth:'640px'}}>
+        <div className="modal-header">
+          <h2 className="modal-title">Projects</h2>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          {!projectsReady ? <>
+            <p style={{fontSize:'13px', color:'var(--ash)', lineHeight:1.5, marginBottom:'10px'}}>The projects table isn't set up yet. Run this once in Supabase → SQL Editor, then reload the page.</p>
+            <textarea readOnly value={PROJECTS_SQL} onFocus={e => e.target.select()} style={{width:'100%', height:'240px', ...mono, color:'var(--cream)', background:'var(--charcoal)', border:'1px solid rgba(139,69,19,0.4)', borderRadius:'4px', padding:'8px'}} />
+            <button className="btn btn-ghost" style={{marginTop:'6px'}} onClick={() => { navigator.clipboard?.writeText(PROJECTS_SQL); toast('SQL copied', 'success'); }}>Copy SQL</button>
+          </> : <>
+            <div style={{fontSize:'12px', color:'var(--ash)', marginBottom:'12px', lineHeight:1.5}}>A project stays with the animal whichever herd it's in. Names should match Ambrook Projects exactly — renaming here re-tags every animal carrying the old name.</div>
+            <div style={{display:'flex', gap:'8px', marginBottom:'16px'}}>
+              <input className="form-input" style={{flex:1}} placeholder="New project name, e.g. 2027 Blue Steers" value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()} />
+              <button className="btn btn-primary" onClick={add}>Add</button>
+            </div>
+            {projects.length === 0 && <div style={{color:'var(--ash)', fontSize:'13px'}}>No projects yet.</div>}
+            {projects.map(p => {
+              const val = edits[p.id] ?? p.name;
+              const t = stats[p.name];
+              return (
+                <div key={p.id} style={{padding:'10px 0', borderBottom:'1px solid rgba(139,69,19,0.2)', opacity: p.is_active ? 1 : 0.55}}>
+                  <div style={{display:'flex', gap:'6px', alignItems:'center'}}>
+                    <input className="form-input" style={{flex:1}} value={val} onChange={e => setEdits(x => ({...x, [p.id]: e.target.value}))} onKeyDown={e => e.key === 'Enter' && rename(p)} />
+                    {val.trim() !== p.name && <button className="btn btn-primary" style={{padding:'6px 10px', fontSize:'12px'}} onClick={() => rename(p)}>Save</button>}
+                    {t && <button className="btn btn-secondary" style={{padding:'6px 10px', fontSize:'12px'}} onClick={() => onView(p.name)}>View</button>}
+                    <button className="btn btn-ghost" style={{padding:'6px 10px', fontSize:'12px'}} onClick={() => toggle(p)}>{p.is_active ? 'Archive' : 'Restore'}</button>
+                    <button className="btn btn-ghost" style={{padding:'6px 10px', fontSize:'12px'}} onClick={() => remove(p)}>✕</button>
+                  </div>
+                  <div style={{...mono, marginTop:'6px'}}>
+                    {t ? <>
+                      {t.total} hd tagged · <span style={{color:'var(--sage)'}}>{t.active} active</span> · {t.sold} sold · {t.dead} dead{t.other ? ` · ${t.other} other` : ''}
+                      {t.priced > 0 && <> · purchase {fmtMoney(t.cost)} ({fmtMoney(t.cost / t.priced)}/hd{t.priced < t.total ? `, ${t.priced} hd priced` : ''})</>}
+                    </> : 'no animals tagged'}
+                  </div>
+                </div>
+              );
+            })}
+          </>}
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-ghost" onClick={onClose}>Done</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Project picker shared by Add / Edit / Bulk Edit. Archived projects only show if already on the record.
+function ProjectSelect({ projects, value, onChange, disabled }) {
+  const active = projects.filter(p => p.is_active).map(p => p.name);
+  return (
+    <select className="form-select" value={value || ''} disabled={disabled} onChange={e => onChange(e.target.value)}>
+      <option value="">-- No Project --</option>
+      {active.map(n => <option key={n} value={n}>{n}</option>)}
+      {value && !active.includes(value) && <option value={value}>{value} (archived)</option>}
+    </select>
+  );
+}
+
 // ===== ANIMALS PAGE =====
 function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
   const [animals, setAnimals] = useState([]);
@@ -315,6 +521,10 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
   const [breedingStatusFilter, setBreedingStatusFilter] = useState([]);
   const [ownerFilter, setOwnerFilter] = useState([]);
   const [purchasedFilter, setPurchasedFilter] = useState('');
+  const [projectFilter, setProjectFilter] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [projectsReady, setProjectsReady] = useState(true);
+  const [showProjects, setShowProjects] = useState(false);
   const [breedFilter, setBreedFilter] = useState('');
   const [dobStartDate, setDobStartDate] = useState('');
   const [dobEndDate, setDobEndDate] = useState('');
@@ -325,7 +535,7 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState({
     vid:true, eid:true, calfId:true, sex:true, herd:true, owner:true,
-    dob:true, tagColor:true, breedingStatus:true, status:true
+    dob:true, tagColor:true, breedingStatus:true, project:true, status:true
   });
   const [page, setPage] = useState(0);
   const [sortColumn, setSortColumn] = useState('vid');
@@ -392,8 +602,13 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
 
   const fetchHerds = async () => { const { data } = await supabase.from('herds').select('*').order('name'); setHerds(data || []); };
   const fetchPartnerships = async () => { const { data } = await supabase.from('partnerships').select('*').order('name'); setPartnerships(data || []); };
+  const fetchProjects = async () => {
+    const { data, error } = await supabase.from('projects').select('*').order('name');
+    setProjectsReady(!error);
+    setProjects(error ? [] : (data || []));
+  };
 
-  useEffect(() => { fetchHerds(); fetchPartnerships(); }, []);
+  useEffect(() => { fetchHerds(); fetchPartnerships(); fetchProjects(); }, []);
   useEffect(() => { fetchAnimals(); }, [fetchAnimals]);
 
   const filteredAnimals = useMemo(() => {
@@ -411,6 +626,7 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
     });
     if (purchasedFilter === 'yes') filtered = filtered.filter(a => a.purchased);
     if (purchasedFilter === 'no') filtered = filtered.filter(a => !a.purchased);
+    if (projectFilter.length > 0) filtered = filtered.filter(a => a.project ? projectFilter.includes(a.project) : projectFilter.includes('NO_PROJECT'));
     if (breedFilter) filtered = filtered.filter(a => a.breed?.toLowerCase().includes(breedFilter.toLowerCase()));
     if (dobStartDate || dobEndDate) filtered = filtered.filter(a => {
       if (!a.date_of_birth) return false;
@@ -431,6 +647,7 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
         case 'dob': aVal=a.date_of_birth||''; bVal=b.date_of_birth||''; break;
         case 'tagColor': aVal=a.tag_color||''; bVal=b.tag_color||''; break;
         case 'breedingStatus': aVal=a.breeding_status||''; bVal=b.breeding_status||''; break;
+        case 'project': aVal=a.project||''; bVal=b.project||''; break;
         case 'status': aVal=a.status||''; bVal=b.status||''; break;
         default: aVal=''; bVal='';
       }
@@ -438,7 +655,7 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
       return 0;
     });
     return filtered;
-  }, [allAnimals, search, herdFilter, sexFilter, statusFilter, breedingStatusFilter, ownerFilter, purchasedFilter, breedFilter, dobStartDate, dobEndDate, animalOwners, partnerships, sortColumn, sortDirection]);
+  }, [allAnimals, search, herdFilter, sexFilter, statusFilter, breedingStatusFilter, ownerFilter, purchasedFilter, projectFilter, breedFilter, dobStartDate, dobEndDate, animalOwners, partnerships, sortColumn, sortDirection]);
 
   const paginatedAnimals = useMemo(() => filteredAnimals.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [filteredAnimals, page]);
 
@@ -449,7 +666,7 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
 
   const toggleFilter = (arr, setArr, val) => { setArr(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]); setPage(0); };
   const handleSort = (column) => { if (sortColumn === column) setSortDirection(d => d==='asc'?'desc':'asc'); else { setSortColumn(column); setSortDirection('asc'); } setPage(0); };
-  const clearAllFilters = () => { setSearch(''); setHerdFilter([]); setSexFilter([]); setStatusFilter(['active']); setBreedingStatusFilter([]); setOwnerFilter([]); setPurchasedFilter(''); setBreedFilter(''); setDobStartDate(''); setDobEndDate(''); setPage(0); };
+  const clearAllFilters = () => { setSearch(''); setHerdFilter([]); setSexFilter([]); setStatusFilter(['active']); setBreedingStatusFilter([]); setOwnerFilter([]); setPurchasedFilter(''); setProjectFilter([]); setBreedFilter(''); setDobStartDate(''); setDobEndDate(''); setPage(0); };
 
   const exportToCSV = () => {
     const headers = []; const rows = [];
@@ -462,6 +679,7 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
     if (visibleColumns.dob) headers.push('Date of Birth');
     if (visibleColumns.tagColor) headers.push('Tag Color');
     if (visibleColumns.breedingStatus) headers.push('Breeding Status');
+    if (visibleColumns.project) headers.push('Project');
     if (visibleColumns.status) headers.push('Status');
     filteredAnimals.forEach(a => {
       const row = [];
@@ -474,10 +692,11 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
       if (visibleColumns.dob) row.push(formatDate(a.date_of_birth)||'');
       if (visibleColumns.tagColor) row.push(a.tag_color||'');
       if (visibleColumns.breedingStatus) row.push(a.breeding_status?.replace('_',' ')||'');
+      if (visibleColumns.project) row.push(a.project||'');
       if (visibleColumns.status) row.push(a.status);
       rows.push(row);
     });
-    const csvContent = [headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n');
+    const csvContent = [headers.join(','), ...rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -509,6 +728,7 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
           </div>
           <button className="btn btn-ghost" onClick={() => setShowAdvanced(!showAdvanced)} style={{whiteSpace:'nowrap'}}>{showAdvanced ? '− Filters' : '+ Filters'}</button>
           <button className="btn btn-ghost" onClick={clearAllFilters} style={{whiteSpace:'nowrap'}}>Clear All</button>
+          <button className="btn btn-ghost" onClick={() => setShowProjects(true)} style={{whiteSpace:'nowrap'}}>Projects</button>
           <button className="btn btn-secondary" onClick={exportToCSV} style={{whiteSpace:'nowrap'}}>⤓ Export CSV ({filteredAnimals.length})</button>
         </div>
 
@@ -579,6 +799,21 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
                 </div>
               </div>
               <div>
+                <label style={{display:'block', fontSize:'11px', color:'var(--ash)', marginBottom:'6px', fontFamily:'IBM Plex Mono, monospace', letterSpacing:'1px'}}>PROJECT</label>
+                <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
+                  <label style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'13px', color:'var(--cream)'}}>
+                    <input type="checkbox" checked={projectFilter.includes('NO_PROJECT')} onChange={() => toggleFilter(projectFilter, setProjectFilter, 'NO_PROJECT')} />
+                    <span style={{color:'var(--ash)', fontStyle:'italic'}}>No Project</span>
+                  </label>
+                  {projects.map(p => (
+                    <label key={p.id} style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'13px', color:'var(--cream)', opacity: p.is_active ? 1 : 0.6}}>
+                      <input type="checkbox" checked={projectFilter.includes(p.name)} onChange={() => toggleFilter(projectFilter, setProjectFilter, p.name)} />
+                      {p.name}{!p.is_active && ' (archived)'}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
                 <label style={{display:'block', fontSize:'11px', color:'var(--ash)', marginBottom:'6px', fontFamily:'IBM Plex Mono, monospace', letterSpacing:'1px'}}>DATE OF BIRTH</label>
                 <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
                   <div>
@@ -609,7 +844,7 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
         <details style={{marginTop:'12px'}}>
           <summary style={{cursor:'pointer', fontSize:'12px', color:'var(--ash)', fontFamily:'IBM Plex Mono, monospace', letterSpacing:'1px'}}>⚙ COLUMN VISIBILITY</summary>
           <div style={{marginTop:'8px', padding:'12px', background:'var(--charcoal)', borderRadius:'4px', display:'flex', flexWrap:'wrap', gap:'12px'}}>
-            {Object.entries({vid:'VID', eid:'EID', calfId:'Calf ID', sex:'Sex', herd:'Herd', owner:'Owner', dob:'DOB', tagColor:'Tag Color', breedingStatus:'Breeding', status:'Status'}).map(([key, label]) => (
+            {Object.entries({vid:'VID', eid:'EID', calfId:'Calf ID', sex:'Sex', herd:'Herd', owner:'Owner', dob:'DOB', tagColor:'Tag Color', breedingStatus:'Breeding', project:'Project', status:'Status'}).map(([key, label]) => (
               <label key={key} style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'13px', color:'var(--cream)'}}>
                 <input type="checkbox" checked={visibleColumns[key]} onChange={() => setVisibleColumns(v => ({...v, [key]: !v[key]}))} />
                 {label}
@@ -641,6 +876,7 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
                 {visibleColumns.dob && <SortTh col="dob" label="Date of Birth" />}
                 {visibleColumns.tagColor && <SortTh col="tagColor" label="Tag Color" />}
                 {visibleColumns.breedingStatus && <SortTh col="breedingStatus" label="Breed Status" />}
+                {visibleColumns.project && <SortTh col="project" label="Project" />}
                 {visibleColumns.status && <SortTh col="status" label="Status" />}
               </tr>
             </thead>
@@ -659,6 +895,7 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
                   {visibleColumns.dob && <td style={{color:'var(--ash)', fontSize:'13px'}}>{formatDate(a.date_of_birth)}</td>}
                   {visibleColumns.tagColor && <td>{a.tag_color ? <span style={{display:'inline-flex', alignItems:'center', gap:'6px', fontSize:'12px', color:'var(--cream)', textTransform:'capitalize'}}><span style={{width:'12px', height:'12px', borderRadius:'50%', background: a.tag_color, border: a.tag_color==='white'?'1px solid var(--ash)':'none'}}></span>{a.tag_color}</span> : '—'}</td>}
                   {visibleColumns.breedingStatus && <td>{a.breeding_status ? <span style={{fontSize:'12px', color: a.breeding_status==='open' ? '#e05555' : 'var(--sage)'}}>{a.breeding_status.replace('_', ' ')}</span> : '—'}</td>}
+                  {visibleColumns.project && <td style={{fontSize:'12px', color: a.project ? 'var(--hay)' : 'var(--ash)'}}>{a.project || '—'}</td>}
                   {visibleColumns.status && <td><span className={`status-dot status-${a.status}`}></span>{a.status}</td>}
                 </tr>
               ))}
@@ -675,9 +912,13 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
         </>}
       </div>
 
-      {showAdd && <AddAnimalModal herds={herds} partnerships={partnerships} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); fetchAnimals(); toast('Animal added successfully!', 'success'); }} toast={toast} />}
-      {selectedAnimal && <AnimalDetailModal animal={selectedAnimal} herds={herds} partnerships={partnerships} animalOwners={animalOwners} onClose={() => setSelectedAnimal(null)} onSaved={() => { setSelectedAnimal(null); fetchAnimals(); toast('Animal updated!', 'success'); }} toast={toast} />}
-      {showBulkEdit && <BulkEditModal selectedIds={Array.from(selectedAnimals)} herds={herds} partnerships={partnerships} onClose={() => setShowBulkEdit(false)} onSaved={(msg) => { setShowBulkEdit(false); setSelectedAnimals(new Set()); fetchAnimals(); toast(msg || 'Bulk edit complete!', 'success'); }} toast={toast} />}
+      {showProjects && <ProjectsModal projects={projects} projectsReady={projectsReady} animals={allAnimals} toast={toast}
+        onChanged={(renamed) => { fetchProjects(); if (renamed) { fetchAnimals(); setProjectFilter([]); } }}
+        onView={(name) => { setProjectFilter([name]); setStatusFilter([]); setShowAdvanced(true); setPage(0); setShowProjects(false); }}
+        onClose={() => setShowProjects(false)} />}
+      {showAdd && <AddAnimalModal herds={herds} partnerships={partnerships} projects={projects} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); fetchAnimals(); toast('Animal added successfully!', 'success'); }} toast={toast} />}
+      {selectedAnimal && <AnimalDetailModal animal={selectedAnimal} herds={herds} partnerships={partnerships} projects={projects} animalOwners={animalOwners} onClose={() => setSelectedAnimal(null)} onSaved={() => { setSelectedAnimal(null); fetchAnimals(); toast('Animal updated!', 'success'); }} toast={toast} />}
+      {showBulkEdit && <BulkEditModal selectedIds={Array.from(selectedAnimals)} herds={herds} partnerships={partnerships} projects={projects} onClose={() => setShowBulkEdit(false)} onSaved={(msg) => { setShowBulkEdit(false); setSelectedAnimals(new Set()); fetchAnimals(); toast(msg || 'Bulk edit complete!', 'success'); }} toast={toast} />}
     </div>
   );
 }
@@ -700,9 +941,10 @@ const BULK_FIELDS = {
   purchase_date:     { label: 'Purchase Date', input: 'date', clearable: true },
   purchase_location: { label: 'Purchase Location', input: 'text', clearable: true, placeholder: 'e.g. Herreid Livestock' },
   purchase_price_per_head: { label: 'Purchase Price ($/hd)', input: 'number', clearable: true, placeholder: 'e.g. 1250' },
+  project:           { label: 'Project', input: 'project', clearable: true },
 };
 
-function BulkEditModal({ selectedIds, herds, partnerships, onClose, onSaved, toast }) {
+function BulkEditModal({ selectedIds, herds, partnerships, projects = [], onClose, onSaved, toast }) {
   const [action, setAction] = useState('herd_id');
   const [fieldValue, setFieldValue] = useState('');
   const [clearField, setClearField] = useState(false);
@@ -717,6 +959,8 @@ function BulkEditModal({ selectedIds, herds, partnerships, onClose, onSaved, toa
   const [vaccineLot, setVaccineLot] = useState('');
   const [vaccineDosage, setVaccineDosage] = useState('');
   const [vaccineDate, setVaccineDate] = useState(todayLocal());
+  const [projectDate, setProjectDate] = useState(todayLocal());
+  const [projectUseArrival, setProjectUseArrival] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const field = BULK_FIELDS[action];
@@ -874,6 +1118,36 @@ function BulkEditModal({ selectedIds, herds, partnerships, onClose, onSaved, toa
     return `${hd(ids.length)} marked ${status}, ${formatDate(when)}${done.length ? ` — ${done.join(', ')}` : ''}.`;
   };
 
+  // Project changes are dated (project_date) so the database trigger logs them in project_history as transfers.
+  // Head being tagged for the first time can take their own arrival date — tagging a load days after it came in
+  // shouldn't make its first days look like they belonged to no project.
+  const applyProjectChange = async (value, shown) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(projectDate || '')) throw new Error('Pick an effective date');
+    if (projectDate > todayLocal()) throw new Error("Effective date can't be in the future");
+    const { data, error } = await chunkedIn(selectedIds, (chunk) => supabase.from('animals').select('id, project, purchased, purchase_date, date_of_birth, created_at').in('id', chunk));
+    if (error) throw error;
+    const byDate = {};
+    let same = 0, atArrival = 0;
+    for (const a of data || []) {
+      if ((a.project || null) === value) { same++; continue; }
+      const firstTag = !a.project && value;
+      const d = firstTag && projectUseArrival ? hcArrival(a).date : projectDate;
+      if (firstTag && projectUseArrival) atArrival++;
+      (byDate[d] = byDate[d] || []).push(a.id);
+    }
+    let changed = 0;
+    for (const [d, ids] of Object.entries(byDate)) {
+      const { data: got, error: e } = await chunkedIn(ids, (chunk) => supabase.from('animals').update({ project: value, project_date: d > todayLocal() ? todayLocal() : d, updated_at: new Date().toISOString() }).in('id', chunk).select('id'));
+      if (e) throw new Error(`${e.message}${changed ? ` (${changed} head already changed)` : ''}`);
+      changed += (got || []).length;
+    }
+    const parts = [`${changed} head ${value === null ? 'taken off their project' : `moved to ${shown}`}`];
+    if (atArrival) parts.push(`${atArrival} first-time tags dated at arrival`);
+    if (changed - atArrival > 0) parts.push(`${changed - atArrival} effective ${formatDate(projectDate)}`);
+    if (same) parts.push(`${same} already there`);
+    return parts.join(' · ') + '.';
+  };
+
   // Validates and writes one BULK_FIELDS field. Returns the toast message, or null if the user backs out.
   const applyFieldChange = async () => {
     const f = field, n = selectedIds.length;
@@ -895,6 +1169,8 @@ function BulkEditModal({ selectedIds, herds, partnerships, onClose, onSaved, toa
         value = raw; shown = (f.options.find(o => o[0] === raw) || [raw, raw])[1];
       } else if (f.input === 'herd') {
         value = raw; shown = herds.find(h => h.id === raw)?.name || 'herd';
+      } else if (f.input === 'project') {
+        value = raw; shown = raw;
       } else {
         value = f.lower ? raw.toLowerCase() : raw; shown = value;
       }
@@ -910,6 +1186,7 @@ function BulkEditModal({ selectedIds, herds, partnerships, onClose, onSaved, toa
       } else if (!window.confirm(`Clear the ${f.label} on ${n} head? Field entries find animals by tag, so these head won't match by ${f.label} until retagged.`)) return null;
     } else if (value === null && !window.confirm(`Clear ${f.label} on ${n} head?`)) return null;
 
+    if (action === 'project') return await applyProjectChange(value, shown);
     await updateAnimals({ [action]: value });
     let extra = '';
     if (action === 'date_of_birth' && value) {
@@ -968,6 +1245,7 @@ function BulkEditModal({ selectedIds, herds, partnerships, onClose, onSaved, toa
     const f = field, common = { className: 'form-input', value: fieldValue, disabled: clearField, onChange: e => setFieldValue(e.target.value) };
     if (f.input === 'select') return <select {...common} className="form-select"><option value="">Select {f.label.toLowerCase()}...</option>{f.options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>;
     if (f.input === 'herd') return <select {...common} className="form-select"><option value="">Select a herd...</option>{herds.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select>;
+    if (f.input === 'project') return <select {...common} className="form-select"><option value="">Select a project...</option>{projects.filter(p => p.is_active).map(p => <option key={p.id} value={p.name}>{p.name}</option>)}</select>;
     if (f.input === 'date') return <input {...common} type="date" max={todayLocal()} />;
     if (f.input === 'number') return <input {...common} type="number" min="0" step="0.01" inputMode="decimal" placeholder={f.placeholder} />;
     return <>
@@ -1005,6 +1283,7 @@ function BulkEditModal({ selectedIds, herds, partnerships, onClose, onSaved, toa
                 <option value="purchase_date">Purchase Date</option>
                 <option value="purchase_location">Purchase Location</option>
                 <option value="purchase_price_per_head">Purchase Price</option>
+                <option value="project">Project (Ambrook)</option>
               </optgroup>
               <optgroup label="Status & Records">
                 <option value="status">Change Status (Sold / Dead / Active / Archived)</option>
@@ -1022,6 +1301,14 @@ function BulkEditModal({ selectedIds, herds, partnerships, onClose, onSaved, toa
               Clear {field.label} (leave it blank) on all selected
             </label>}
             {action === 'date_of_birth' && <p style={{fontSize:'12px', color:'var(--ash)', marginTop:'10px'}}>Calf ID codes on these head are re-lettered to match the new birth year.</p>}
+            {action === 'project' && <div className="form-grid" style={{marginTop:'12px'}}>
+              <div className="form-group"><label className="form-label">Effective Date</label><input type="date" className="form-input" max={todayLocal()} value={projectDate} onChange={e => setProjectDate(e.target.value)} /></div>
+              <label className="form-group full" style={{flexDirection:'row', alignItems:'center', gap:'8px', fontSize:'13px', color:'var(--ash)', cursor:'pointer'}}>
+                <input type="checkbox" checked={projectUseArrival} onChange={e => setProjectUseArrival(e.target.checked)} />
+                Head with no project yet: date them from their purchase / birth date instead
+              </label>
+            </div>}
+            {action === 'project' && <p style={{fontSize:'12px', color:'var(--ash)', marginTop:'10px'}}>{projects.length ? 'The project stays with these head through herd moves. Add or rename projects from Animals → Projects.' : 'No projects yet — set them up from Animals → Projects.'}</p>}
           </>}
           {action === 'owner' && <div className="form-group"><label className="form-label">Assign to Owner</label><select className="form-select" value={ownerId} onChange={e => setOwnerId(e.target.value)}><option value="">Select owner...</option>{partnerships.filter(p => p.is_active !== false).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>}
           {action === 'status' && <div className="form-grid" style={{marginTop:'16px'}}>
@@ -1059,12 +1346,12 @@ function BulkEditModal({ selectedIds, herds, partnerships, onClose, onSaved, toa
 }
 
 // ===== ADD ANIMAL MODAL =====
-function AddAnimalModal({ herds, onClose, onSaved, toast }) {
+function AddAnimalModal({ herds, projects = [], onClose, onSaved, toast }) {
   const [form, setForm] = useState({
     vid:'', eid:'', sex:'cow', herd_id:'', date_of_birth:'', breed:'',
     purchased:false, purchase_date:'', purchase_location:'',
     purchase_price_per_head:'', breeding_status:'', notes:'',
-    calf_id_code:'', registration_number:'', tag_color:'',
+    calf_id_code:'', registration_number:'', tag_color:'', project:'',
   });
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -1098,6 +1385,7 @@ function AddAnimalModal({ herds, onClose, onSaved, toast }) {
       purchase_price_per_head: form.purchased ? (parseFloat(form.purchase_price_per_head) || null) : null,
       breeding_status: form.breeding_status || null, notes: form.notes || null,
       calf_id_code: form.calf_id_code || null, registration_number: form.registration_number || null, status: 'active',
+      ...(form.project ? { project: form.project } : {}),
     };
     const { error } = await supabase.from('animals').insert(payload);
     setSaving(false);
@@ -1131,6 +1419,7 @@ function AddAnimalModal({ herds, onClose, onSaved, toast }) {
               <div className="form-group"><label className="form-label">Purchase Location</label><input className="form-input" placeholder="e.g. Herreid Livestock" value={form.purchase_location} onChange={e => set('purchase_location', e.target.value)} /></div>
               <div className="form-group"><label className="form-label">Price per Head ($)</label><input type="number" className="form-input" placeholder="0.00" value={form.purchase_price_per_head} onChange={e => set('purchase_price_per_head', e.target.value)} /></div>
             </>}
+            <div className="form-group"><label className="form-label">Project (Ambrook)</label><ProjectSelect projects={projects} value={form.project} onChange={v => set('project', v)} /></div>
             <div className="form-section-title">NOTES</div>
             <div className="form-group full"><label className="form-label">Notes</label><textarea className="form-textarea" placeholder="Any additional notes..." value={form.notes} onChange={e => set('notes', e.target.value)} /></div>
           </div>
@@ -1145,14 +1434,14 @@ function AddAnimalModal({ herds, onClose, onSaved, toast }) {
 }
 
 // ===== ANIMAL DETAIL MODAL =====
-function AnimalDetailModal({ animal, herds, partnerships, animalOwners, onClose, onSaved, toast }) {
+function AnimalDetailModal({ animal, herds, partnerships, projects = [], animalOwners, onClose, onSaved, toast }) {
   const [tab, setTab] = useState('details');
   const [calvingRecords, setCalvingRecords] = useState([]);
   const [breedingEvents, setBreedingEvents] = useState([]);
   const [pregChecks, setPregChecks] = useState([]);
   const [treatments, setTreatments] = useState([]);
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ ...animal, herd_id: animal.herd_id || '' });
+  const [form, setForm] = useState({ ...animal, herd_id: animal.herd_id || '', project_change_date: todayLocal() });
   const [showAddCalving, setShowAddCalving] = useState(false);
   const [showAddTreatment, setShowAddTreatment] = useState(false);
   const [addingNote, setAddingNote] = useState(false);
@@ -1205,6 +1494,8 @@ function AnimalDetailModal({ animal, herds, partnerships, animalOwners, onClose,
       tag_color: form.tag_color || null, breeding_status: form.breeding_status || null,
       is_cull: form.is_cull, cull_reason: form.cull_reason || null,
       notes: form.notes || null, updated_at: new Date().toISOString(),
+      // Project change: the trigger logs a dated transfer in project_history using project_date
+      ...((form.project || null) !== (animal.project || null) ? { project: form.project || null, project_date: form.project_change_date || todayLocal() } : {}),
     };
     const { error } = await supabase.from('animals').update(payload).eq('id', animal.id);
     if (error) toast('Error updating: ' + error.message, 'error');
@@ -1319,6 +1610,8 @@ function AnimalDetailModal({ animal, herds, partnerships, animalOwners, onClose,
               <div className="form-group"><label className="form-label">Breeding Status</label><select className="form-select" value={form.breeding_status || ''} onChange={e => setForm(f => ({...f, breeding_status: e.target.value}))}><option value="">-- None --</option><option value="open">Open</option><option value="bred_spring">Bred - Spring</option><option value="bred_fall">Bred - Fall</option><option value="dry">Dry</option><option value="nursing">Nursing</option><option value="unknown">Unknown</option></select></div>
               <div className="form-group"><label className="form-label">Breed</label><input className="form-input" value={form.breed || ''} onChange={e => setForm(f => ({...f, breed: e.target.value}))} /></div>
               <div className="form-group"><label className="form-label">Tag Color</label><select className="form-select" value={form.tag_color || ''} onChange={e => setForm(f => ({...f, tag_color: e.target.value}))}><option value="">-- None --</option><option value="yellow">Yellow</option><option value="red">Red</option><option value="blue">Blue</option><option value="green">Green</option><option value="orange">Orange</option><option value="white">White</option><option value="black">Black</option><option value="pink">Pink</option><option value="purple">Purple</option></select></div>
+              <div className="form-group"><label className="form-label">Project (Ambrook)</label><ProjectSelect projects={projects} value={form.project} onChange={v => setForm(f => ({...f, project: v}))} /></div>
+              {(form.project || null) !== (animal.project || null) && <div className="form-group"><label className="form-label">{animal.project ? 'Transfer effective' : 'In project since'}</label><input type="date" className="form-input" max={todayLocal()} value={form.project_change_date} onChange={e => setForm(f => ({...f, project_change_date: e.target.value}))} /></div>}
               <div className="form-group full" style={{flexDirection:'row', gap:'10px', alignItems:'center'}}>
                 <input type="checkbox" id="is_cull" checked={form.is_cull || false} onChange={e => setForm(f => ({...f, is_cull: e.target.checked}))} style={{width:'16px', height:'16px', accentColor:'var(--rust)'}} />
                 <label htmlFor="is_cull" className="form-label" style={{margin:0}}>Mark as Cull</label>
@@ -1345,6 +1638,7 @@ function AnimalDetailModal({ animal, herds, partnerships, animalOwners, onClose,
                 {animal.status !== 'active' && <div className="detail-row"><span className="detail-key">{STATUS_DATE_LABEL[animal.status] || 'Status Date'}</span><span className="detail-val">{formatDate(animal.status_date)}</span></div>}
                 <div className="detail-row"><span className="detail-key">Herd</span><span className="detail-val">{animal.herds?.name || '—'}</span></div>
                 <div className="detail-row"><span className="detail-key">Owner</span><span className="detail-val" style={{color:'var(--sage)'}}>{animalOwners?.[animal.id] || '—'}</span></div>
+                <div className="detail-row"><span className="detail-key">Project</span><span className="detail-val" style={{color: animal.project ? 'var(--hay)' : undefined}}>{animal.project || '—'}</span></div>
                 <div className="detail-row"><span className="detail-key">Breeding Status</span><span className="detail-val">{animal.breeding_status?.replace('_',' ') || '—'}</span></div>
                 <div className="detail-row"><span className="detail-key">Is Cull</span><span className="detail-val" style={{color: animal.is_cull ? '#e05555' : 'var(--sage)'}}>{animal.is_cull ? 'YES' : 'No'}</span></div>
                 {animal.is_cull && <div className="detail-row"><span className="detail-key">Cull Reason</span><span className="detail-val">{animal.cull_reason || '—'}</span></div>}
@@ -2352,6 +2646,7 @@ const IMPORT_COLUMNS = [
   { key: 'purchase_date', label: 'Purchase Date', required: false, hint: 'MM/DD/YYYY or YYYY-MM-DD' },
   { key: 'purchase_location', label: 'Purchase Location', required: false, hint: 'e.g. Herreid Livestock' },
   { key: 'purchase_price_per_head', label: 'Purchase Price', required: false, hint: 'Dollar amount per head (e.g. 1250)' },
+  { key: 'project', label: 'Project', required: false, hint: 'Must match a project under Animals → Projects (Ambrook name)' },
   { key: 'notes', label: 'Notes', required: false, hint: 'Any additional notes' },
 ];
 const SEX_VALUES = ['cow','heifer','bull','steer','calf_male','calf_female','horse'];
@@ -2421,6 +2716,8 @@ function AddAnimalsImport({ toast }) {
   const [partnerships, setPartnerships] = useState([]);
   const [defaultHerd, setDefaultHerd] = useState('');
   const [defaultSex, setDefaultSex] = useState('cow');
+  const [projects, setProjects] = useState([]);
+  const [defaultProject, setDefaultProject] = useState('');
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
   const fileRef = useRef();
@@ -2428,11 +2725,13 @@ function AddAnimalsImport({ toast }) {
   useEffect(() => {
     supabase.from('herds').select('*').order('name').then(({ data }) => setHerds(data || []));
     supabase.from('partnerships').select('*').order('name').then(({ data }) => setPartnerships(data || []));
+    supabase.from('projects').select('*').order('name').then(({ data, error }) => setProjects(error ? [] : (data || [])));
   }, []);
 
   const downloadTemplate = () => {
     const headers = IMPORT_COLUMNS.map(c => c.key).join(',');
-    const example = 'H607,982000123456789,cow,Old Cows,Smith Ranch,01/15/2018,Angus,bred_spring,false,,,, ';
+    const sample = { vid: 'H607', eid: '982000123456789', sex: 'steer', herd_name: 'BlueStr', owner: 'Smith Ranch', date_of_birth: '03/15/2026', breed: 'Angus', tag_color: 'blue', purchased: 'true', purchase_date: '10/20/2026', purchase_location: 'Herreid Livestock', purchase_price_per_head: '1850', project: projects[0]?.name || '2027 Blue Steers' };
+    const example = IMPORT_COLUMNS.map(c => csvCell(sample[c.key] || '')).join(',');
     const blob = new Blob([headers + '\n' + example], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = 'ranchsavvy_import_template.csv'; a.click();
@@ -2467,6 +2766,15 @@ function AddAnimalsImport({ toast }) {
       const herd = herds.find(h => h.name.toLowerCase() === herdName.toLowerCase());
       const defaultHerdObj = herds.find(h => h.id === defaultHerd);
       const { partnership, willCreate } = validateOwner(mapped.owner, partnerships);
+      // Project: a value in the file wins over the default; must already exist (the FK would reject anything else)
+      const projectRaw = String(mapped.project ?? '').trim();
+      let project = defaultProject || null;
+      if (projectRaw) {
+        const pr = projects.find(p => normName(p.name) === normName(projectRaw));
+        if (!pr) rowErrors.push(`Unknown project "${projectRaw}" — add it under Animals → Projects`);
+        else if (!pr.is_active) rowErrors.push(`Project "${pr.name}" is archived`);
+        else project = pr.name;
+      }
       return {
         rowNum: i + 1, vid, eid, sex,
         herd_name: herd?.name || defaultHerdObj?.name || '—',
@@ -2482,7 +2790,7 @@ function AddAnimalsImport({ toast }) {
         purchase_date: parseCSVDate(mapped.purchase_date),
         purchase_location: mapped.purchase_location || '',
         purchase_price_per_head: mapped.purchase_price_per_head ? parseFloat(mapped.purchase_price_per_head) : null,
-        notes: mapped.notes || '', errors: rowErrors,
+        project, notes: mapped.notes || '', errors: rowErrors,
       };
     });
     setPreview(rows);
@@ -2501,7 +2809,7 @@ function AddAnimalsImport({ toast }) {
         if (error) throw new Error(`Failed to create partnership "${name}": ${error.message}`);
         if (data) newPartnershipMap[name] = data.id;
       }
-      const insertRows = validRows.map(r => ({ vid: r.vid || null, eid: r.eid || null, sex: r.sex, herd_id: r.herd_id || null, date_of_birth: r.date_of_birth || null, breed: r.breed || null, tag_color: r.tag_color || null, breeding_status: r.breeding_status || null, purchased: r.purchased, purchase_date: r.purchase_date || null, purchase_location: r.purchase_location || null, purchase_price_per_head: r.purchase_price_per_head || null, notes: r.notes || null, status: 'active' }));
+      const insertRows = validRows.map(r => ({ vid: r.vid || null, eid: r.eid || null, sex: r.sex, herd_id: r.herd_id || null, date_of_birth: r.date_of_birth || null, breed: r.breed || null, tag_color: r.tag_color || null, breeding_status: r.breeding_status || null, purchased: r.purchased, purchase_date: r.purchase_date || null, purchase_location: r.purchase_location || null, purchase_price_per_head: r.purchase_price_per_head || null, notes: r.notes || null, status: 'active', ...(r.project ? { project: r.project } : {}) }));
       let imported = 0, failed = 0, ownershipInserted = 0, partnershipsCreated = Object.keys(newPartnershipMap).length;
       for (let i = 0; i < insertRows.length; i += 25) {
         const batch = insertRows.slice(i, i + 25);
@@ -2562,6 +2870,7 @@ function AddAnimalsImport({ toast }) {
             <p style={{color:'var(--ash)', fontSize:'13px', marginBottom:'14px'}}>Applied to rows where the CSV doesn't specify a value.</p>
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'14px'}}>
               <div className="form-group"><label className="form-label">Default Herd</label><select className="form-select" value={defaultHerd} onChange={e => setDefaultHerd(e.target.value)}><option value="">-- None --</option>{herds.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select></div>
+              <div className="form-group"><label className="form-label">Default Project</label><ProjectSelect projects={projects} value={defaultProject} onChange={setDefaultProject} /></div>
               <div className="form-group"><label className="form-label">Default Sex</label><select className="form-select" value={defaultSex} onChange={e => setDefaultSex(e.target.value)}>{SEX_VALUES.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
             </div>
           </div>
@@ -2614,7 +2923,7 @@ function AddAnimalsImport({ toast }) {
           {errors.length > 0 && <div style={{background:'rgba(224,85,85,0.1)', border:'1px solid rgba(224,85,85,0.3)', borderRadius:'6px', padding:'14px 18px', marginBottom:'16px'}}><p style={{color:'#e05555', fontWeight:'600', marginBottom:'8px'}}>⚠ Rows with errors will be skipped:</p>{errors.map(r => <p key={r.rowNum} style={{color:'var(--ash)', fontSize:'13px'}}>Row {r.rowNum} (VID: {r.vid || 'blank'}): {r.errors.join(', ')}</p>)}</div>}
           <div className="table-wrap" style={{marginBottom:'20px'}}>
             <table>
-              <thead><tr><th>#</th><th>VID</th><th>EID</th><th>Sex</th><th>Herd</th><th>Owner</th><th>DOB</th><th>Breed Status</th><th>Status</th></tr></thead>
+              <thead><tr><th>#</th><th>VID</th><th>EID</th><th>Sex</th><th>Herd</th><th>Owner</th><th>DOB</th><th>Breed Status</th><th>Project</th><th>Status</th></tr></thead>
               <tbody>
                 {preview.map(r => (
                   <tr key={r.rowNum} style={{opacity: r.errors.length > 0 ? 0.4 : 1}}>
@@ -2626,6 +2935,7 @@ function AddAnimalsImport({ toast }) {
                     <td style={{fontSize:'12px', color:'var(--sage)'}}>{r.owner_display}</td>
                     <td style={{color:'var(--ash)', fontSize:'12px'}}>{r.date_of_birth || '—'}</td>
                     <td style={{fontSize:'12px', color:'var(--sage)'}}>{r.breeding_status || '—'}</td>
+                    <td style={{fontSize:'12px', color:'var(--hay)'}}>{r.project || '—'}</td>
                     <td>{r.errors.length > 0 ? <span style={{color:'#e05555', fontSize:'11px', fontFamily:'IBM Plex Mono, monospace'}}>⚠ SKIP</span> : <span style={{color:'var(--sage)', fontSize:'11px', fontFamily:'IBM Plex Mono, monospace'}}>✓ READY</span>}</td>
                   </tr>
                 ))}
@@ -2667,6 +2977,7 @@ const UPDATE_FIELDS = [
   { key: 'calving_period', label: 'Calving Period', hint: 'e.g. Early / Mid / Late, 1st cycle', preg: true },
   { key: 'herd_name', label: 'Herd', hint: 'Moves the animal — must match a herd name' },
   { key: 'owner', label: 'Owner', hint: 'Partnership name — must already exist in Partnerships' },
+  { key: 'project', label: 'Project (Ambrook)', hint: 'Must match a project under Animals → Projects' },
   { key: 'tag_color', label: 'Tag Color', hint: '' },
   { key: 'breed', label: 'Breed', hint: '' },
   { key: 'date_of_birth', label: 'Date of Birth', hint: 'MM/DD/YYYY or YYYY-MM-DD' },
@@ -2680,6 +2991,7 @@ const UPDATE_FIELD_GUESS = [ // order matters: days before result so "Days Bred"
   ['breeding_status', /(preg|result|breeding[ _]?status|^status$|^bred$|^open$|^o\/b$)/i],
   ['herd_name', /^herd([ _]?name)?$/i],
   ['owner', /^(owner|ownership|owned[ _]?by|partnership|partner)$/i],
+  ['project', /^(ambrook[ _]?)?project([ _]?name)?$/i],
   ['tag_color', /colou?r/i],
   ['breed', /^breed$/i],
   ['date_of_birth', /(birth|dob)/i],
@@ -2760,9 +3072,11 @@ function UpdateAnimalsImport({ toast }) {
   const [technician, setTechnician] = useState('');
   const [herds, setHerds] = useState([]);
   const [partnerships, setPartnerships] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [ownerNow, setOwnerNow] = useState(null); // animal_id -> latest ownership row { id, partnership_id, effective_date }
   const [ownerDefault, setOwnerDefault] = useState('');
   const [ownerDate, setOwnerDate] = useState(todayLocal());
+  const [projectDate, setProjectDate] = useState(todayLocal());
   const [undoing, setUndoing] = useState(false);
   const [animals, setAnimals] = useState(null);
   const [pregTableOk, setPregTableOk] = useState(null);
@@ -2788,6 +3102,7 @@ function UpdateAnimalsImport({ toast }) {
   useEffect(() => {
     supabase.from('herds').select('*').order('name').then(({ data }) => setHerds(data || []));
     supabase.from('partnerships').select('*').order('name').then(({ data }) => setPartnerships(data || []));
+    supabase.from('projects').select('*').order('name').then(({ data, error }) => setProjects(error ? [] : (data || [])));
     checkPregTable();
     (async () => {
       // Current owner = latest effective_date, same rule as Animal Inventory and the Head Count report
@@ -2803,7 +3118,7 @@ function UpdateAnimalsImport({ toast }) {
     (async () => {
       const PAGE = 1000; let rows = [];
       for (let from = 0; ; from += PAGE) {
-        const { data, error } = await supabase.from('animals').select('id, vid, eid, sex, herd_id, breeding_status, tag_color, breed, date_of_birth, notes').eq('status', 'active').order('id', { ascending: true }).range(from, from + PAGE - 1);
+        const { data, error } = await supabase.from('animals').select('*').eq('status', 'active').order('id', { ascending: true }).range(from, from + PAGE - 1);
         if (error) { toast(`Couldn't load animals: ${error.message}`, 'error'); return; }
         rows = rows.concat(data || []);
         if (!data || data.length < PAGE) break;
@@ -2924,6 +3239,13 @@ function UpdateAnimalsImport({ toast }) {
         if (!h) r.errors.push(`Unknown herd "${herdRaw}"`);
         else change('herd_id', 'Herd', a.herd_id, h.id, herdName);
       }
+      const projectRaw = val('project');
+      if (projectRaw) {
+        const pr = projects.find(p => normName(p.name) === normName(projectRaw));
+        if (!pr) r.errors.push(`Unknown project "${projectRaw}" — add it under Animals → Projects`);
+        else if (!pr.is_active) r.errors.push(`Project "${pr.name}" is archived`);
+        else if ((a.project || null) !== pr.name) { change('project', 'Project', a.project, pr.name); r.patch.project_date = projectDate; }
+      }
       const color = val('tag_color').toLowerCase();
       if (color) change('tag_color', 'Tag color', a.tag_color, color);
       const breed = val('breed');
@@ -3002,12 +3324,13 @@ function UpdateAnimalsImport({ toast }) {
 
   // Before-values of every changed field, matched on RS ID — re-run it through this page to put fields back
   const downloadUndo = (rows) => {
-    const fields = ['breeding_status', 'herd_name', 'tag_color', 'breed', 'date_of_birth', 'eid', 'vid'];
+    const fields = ['breeding_status', 'herd_name', 'project', 'tag_color', 'breed', 'date_of_birth', 'eid', 'vid'];
     const lines = [['rs_id', ...fields].join(',')];
     rows.forEach(r => {
       const a = r.animal, p = r.patch;
       lines.push([a.id,
         'breeding_status' in p ? a.breeding_status : '', 'herd_id' in p ? herdName(a.herd_id) : '',
+        'project' in p ? a.project : '',
         'tag_color' in p ? a.tag_color : '', 'breed' in p ? a.breed : '', 'date_of_birth' in p ? a.date_of_birth : '',
         'eid' in p ? a.eid : '', 'vid' in p ? a.vid : ''].map(csvCell).join(','));
     });
@@ -3190,6 +3513,14 @@ function UpdateAnimalsImport({ toast }) {
               </tbody>
             </table>
           </div>
+
+          {columnMap.project && (
+            <div className="detail-card" style={{marginBottom:'16px'}}>
+              <h3>Project</h3>
+              <p style={{color:'var(--ash)', fontSize:'13px', margin:'6px 0 12px'}}>Project changes are logged as transfers on this date, so head-day reports split days at the right point.</p>
+              <div className="form-group" style={{maxWidth:'220px'}}><label className="form-label">Effective date</label><input type="date" className="form-input" max={todayLocal()} value={projectDate} onChange={e => setProjectDate(e.target.value)} /></div>
+            </div>
+          )}
 
           <div className="detail-card" style={{marginBottom:'16px'}}>
             <h3>Ownership</h3>
@@ -3592,12 +3923,12 @@ function ChatPage({ toast }) {
 }
 
 // ===== INVENTORY CHANGE REPORT =====
-function InventoryChangeReport({ toast, herds }) {
+function InventoryChangeReport({ toast, herds, projects = [] }) {
   const today = todayLocal();
   const janFirst = new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0];
   const [startDate, setStartDate] = useState(janFirst);
   const [endDate, setEndDate] = useState(today);
-  const [herdFilter, setHerdFilter] = useState('');
+  const [scope, setScope] = useState('');   // '' | herd:<id> | ent:<name> | proj:<name> — see REPORT SCOPES
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -3613,6 +3944,7 @@ function InventoryChangeReport({ toast, herds }) {
     if (startDate > endDate)   { toast('Start date must be before end date', 'error'); return; }
     setLoading(true);
     setResults(null);
+    const inScope = scopeMatcher(scope, herds);
     try {
       // ── 1. Beginning inventory ──────────────────────────────────────────────
       // Animals that existed BEFORE the period that were still active at period start.
@@ -3621,7 +3953,7 @@ function InventoryChangeReport({ toast, herds }) {
         .select('id, vid, sex, herd_id, status, status_date, created_at, herds(name)')
         .lt('created_at', startDate)
         .limit(10000);
-      if (herdFilter) begQ = begQ.eq('herd_id', herdFilter);
+      begQ = scopeQuery(begQ, scope, herds);
       const { data: prePeriod, error: begErr } = await begQ;
       if (begErr) throw new Error('Beginning inventory query failed: ' + begErr.message);
 
@@ -3637,7 +3969,7 @@ function InventoryChangeReport({ toast, herds }) {
         .gte('created_at', startDate)
         .lte('created_at', endDate + 'T23:59:59')
         .limit(10000);
-      if (herdFilter) addQ = addQ.eq('herd_id', herdFilter);
+      addQ = scopeQuery(addQ, scope, herds);
       const { data: added, error: addErr } = await addQ;
       if (addErr) throw new Error('Purchases query failed: ' + addErr.message);
 
@@ -3655,13 +3987,14 @@ function InventoryChangeReport({ toast, herds }) {
       const uniqueDamIds = [...new Set((calvingRaw || []).map(c => c.dam_id))];
       if (uniqueDamIds.length > 0) {
         const { data: dams } = await chunkedIn(uniqueDamIds, (chunk) => supabase.from('animals')
-          .select('id, vid, herd_id, herds(name)')
+          .select('id, vid, herd_id, project, herds(name)')
           .in('id', chunk)
           .limit(10000));
         (dams || []).forEach(d => { damsMap[d.id] = d; });
       }
-      const calvingData = herdFilter
-        ? (calvingRaw || []).filter(c => damsMap[c.dam_id]?.herd_id === herdFilter)
+      // Births count to the dam's scope (her herd / enterprise / project)
+      const calvingData = scope
+        ? (calvingRaw || []).filter(c => inScope(damsMap[c.dam_id]))
         : (calvingRaw || []);
 
       // ── 4. Sales during period ──────────────────────────────────────────────
@@ -3676,13 +4009,13 @@ function InventoryChangeReport({ toast, herds }) {
       if ((saleRecords || []).length > 0) {
         const srIds = saleRecords.map(s => s.id);
         const { data: saleAnimals, error: saErr } = await supabase.from('sale_animals')
-          .select('sale_record_id, animals(id, vid, sex, herd_id, herds(name))')
+          .select('sale_record_id, animals(id, vid, sex, herd_id, project, herds(name))')
           .in('sale_record_id', srIds)
           .limit(10000);
         if (saErr) throw new Error('Sale animals query failed: ' + saErr.message);
         const srMap = Object.fromEntries(saleRecords.map(s => [s.id, s]));
         salesFlat = (saleAnimals || [])
-          .filter(sa => !herdFilter || sa.animals?.herd_id === herdFilter)
+          .filter(sa => !scope || inScope(sa.animals))
           .map(sa => {
             const sr = srMap[sa.sale_record_id] || {};
             return {
@@ -3698,13 +4031,13 @@ function InventoryChangeReport({ toast, herds }) {
 
       // ── 5. Deaths during period ─────────────────────────────────────────────
       const { data: deathRaw, error: drErr } = await supabase.from('death_records')
-        .select('id, death_date, cause_of_death, notes, animals(id, vid, sex, herd_id, herds(name))')
+        .select('id, death_date, cause_of_death, notes, animals(id, vid, sex, herd_id, project, herds(name))')
         .gte('death_date', startDate)
         .lte('death_date', endDate)
         .limit(10000);
       if (drErr) throw new Error('Deaths query failed: ' + drErr.message);
       const deathsFlat = (deathRaw || [])
-        .filter(d => !herdFilter || d.animals?.herd_id === herdFilter)
+        .filter(d => !scope || inScope(d.animals))
         .map(d => ({
           date:  d.death_date,
           type:  'death',
@@ -3716,7 +4049,7 @@ function InventoryChangeReport({ toast, herds }) {
 
       // ── 6. Ending inventory (currently active) ─────────────────────────────
       let endQ = supabase.from('animals').select('id', { count: 'exact', head: true }).eq('status', 'active').limit(10000);
-      if (herdFilter) endQ = endQ.eq('herd_id', herdFilter);
+      endQ = scopeQuery(endQ, scope, herds);
       const { count: endingCount, error: endErr } = await endQ;
       if (endErr) throw new Error('Ending inventory query failed: ' + endErr.message);
 
@@ -3754,7 +4087,7 @@ function InventoryChangeReport({ toast, herds }) {
         transactions,
         startDate,
         endDate,
-        herdName:       herdFilter ? (herds.find(h => h.id === herdFilter)?.name || 'Unknown') : 'All Herds',
+        herdName:       scope ? scopeLabel(scope, herds) : 'All Herds',
       });
       toast(`Report complete — ${transactions.length} event${transactions.length !== 1 ? 's' : ''}`, 'success');
     } catch (err) {
@@ -3817,11 +4150,8 @@ function InventoryChangeReport({ toast, herds }) {
             <input className="form-input" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
           </div>
           <div className="form-group" style={{margin:0}}>
-            <label className="form-label">Herd Filter</label>
-            <select className="form-select" value={herdFilter} onChange={e => setHerdFilter(e.target.value)}>
-              <option value="">All Herds</option>
-              {herds.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
-            </select>
+            <label className="form-label">Scope</label>
+            <ScopeSelect value={scope} onChange={setScope} herds={herds} projects={projects} />
           </div>
         </div>
         <div style={{display:'flex', gap:'10px', marginTop:'16px', alignItems:'center'}}>
@@ -3878,7 +4208,7 @@ function InventoryChangeReport({ toast, herds }) {
             <div className="empty-state">
               <h3>No transactions in this period</h3>
               <p>No purchases, births, sales, or deaths recorded between {startDate} and {endDate}
-                {herdFilter ? ` for ${herds.find(h=>h.id===herdFilter)?.name}` : ''}.</p>
+                {scope ? ` for ${scopeLabel(scope, herds)}` : ''}.</p>
             </div>
           ) : (
             <div className="table-wrap">
@@ -3987,6 +4317,8 @@ const hcCount = (animals, ownershipByAnimal, f, today) => {
   for (const a of animals) {
     // 1. Attribute filters (current values) + owner as of the date
     if (f.herds.length && !(f.herds.includes(a.herd_id) || (!a.herd_id && f.herds.includes('NO_HERD')))) continue;
+    if (f.projects?.length && !f.projects.includes(a.project || 'NO_PROJECT')) continue;
+    if (f.enterprises?.length && !f.enterprises.includes(f.entOfHerd?.[String(a.herd_id)] || 'NO_ENT')) continue;
     if (f.sexes.length && !f.sexes.includes(a.sex)) continue;
     if (f.breeding.length && !f.breeding.includes(a.breeding_status || 'NOT_SET')) continue;
     if (f.tagColors.length && !f.tagColors.includes(hcTagColor(a.tag_color) || 'NO_TAG')) continue;
@@ -4029,7 +4361,7 @@ const HcCheck = ({ checked, onChange, muted, children }) => (
   </label>
 );
 
-function HeadCountReport({ toast, herds, partnerships }) {
+function HeadCountReport({ toast, herds, partnerships, projects = [] }) {
   const today = todayLocal();
   const [animals, setAnimals] = useState([]);
   const [ownershipByAnimal, setOwnershipByAnimal] = useState({});
@@ -4041,8 +4373,11 @@ function HeadCountReport({ toast, herds, partnerships }) {
   const [breedingStatusFilter, setBreedingStatusFilter] = useState([]);
   const [ownerFilter, setOwnerFilter] = useState([]);
   const [tagColorFilter, setTagColorFilter] = useState([]);
+  const [projectFilter, setProjectFilter] = useState([]);
+  const [entFilter, setEntFilter] = useState([]);
   const [dobStartDate, setDobStartDate] = useState('');
   const [dobEndDate, setDobEndDate] = useState('');
+  const entOfHerd = useMemo(() => Object.fromEntries(herds.map(h => [String(h.id), h.enterprise || null])), [herds]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -4061,7 +4396,7 @@ function HeadCountReport({ toast, herds, partnerships }) {
     };
     try {
       const [animalRows, ownerRows] = await Promise.all([
-        fetchAll('animals', 'id, sex, herd_id, date_of_birth, tag_color, breeding_status, status, status_date, purchased, purchase_date, created_at'),
+        fetchAll('animals', 'id, sex, herd_id, project, date_of_birth, tag_color, breeding_status, status, status_date, purchased, purchase_date, created_at'),
         fetchAll('animal_ownership_history', 'id, animal_id, partnership_id, effective_date'),
       ]);
       const byAnimal = {};
@@ -4089,11 +4424,12 @@ function HeadCountReport({ toast, herds, partnerships }) {
   const result = useMemo(() => hcCount(animals, ownershipByAnimal, {
     asOf: asOfDate, herds: herdFilter, sexes: sexFilter, breeding: breedingStatusFilter,
     owners: ownerFilter, tagColors: tagColorFilter, dobFrom: dobStartDate, dobTo: dobEndDate,
-  }, today), [animals, ownershipByAnimal, asOfDate, today, herdFilter, sexFilter, breedingStatusFilter, ownerFilter, tagColorFilter, dobStartDate, dobEndDate]);
+    projects: projectFilter, enterprises: entFilter, entOfHerd,
+  }, today), [animals, ownershipByAnimal, asOfDate, today, herdFilter, sexFilter, breedingStatusFilter, ownerFilter, tagColorFilter, dobStartDate, dobEndDate, projectFilter, entFilter, entOfHerd]);
 
   const toggle = (setArr, val) => setArr(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]);
-  const anyFilter = herdFilter.length > 0 || sexFilter.length > 0 || breedingStatusFilter.length > 0 || ownerFilter.length > 0 || tagColorFilter.length > 0 || !!dobStartDate || !!dobEndDate;
-  const clearFilters = () => { setHerdFilter([]); setSexFilter([]); setBreedingStatusFilter([]); setOwnerFilter([]); setTagColorFilter([]); setDobStartDate(''); setDobEndDate(''); };
+  const anyFilter = projectFilter.length > 0 || entFilter.length > 0 || herdFilter.length > 0 || sexFilter.length > 0 || breedingStatusFilter.length > 0 || ownerFilter.length > 0 || tagColorFilter.length > 0 || !!dobStartDate || !!dobEndDate;
+  const clearFilters = () => { setProjectFilter([]); setEntFilter([]); setHerdFilter([]); setSexFilter([]); setBreedingStatusFilter([]); setOwnerFilter([]); setTagColorFilter([]); setDobStartDate(''); setDobEndDate(''); };
 
   // Plain-language echo of the filters so a screenshot or printout documents what was counted
   const herdName = (id) => id === 'NO_HERD' ? 'No herd' : (herds.find(h => h.id === id)?.name || 'Unknown herd');
@@ -4105,6 +4441,8 @@ function HeadCountReport({ toast, herds, partnerships }) {
     : dobStartDate ? `On or after ${formatDate(dobStartDate)}`
     : dobEndDate ? `On or before ${formatDate(dobEndDate)}` : 'All';
   const summary = [
+    ['Project', listOrAll(projectFilter, v => v === 'NO_PROJECT' ? 'No project' : v)],
+    ['Enterprise', listOrAll(entFilter, v => v === 'NO_ENT' ? 'Not tagged' : v)],
     ['Herd', listOrAll(herdFilter, herdName)],
     ['Sex / class', listOrAll(sexFilter, sexLabel)],
     ['Breed status', listOrAll(breedingStatusFilter, breedLabel)],
@@ -4124,6 +4462,26 @@ function HeadCountReport({ toast, herds, partnerships }) {
           <button className="btn btn-ghost" onClick={clearFilters} disabled={!anyFilter} style={{padding:'5px 12px', whiteSpace:'nowrap'}}>Clear filters</button>
         </div>
         <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(170px, 1fr))', gap:'20px 16px'}}>
+          <div>
+            <span className="hc-group-label">PROJECT</span>
+            <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
+              <HcCheck muted checked={projectFilter.includes('NO_PROJECT')} onChange={() => toggle(setProjectFilter, 'NO_PROJECT')}>No project</HcCheck>
+              {projects.map(p => (
+                <HcCheck key={p.id} checked={projectFilter.includes(p.name)} onChange={() => toggle(setProjectFilter, p.name)}>
+                  {p.name}{!p.is_active && <span style={{color:'var(--ash)'}}> (archived)</span>}
+                </HcCheck>
+              ))}
+            </div>
+          </div>
+          <div>
+            <span className="hc-group-label">ENTERPRISE</span>
+            <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
+              <HcCheck muted checked={entFilter.includes('NO_ENT')} onChange={() => toggle(setEntFilter, 'NO_ENT')}>Herd not tagged</HcCheck>
+              {enterpriseNames(herds).map(e => (
+                <HcCheck key={e} checked={entFilter.includes(e)} onChange={() => toggle(setEntFilter, e)}>{e}</HcCheck>
+              ))}
+            </div>
+          </div>
           <div>
             <span className="hc-group-label">HERD</span>
             <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
@@ -4219,7 +4577,7 @@ function HeadCountReport({ toast, herds, partnerships }) {
                 </div>
               ))}
             </div>
-            {isPast && <div className="hc-note">On-hand status and owner are rebuilt for this date. Herd, sex/class, breed status and tag color are each animal's current values — those fields don't keep history yet.</div>}
+            {isPast && <div className="hc-note">On-hand status and owner are rebuilt for this date. Herd (and so enterprise), project, sex/class, breed status and tag color are each animal's current values — those fields don't keep history yet.</div>}
             {isPast && result.arrivedUnknown > 0 && <div className="hc-note">{result.arrivedUnknown.toLocaleString('en-US')} head that match have no purchase or birth date and were entered after this date, so they're left out. If they were here, add a purchase date or DOB to their records.</div>}
             {isPast && result.noExitDate > 0 && <div className="hc-note">{result.noExitDate.toLocaleString('en-US')} head that match are sold, dead or archived with no exit date on file, so they're left out.</div>}
             {isPast && ownerFilter.length > 0 && result.ownerFallback > 0 && <div className="hc-note">{result.ownerFallback.toLocaleString('en-US')} head are counted under their first owner on file — that owner was assigned after this date.</div>}
@@ -4231,11 +4589,587 @@ function HeadCountReport({ toast, herds, partnerships }) {
   );
 }
 
+// ===== REPORT SCOPES =====
+// One scope value for reports: '' (all) | 'herd:<id>' | 'ent:<enterprise name>' | 'proj:<project name>'.
+// Enterprise is a herd tag, so it resolves through each animal's CURRENT herd (herd moves aren't recorded).
+// Project rides on the animal itself, so it holds through herd moves.
+const splitScope = (scope) => { const i = (scope || '').indexOf(':'); return i < 0 ? ['', ''] : [scope.slice(0, i), scope.slice(i + 1)]; };
+const entHerdIds = (name, herds) => herds.filter(h => h.enterprise === name).map(h => String(h.id));
+const scopeMatcher = (scope, herds) => {
+  const [k, v] = splitScope(scope);
+  if (k === 'herd') return a => !!a && String(a.herd_id) === v;
+  if (k === 'ent') { const ids = new Set(entHerdIds(v, herds)); return a => !!a && ids.has(String(a.herd_id)); }
+  if (k === 'proj') return a => !!a && a.project === v;
+  return () => true;
+};
+// Same scope pushed into a Supabase query on the animals table, so big tables aren't pulled just to be filtered
+const scopeQuery = (q, scope, herds) => {
+  const [k, v] = splitScope(scope);
+  if (k === 'herd') return q.eq('herd_id', v);
+  if (k === 'ent') return q.in('herd_id', entHerdIds(v, herds));
+  if (k === 'proj') return q.eq('project', v);
+  return q;
+};
+const scopeLabel = (scope, herds) => {
+  const [k, v] = splitScope(scope);
+  if (k === 'herd') return `Herd: ${herds.find(h => String(h.id) === v)?.name || 'Unknown'}`;
+  if (k === 'ent') return `Enterprise: ${v}`;
+  if (k === 'proj') return `Project: ${v}`;
+  return 'All cattle';
+};
+const enterpriseNames = (herds) => [...new Set(herds.map(h => h.enterprise).filter(Boolean))].sort();
+
+function ScopeSelect({ value, onChange, herds, projects }) {
+  const ents = enterpriseNames(herds);
+  return (
+    <select className="form-select" value={value} onChange={e => onChange(e.target.value)}>
+      <option value="">All Cattle</option>
+      {projects.length > 0 && <optgroup label="Project (Ambrook)">{projects.map(p => <option key={p.id} value={`proj:${p.name}`}>{p.name}{p.is_active ? '' : ' (archived)'}</option>)}</optgroup>}
+      {ents.length > 0 && <optgroup label="Enterprise (by current herd)">{ents.map(e => <option key={e} value={`ent:${e}`}>{e}</option>)}</optgroup>}
+      <optgroup label="Herd">{herds.map(h => <option key={h.id} value={`herd:${h.id}`}>{h.name}</option>)}</optgroup>
+    </select>
+  );
+}
+
+// ===== HEAD DAYS REPORT =====
+// Head days by project, enterprise or herd for a date range — the denominator for per-head-day costs in Ambrook.
+//   • Counted in nights: the arrival day counts, the exit day doesn't. An animal bought the 1st and sold the 11th = 10 head days.
+//   • Arrival = purchase date → birth date (raised) → day entered (same rule as the Head Count report).
+//   • Exit = status date for sold / dead / archived. Gone with no exit date = left out and flagged.
+//   • Head at start/end are end-of-day counts the day before Start and on End, so Start + In − Out = End.
+const hdDay = (iso) => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
+const hdDiff = (a, b) => Math.round((hdDay(b) - hdDay(a)) / 86400000);   // whole days from a to b
+const HD_BEGIN = '0000-01-01';
+
+// Paginated read of a whole table, ordered on id so pages can't skip or repeat rows
+const fetchAllRows = async (table, columns) => {
+  const PAGE = 1000; let rows = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase.from(table).select(columns).order('id', { ascending: true }).range(from, from + PAGE - 1);
+    if (error) throw new Error(`${table}: ${error.message}`);
+    rows = rows.concat(data || []);
+    if (!data || data.length < PAGE) return rows;
+  }
+};
+// project_history rows grouped per animal, in the order they took effect
+const groupProjectHistory = (rows) => {
+  const by = {};
+  rows.forEach(h => (by[h.animal_id] = by[h.animal_id] || []).push({ ...h, effective_date: hcDateOnly(h.effective_date) }));
+  Object.values(by).forEach(l => l.sort((x, y) => x.effective_date.localeCompare(y.effective_date) || x.id - y.id));
+  return by;
+};
+
+// One animal's time on hand, cut into project segments: [{ project, from, to, fromProject, toProject, inKind, outKind }]
+//   from = first day in the segment; to = day it ended (exclusive) or null if still running.
+//   inKind:  'purchase' | 'birth' | 'entered' (segment starts on arrival) or 'transfer'
+//   outKind: 'sold' | 'dead' | 'archived' (segment ends at exit) or 'transfer' or null (still there)
+// Animals that are gone with no exit date return null — the caller counts and skips them.
+const projectSegments = (a, hist) => {
+  const arr = hcArrival(a);
+  const exit = a.status === 'active' ? null : hcDateOnly(a.status_date);
+  if (a.status !== 'active' && !exit) return null;
+  // Raw membership over all time. No history = whatever is on the animal now (tagged before history existed).
+  let raw;
+  if (!hist || !hist.length) raw = [{ project: a.project || null, from: HD_BEGIN, to: null, fromProject: null, toProject: null }];
+  else {
+    raw = [{ project: hist[0].from_project || null, from: HD_BEGIN, to: hist[0].effective_date, fromProject: null, toProject: hist[0].to_project || null }];
+    hist.forEach((h, i) => raw.push({ project: h.to_project || null, from: h.effective_date, to: hist[i + 1]?.effective_date || null,
+      fromProject: h.from_project || null, toProject: hist[i + 1] ? (hist[i + 1].to_project || null) : null }));
+  }
+  const out = [];
+  for (const r of raw) {
+    const from = r.from > arr.date ? r.from : arr.date;
+    let to = r.to;
+    if (exit && (to === null || exit <= to)) to = exit;
+    if (to !== null && to <= from) continue;                   // never on hand while in this project
+    const prev = out[out.length - 1];
+    if (prev && prev.project === r.project && prev.to === from) { prev.to = to; prev.outKind = to === null ? null : (exit && to === exit ? a.status : 'transfer'); prev.toProject = r.toProject; continue; }
+    out.push({ project: r.project, from, to, fromProject: r.fromProject, toProject: r.toProject,
+      inKind: from === arr.date ? arr.basis : 'transfer',
+      outKind: to === null ? null : (exit && to === exit ? a.status : 'transfer') });
+  }
+  return out;
+};
+
+// Where one time-segment sits against a period [S, E] (E inclusive). Start + In − Out = End holds by construction.
+const periodPart = (from, to, S, E) => {
+  const endNext = addDays(E, 1);
+  const lo = from > S ? from : S, hi = to !== null && to < endNext ? to : endNext;
+  return {
+    days: Math.max(0, hdDiff(lo, hi)),
+    atStart: from < S && (to === null || to >= S),
+    atEnd: from <= E && (to === null || to > E),
+    came: from >= S && from <= E,
+    went: to !== null && to >= S && to <= E,
+  };
+};
+
+function HeadDaysReport({ toast, herds, projects }) {
+  const today = todayLocal();
+  const [animals, setAnimals] = useState(null);
+  const [loadError, setLoadError] = useState('');
+  const [startDate, setStartDate] = useState(`${today.slice(0, 4)}-01-01`);
+  const [endDate, setEndDate] = useState(today);
+  const [groupBy, setGroupBy] = useState('project');
+  const [scope, setScope] = useState('');
+  const [history, setHistory] = useState({});
+
+  const loadData = useCallback(async () => {
+    setLoadError(''); setAnimals(null);
+    try {
+      const [rows, hist] = await Promise.all([
+        fetchAllRows('animals', 'id, vid, eid, sex, herd_id, project, status, status_date, purchased, purchase_date, date_of_birth, created_at'),
+        fetchAllRows('project_history', 'id, animal_id, from_project, to_project, effective_date'),
+      ]);
+      setHistory(groupProjectHistory(hist));
+      setAnimals(rows);
+    } catch (err) {
+      setLoadError(err.message);
+      toast("Couldn't load animals for head days: " + err.message, 'error');
+    }
+  }, []);
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const herdById = useMemo(() => Object.fromEntries(herds.map(h => [String(h.id), h])), [herds]);
+  const groupOf = (a) => {
+    if (groupBy === 'project') return a.project || '(no project)';
+    const h = herdById[String(a.herd_id)];
+    if (groupBy === 'enterprise') return h?.enterprise || (h ? '(herd not tagged)' : '(no herd)');
+    return h?.name || '(no herd)';
+  };
+
+  const report = useMemo(() => {
+    if (!animals || !startDate || !endDate || startDate > endDate) return null;
+    const end = endDate > today ? today : endDate;
+    const periodDays = hdDiff(startDate, addDays(end, 1));
+    const inScope = scopeMatcher(scope, herds);
+    const [sk, sv] = splitScope(scope);
+    const byProject = groupBy === 'project' || sk === 'proj';   // project days follow project history, not just today's tag
+    const groups = {}, detail = [];
+    const notes = { noExit: 0, entered: 0 };
+    for (const a of animals) {
+      if (sk !== 'proj' && !inScope(a)) continue;
+      const segs = projectSegments(a, history[a.id]);
+      if (!segs) { if (hcArrival(a).date <= end) notes.noExit++; continue; }
+      // Time units to count: project segments, or the whole stay (enterprise/herd use the current herd)
+      let units;
+      if (byProject) {
+        units = (sk === 'proj' ? segs.filter(x => x.project === sv) : segs)
+          .map(x => ({ key: groupBy === 'project' ? (x.project || '(no project)') : groupOf(a), from: x.from, to: x.to, kind: x.inKind }));
+      } else {
+        const first = segs[0], last = segs[segs.length - 1];
+        units = first ? [{ key: groupOf(a), from: first.from, to: last.to, kind: first.inKind }] : [];
+      }
+      for (const u of units) {
+        const pp = periodPart(u.from, u.to, startDate, end);
+        if (!pp.days && !pp.atStart && !pp.came && !pp.went) continue;
+        if (u.kind === 'entered' && pp.came) notes.entered++;
+        const g = groups[u.key] = groups[u.key] || { key: u.key, headDays: 0, start: 0, in: 0, out: 0, end: 0, head: 0 };
+        g.headDays += pp.days; g.head++;
+        if (pp.atStart) g.start++; if (pp.came) g.in++; if (pp.went) g.out++; if (pp.atEnd) g.end++;
+        detail.push({ group: u.key, vid: a.vid || '', eid: a.eid || '', sex: a.sex, herd: herdById[String(a.herd_id)]?.name || '', project: a.project || '',
+          arrival: u.from, basis: u.kind, exit: u.to || '', status: a.status, days: pp.days });
+      }
+    }
+    const rows = Object.values(groups).sort((x, y) => (x.key.startsWith('(') - y.key.startsWith('(')) || y.headDays - x.headDays);
+    const total = rows.reduce((t, g) => ({ headDays: t.headDays + g.headDays, start: t.start + g.start, in: t.in + g.in, out: t.out + g.out, end: t.end + g.end, head: t.head + g.head }),
+      { headDays: 0, start: 0, in: 0, out: 0, end: 0, head: 0 });
+    detail.sort((x, y) => x.group.localeCompare(y.group) || String(x.vid).localeCompare(String(y.vid), undefined, { numeric: true }));
+    return { rows, total, detail, notes, periodDays, end, clipped: end !== endDate };
+  }, [animals, history, startDate, endDate, groupBy, scope, herds, today]);
+
+  const GROUP_LABEL = { project: 'Project', enterprise: 'Enterprise', herd: 'Herd' };
+  const n0 = (v) => Math.round(v).toLocaleString('en-US');
+  const n1 = (v) => v.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+  const exportCSV = (withDetail) => {
+    if (!report) return;
+    const L = [
+      ['Ranch Savvy — Head Days'], [`Period`, `${startDate} to ${report.end}`, `${report.periodDays} days`],
+      ['Grouped by', GROUP_LABEL[groupBy]], ['Scope', scopeLabel(scope, herds)], ['Generated', new Date().toLocaleString()], [],
+      [GROUP_LABEL[groupBy], 'Head Days', 'Avg Head', 'Head at Start', 'In', 'Out', 'Head at End'],
+      ...report.rows.map(g => [g.key, g.headDays, (g.headDays / report.periodDays).toFixed(1), g.start, g.in, g.out, g.end]),
+      ['TOTAL', report.total.headDays, (report.total.headDays / report.periodDays).toFixed(1), report.total.start, report.total.in, report.total.out, report.total.end],
+    ];
+    if (groupBy !== 'project') L.push([], ['Note: enterprise/herd uses each animal\'s current herd — herd moves are not recorded.']);
+    if (withDetail) {
+      L.push([], ['DETAIL'], [GROUP_LABEL[groupBy], 'VID', 'EID', 'Sex', 'Current Herd', 'Current Project', 'In From', 'In By', 'Out On', 'Status', 'Head Days In Period']);
+      report.detail.forEach(d => L.push([d.group, d.vid, d.eid, d.sex, d.herd, d.project, d.arrival, d.basis, d.exit, d.status, d.days]));
+    }
+    const blob = new Blob([L.map(r => r.map(csvCell).join(',')).join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url; link.download = `ranch_savvy_head_days_${groupBy}_${startDate}_${report.end}.csv`; link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const mono = { fontFamily: 'IBM Plex Mono, monospace' };
+  return (
+    <div>
+      <div className="detail-card" style={{marginBottom:'24px'}}>
+        <h3 style={{marginBottom:'16px'}}>Head Days</h3>
+        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(170px, 1fr))', gap:'14px', alignItems:'end'}}>
+          <div className="form-group" style={{margin:0}}><label className="form-label">Start Date</label><input className="form-input" type="date" value={startDate} max={today} onChange={e => setStartDate(e.target.value)} /></div>
+          <div className="form-group" style={{margin:0}}><label className="form-label">End Date</label><input className="form-input" type="date" value={endDate} max={today} onChange={e => setEndDate(e.target.value)} /></div>
+          <div className="form-group" style={{margin:0}}><label className="form-label">Group By</label>
+            <select className="form-select" value={groupBy} onChange={e => setGroupBy(e.target.value)}>
+              <option value="project">Project (Ambrook)</option><option value="enterprise">Enterprise (Ambrook)</option><option value="herd">Herd</option>
+            </select>
+          </div>
+          <div className="form-group" style={{margin:0}}><label className="form-label">Limit To</label><ScopeSelect value={scope} onChange={setScope} herds={herds} projects={projects} /></div>
+        </div>
+        {startDate > endDate && <p style={{color:'#e05555', fontSize:'13px', marginTop:'12px'}}>Start date is after end date.</p>}
+      </div>
+
+      {loadError ? (
+        <div className="detail-card"><div className="hc-note" style={{borderLeftColor:'#e05555'}}>Couldn't load animals: {loadError}</div><button className="btn btn-secondary" style={{marginTop:'12px'}} onClick={loadData}>Try again</button></div>
+      ) : !animals ? (
+        <div className="loading"><div className="spinner"></div> Loading animals...</div>
+      ) : report && (
+        <>
+          <div className="stats-row">
+            <div className="stat-card"><div className="stat-label">Head Days</div><div className="stat-value">{n0(report.total.headDays)}</div><div className="stat-sub">{report.periodDays} days in period</div></div>
+            <div className="stat-card"><div className="stat-label">Avg Head</div><div className="stat-value">{n1(report.total.headDays / report.periodDays)}</div><div className="stat-sub">head days ÷ days</div></div>
+            <div className="stat-card"><div className="stat-label">Head In / Out</div><div className="stat-value">{report.total.in} / {report.total.out}</div><div className="stat-sub">arrived / left in period</div></div>
+            <div className="stat-card"><div className="stat-label">Head Start → End</div><div className="stat-value">{report.total.start} → {report.total.end}</div><div className="stat-sub">{formatDate(startDate)} → {formatDate(report.end)}</div></div>
+          </div>
+
+          <div style={{display:'flex', gap:'10px', margin:'0 0 12px'}}>
+            <button className="btn btn-secondary" onClick={() => exportCSV(false)}>⤓ Export Summary CSV</button>
+            <button className="btn btn-ghost" onClick={() => exportCSV(true)}>⤓ Export With Animal Detail</button>
+          </div>
+
+          {report.rows.length === 0 ? (
+            <div className="empty-state"><h3>No cattle on hand in this period</h3><p>{scopeLabel(scope, herds)} · {formatDate(startDate)} → {formatDate(report.end)}</p></div>
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>{GROUP_LABEL[groupBy]}</th><th style={{textAlign:'right'}}>Head Days</th><th style={{textAlign:'right'}}>Avg Head</th><th style={{textAlign:'right'}}>Start</th><th style={{textAlign:'right'}}>In</th><th style={{textAlign:'right'}}>Out</th><th style={{textAlign:'right'}}>End</th><th style={{textAlign:'right'}}>% of Head Days</th></tr></thead>
+                <tbody>
+                  {report.rows.map(g => (
+                    <tr key={g.key} style={{cursor:'default'}}>
+                      <td style={{color: g.key.startsWith('(') ? 'var(--ash)' : 'var(--hay)', fontStyle: g.key.startsWith('(') ? 'italic' : 'normal'}}>{g.key}</td>
+                      <td className="td-mono" style={{textAlign:'right'}}>{n0(g.headDays)}</td>
+                      <td className="td-mono" style={{textAlign:'right'}}>{n1(g.headDays / report.periodDays)}</td>
+                      <td className="td-mono" style={{textAlign:'right'}}>{g.start}</td>
+                      <td className="td-mono" style={{textAlign:'right', color:'var(--sky)'}}>{g.in}</td>
+                      <td className="td-mono" style={{textAlign:'right', color:'var(--hay)'}}>{g.out}</td>
+                      <td className="td-mono" style={{textAlign:'right'}}>{g.end}</td>
+                      <td className="td-mono" style={{textAlign:'right', color:'var(--ash)'}}>{report.total.headDays ? (100 * g.headDays / report.total.headDays).toFixed(1) + '%' : '—'}</td>
+                    </tr>
+                  ))}
+                  <tr style={{cursor:'default', borderTop:'2px solid rgba(139,69,19,0.4)'}}>
+                    <td style={{...mono, fontSize:'12px', fontWeight:700}}>TOTAL</td>
+                    <td className="td-mono" style={{textAlign:'right', fontWeight:700}}>{n0(report.total.headDays)}</td>
+                    <td className="td-mono" style={{textAlign:'right', fontWeight:700}}>{n1(report.total.headDays / report.periodDays)}</td>
+                    <td className="td-mono" style={{textAlign:'right'}}>{report.total.start}</td>
+                    <td className="td-mono" style={{textAlign:'right'}}>{report.total.in}</td>
+                    <td className="td-mono" style={{textAlign:'right'}}>{report.total.out}</td>
+                    <td className="td-mono" style={{textAlign:'right'}}>{report.total.end}</td>
+                    <td></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div style={{marginTop:'16px'}}>
+            <div className="hc-note">Head days are counted in nights: the arrival day counts, the exit day doesn't. Arrival is purchase date, then birth date for raised cattle, then the day the record was entered.</div>
+            {groupBy === 'project' && <div className="hc-note">Project days follow each animal's project history, so head transferred between projects are split on the transfer date. In/Out include transfers.</div>}
+            {groupBy !== 'project' && <div className="hc-note">Enterprise and herd use each animal's <strong>current</strong> herd. Herd moves aren't recorded yet, so cattle that changed herds during the period have all their days counted where they are now.</div>}
+            {report.clipped && <div className="hc-note">End date is after today — counted through {formatDate(report.end)}.</div>}
+            {report.notes.noExit > 0 && <div className="hc-note">{report.notes.noExit} head are sold, dead or archived with no exit date, so they're left out. Give them a status date to count them.</div>}
+            {report.notes.entered > 0 && <div className="hc-note">{report.notes.entered} head have no purchase or birth date, so their arrival is the day they were entered in RanchSavvy. Add purchase dates if they were here earlier.</div>}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ===== PROJECT / OWNER HEAD DAYS REPORT =====
+// Same report for an owner: animal_ownership_history is turned into the project-history shape. Like the Head Count
+// report, an animal's first owner on file is treated as owning it from arrival (owners are often assigned after the fact).
+const ownershipAsHistory = (rows) => {
+  const by = {};
+  rows.forEach(o => (by[o.animal_id] = by[o.animal_id] || []).push({ id: o.id, owner: String(o.partnership_id), effective_date: hcDateOnly(o.effective_date) || HD_BEGIN }));
+  Object.values(by).forEach(l => l.sort((x, y) => x.effective_date.localeCompare(y.effective_date) || x.id - y.id));
+  Object.keys(by).forEach(k => {
+    by[k] = by[k].map((o, i, l) => ({ id: o.id, effective_date: o.effective_date, to_project: o.owner, from_project: i ? l[i - 1].owner : o.owner }));
+  });
+  return by;
+};
+
+// One project, one period (defaults to last month): beginning inventory, every head in and out — purchases, births,
+// transfers from/to other projects, sales, deaths — ending inventory, and head days. Built from project_history,
+// so cattle are counted in whichever project they were in on each day.
+const PRJ_EVENT = {
+  purchase: { label: 'Purchased',     sign: '+', color: 'var(--sky)' },
+  birth:    { label: 'Born',          sign: '+', color: 'var(--sage)' },
+  entered:  { label: 'Entered (no date)', sign: '+', color: 'var(--ash)' },
+  tin:      { label: 'Transfer In',   sign: '+', color: 'var(--sky)' },
+  sold:     { label: 'Sold',          sign: '−', color: 'var(--hay)' },
+  dead:     { label: 'Died',          sign: '−', color: '#e05555' },
+  archived: { label: 'Archived',      sign: '−', color: 'var(--ash)' },
+  tout:     { label: 'Transfer Out',  sign: '−', color: 'var(--hay)' },
+};
+const PRJ_IN = ['purchase', 'birth', 'entered', 'tin'], PRJ_OUT = ['sold', 'dead', 'archived', 'tout'];
+const lastMonthRange = (today) => {
+  const y = +today.slice(0, 4), m = +today.slice(5, 7);           // m is this month, 1-12
+  const py = m === 1 ? y - 1 : y, pm = m === 1 ? 12 : m - 1;
+  const start = `${py}-${String(pm).padStart(2, '0')}-01`;
+  return { start, end: addDays(`${y}-${String(m).padStart(2, '0')}-01`, -1) };
+};
+
+function ProjectHeadDaysReport({ toast, herds, projects, partnerships = [] }) {
+  const today = todayLocal();
+  const lm = lastMonthRange(today);
+  const [dim, setDim] = useState('project');           // 'project' | 'owner'
+  const [project, setProject] = useState('');           // the selected project name, or owner (partnership) id
+  const [startDate, setStartDate] = useState(lm.start);
+  const [endDate, setEndDate] = useState(lm.end);
+  const [data, setData] = useState(null);           // { animals, history }
+  const [loadError, setLoadError] = useState('');
+  const [exitInfo, setExitInfo] = useState({});     // animal_id -> { sale, death } for event notes
+
+  const loadData = useCallback(async () => {
+    setLoadError(''); setData(null);
+    try {
+      const [animals, hist, owners] = await Promise.all([
+        fetchAllRows('animals', 'id, vid, eid, sex, herd_id, project, status, status_date, purchased, purchase_date, purchase_location, purchase_price_per_head, date_of_birth, created_at'),
+        fetchAllRows('project_history', 'id, animal_id, from_project, to_project, effective_date'),
+        fetchAllRows('animal_ownership_history', 'id, animal_id, partnership_id, effective_date'),
+      ]);
+      setData({ animals, history: groupProjectHistory(hist), ownerHist: ownershipAsHistory(owners) });
+    } catch (err) {
+      setLoadError(err.message);
+    }
+  }, []);
+  useEffect(() => { loadData(); }, [loadData]);
+
+  // Project or owner view: same timeline logic, different history
+  const isOwner = dim === 'owner';
+  const options = isOwner
+    ? partnerships.map(p => ({ value: String(p.id), label: p.name + (p.is_active === false ? ' (inactive)' : ''), active: p.is_active !== false }))
+    : projects.map(p => ({ value: p.name, label: p.name + (p.is_active ? '' : ' (archived)'), active: !!p.is_active }));
+  const histFor = (a) => (isOwner ? data.ownerHist : data.history)[a.id];
+  const animalFor = (a) => (isOwner ? { ...a, project: null } : a);   // no ownership rows = no owner
+  const ownerName = (id) => partnerships.find(p => String(p.id) === String(id))?.name || 'unknown owner';
+  const subjectName = isOwner ? ownerName(project) : project;
+  const otherName = (v) => (v ? (isOwner ? ownerName(v) : v) : (isOwner ? 'no owner' : 'no project'));
+  const DIM = isOwner ? 'Owner' : 'Project';
+  const switchDim = (d) => { if (d !== dim) { setDim(d); setProject(''); } };
+
+  // Default to the active project / owner with the most cattle in its history, so the report shows on the first click
+  useEffect(() => {
+    if (project || !data || !options.length) return;
+    const counts = {};
+    data.animals.forEach(a => { const ps = new Set([isOwner ? null : a.project, ...(histFor(a) || []).map(h => h.to_project)]); ps.forEach(p => { if (p) counts[p] = (counts[p] || 0) + 1; }); });
+    const pick = [...options].sort((x, y) => (y.active - x.active) || (counts[y.value] || 0) - (counts[x.value] || 0))[0];
+    if (pick) setProject(pick.value);
+  }, [data, projects, partnerships, project, dim]);
+
+  const herdName = (id) => herds.find(h => String(h.id) === String(id))?.name || '';
+  const valid = !!project && !!startDate && !!endDate && startDate <= endDate;
+
+  const report = useMemo(() => {
+    if (!data || !valid) return null;
+    const end = endDate > today ? today : endDate;
+    const periodDays = hdDiff(startDate, addDays(end, 1));
+    const events = [], animalsOut = [];
+    const t = { headDays: 0, start: 0, end: 0, noExit: 0 };
+    const counts = Object.fromEntries(Object.keys(PRJ_EVENT).map(k => [k, 0]));
+    for (const a of data.animals) {
+      const segs = projectSegments(animalFor(a), histFor(a));
+      if (!segs) {
+        const touched = (!isOwner && a.project === project) || (histFor(a) || []).some(h => h.to_project === project);
+        if (touched && hcArrival(a).date <= end) t.noExit++;
+        continue;
+      }
+      let days = 0, atStart = false, atEnd = false, touched = false;
+      for (const sg of segs.filter(x => x.project === project)) {
+        const pp = periodPart(sg.from, sg.to, startDate, end);
+        if (!pp.days && !pp.atStart && !pp.came && !pp.went) continue;
+        touched = true;
+        days += pp.days;
+        if (pp.atStart) { atStart = true; t.start++; }
+        if (pp.atEnd) { atEnd = true; t.end++; }
+        const base = { animalId: a.id, vid: a.vid || '', eid: a.eid || '', sex: a.sex, herd: herdName(a.herd_id) };
+        if (pp.came) {
+          const kind = sg.inKind === 'transfer' ? 'tin' : sg.inKind;
+          counts[kind]++;
+          const note = kind === 'tin' ? `from ${otherName(sg.fromProject)}`
+            : kind === 'purchase' ? [a.purchase_price_per_head ? `$${Number(a.purchase_price_per_head).toLocaleString()}/hd` : '', a.purchase_location || ''].filter(Boolean).join(' · ') : '';
+          events.push({ ...base, date: sg.from, kind, note });
+        }
+        if (pp.went) {
+          const kind = sg.outKind === 'transfer' ? 'tout' : sg.outKind;
+          counts[kind] = (counts[kind] || 0) + 1;
+          events.push({ ...base, date: sg.to, kind, note: kind === 'tout' ? `to ${otherName(sg.toProject)}` : '' });
+        }
+      }
+      t.headDays += days;
+      if (touched) animalsOut.push({ animalId: a.id, vid: a.vid || '', eid: a.eid || '', sex: a.sex, herd: herdName(a.herd_id), status: a.status, atStart, atEnd, days });
+    }
+    const order = (k) => Object.keys(PRJ_EVENT).indexOf(k);
+    events.sort((x, y) => x.date.localeCompare(y.date) || order(x.kind) - order(y.kind) || String(x.vid).localeCompare(String(y.vid), undefined, { numeric: true }));
+    animalsOut.sort((x, y) => String(x.vid).localeCompare(String(y.vid), undefined, { numeric: true }));
+    const totIn = PRJ_IN.reduce((n, k) => n + counts[k], 0), totOut = PRJ_OUT.reduce((n, k) => n + counts[k], 0);
+    return { endDay: end, periodDays, events, animals: animalsOut, counts, totIn, totOut, ...t, clipped: end !== endDate };
+  }, [data, project, dim, partnerships, startDate, endDate, today, valid]);
+
+  // Sale location / death cause for the out events, fetched only for the head in this report
+  useEffect(() => {
+    if (!report) return;
+    const ids = [...new Set(report.events.filter(e => e.kind === 'sold' || e.kind === 'dead').map(e => e.animalId))].filter(id => !(id in exitInfo));
+    if (!ids.length) return;
+    (async () => {
+      const [sales, deaths] = await Promise.all([
+        chunkedIn(ids, (chunk) => supabase.from('sale_animals').select('animal_id, sale_records(sale_date, sale_location, sale_type)').in('animal_id', chunk)),
+        chunkedIn(ids, (chunk) => supabase.from('death_records').select('animal_id, death_date, cause_of_death').in('animal_id', chunk)),
+      ]);
+      const info = Object.fromEntries(ids.map(id => [id, {}]));
+      (sales.data || []).forEach(x => { if (info[x.animal_id]) info[x.animal_id].sale = [x.sale_records?.sale_location, x.sale_records?.sale_type].filter(Boolean).join(' · '); });
+      (deaths.data || []).forEach(x => { if (info[x.animal_id]) info[x.animal_id].death = x.cause_of_death || ''; });
+      setExitInfo(prev => ({ ...prev, ...info }));
+    })();
+  }, [report]);
+  const noteFor = (e) => e.note || (e.kind === 'sold' ? exitInfo[e.animalId]?.sale : e.kind === 'dead' ? exitInfo[e.animalId]?.death : '') || '';
+
+  const exportCSV = () => {
+    if (!report) return;
+    const r = report, calcEnd = r.start + r.totIn - r.totOut;
+    const L = [
+      [`Ranch Savvy — ${DIM} Head Days`], [DIM, subjectName], ['Period', `${startDate} to ${r.endDay}`, `${r.periodDays} days`], ['Generated', new Date().toLocaleString()], [],
+      ['SUMMARY', 'Head'],
+      [`Beginning inventory (on hand end of ${addDays(startDate, -1)})`, r.start],
+      ...PRJ_IN.filter(k => r.counts[k] || k !== 'entered').map(k => [`+ ${PRJ_EVENT[k].label}`, r.counts[k]]),
+      ...PRJ_OUT.filter(k => r.counts[k] || k !== 'archived').map(k => [`− ${PRJ_EVENT[k].label}`, r.counts[k]]),
+      [`Ending inventory (on hand end of ${r.endDay})`, r.end],
+      ['Check: beginning + in − out', calcEnd, calcEnd === r.end ? 'reconciled' : 'DOES NOT RECONCILE'],
+      [],
+      ['Total head days', r.headDays],
+      ['Average head', (r.headDays / r.periodDays).toFixed(1)],
+      ...(r.noExit ? [['Head left out (gone with no exit date)', r.noExit]] : []),
+      [],
+      ['EVENTS'], ['Date', 'Event', '+/−', 'VID', 'EID', 'Sex', 'Current Herd', 'Detail'],
+      ...r.events.map(e => [e.date, PRJ_EVENT[e.kind].label, PRJ_EVENT[e.kind].sign === '+' ? '+1' : '-1', e.vid, e.eid, e.sex, e.herd, noteFor(e)]),
+      [],
+      ['ANIMALS'], ['VID', 'EID', 'Sex', 'Current Herd', 'Status Now', 'In Beginning Inventory', 'In Ending Inventory', 'Head Days In Period'],
+      ...r.animals.map(a => [a.vid, a.eid, a.sex, a.herd, a.status, a.atStart ? 'Y' : '', a.atEnd ? 'Y' : '', a.days]),
+    ];
+    const blob = new Blob([L.map(row => row.map(csvCell).join(',')).join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url; link.download = `${subjectName.replace(/[^\w-]+/g, '_')}_head_days_${startDate}_${r.endDay}.csv`; link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const n0 = (v) => Math.round(v).toLocaleString('en-US');
+  const r = report;
+  const calcEnd = r ? r.start + r.totIn - r.totOut : 0;
+  return (
+    <div>
+      <div className="detail-card" style={{marginBottom:'20px'}}>
+        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(170px, 1fr))', gap:'14px', alignItems:'end'}}>
+          <div className="form-group" style={{margin:0}}><label className="form-label">Report By</label>
+            <div style={{display:'flex', borderRadius:'4px', overflow:'hidden', border:'1px solid rgba(139,69,19,0.4)'}}>
+              {[['project', 'Project'], ['owner', 'Owner']].map(([d, l]) => (
+                <button key={d} onClick={() => switchDim(d)} style={{flex:1, padding:'9px', border:'none', cursor:'pointer', fontFamily:'IBM Plex Mono, monospace', fontSize:'12px', letterSpacing:'1px', textTransform:'uppercase', background: dim === d ? 'var(--rust)' : 'transparent', color: dim === d ? 'var(--cream)' : 'var(--ash)'}}>{l}</button>
+              ))}
+            </div>
+          </div>
+          <div className="form-group" style={{margin:0}}><label className="form-label">{DIM}</label>
+            <select className="form-select" value={project} onChange={e => setProject(e.target.value)}>
+              {!options.length && <option value="">{isOwner ? 'No owners yet — add them under Partnerships' : 'No projects yet — add them under Animals → Projects'}</option>}
+              {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <div className="form-group" style={{margin:0}}><label className="form-label">Start</label><input className="form-input" type="date" value={startDate} max={today} onChange={e => setStartDate(e.target.value)} /></div>
+          <div className="form-group" style={{margin:0}}><label className="form-label">End</label><input className="form-input" type="date" value={endDate} max={today} onChange={e => setEndDate(e.target.value)} /></div>
+        </div>
+        <div style={{display:'flex', gap:'8px', marginTop:'12px', flexWrap:'wrap', alignItems:'center'}}>
+          <button className="btn btn-ghost" style={{padding:'5px 12px', fontSize:'12px'}} onClick={() => { setStartDate(lm.start); setEndDate(lm.end); }}>Last month</button>
+          <button className="btn btn-ghost" style={{padding:'5px 12px', fontSize:'12px'}} onClick={() => { setStartDate(today.slice(0, 8) + '01'); setEndDate(today); }}>Month to date</button>
+          <button className="btn btn-ghost" style={{padding:'5px 12px', fontSize:'12px'}} onClick={() => { setStartDate(today.slice(0, 4) + '-01-01'); setEndDate(today); }}>Year to date</button>
+          {r && <button className="btn btn-primary" style={{marginLeft:'auto'}} onClick={exportCSV}>⤓ Export Report</button>}
+        </div>
+        {startDate > endDate && <p style={{color:'#e05555', fontSize:'13px', marginTop:'10px'}}>Start is after end.</p>}
+      </div>
+
+      {loadError ? (
+        <div className="detail-card">
+          <div className="hc-note" style={{borderLeftColor:'#e05555'}}>Couldn't load project data: {loadError}</div>
+          {/project/.test(loadError) && <>
+            <p style={{fontSize:'13px', color:'var(--ash)', margin:'12px 0 8px'}}>Project history isn't set up yet. Run this in Supabase → SQL Editor (safe to re-run), then try again.</p>
+            <textarea readOnly value={PROJECTS_SQL} onFocus={e => e.target.select()} style={{width:'100%', height:'200px', fontFamily:'IBM Plex Mono', fontSize:'11px', color:'var(--cream)', background:'var(--charcoal)', border:'1px solid rgba(139,69,19,0.4)', borderRadius:'4px', padding:'8px'}} />
+            <button className="btn btn-ghost" style={{marginTop:'6px'}} onClick={() => { navigator.clipboard?.writeText(PROJECTS_SQL); toast('SQL copied', 'success'); }}>Copy SQL</button>
+          </>}
+          <button className="btn btn-secondary" style={{marginTop:'12px', marginLeft:'8px'}} onClick={loadData}>Try again</button>
+        </div>
+      ) : !data ? (
+        <div className="loading"><div className="spinner"></div> Loading project data...</div>
+      ) : r && (
+        <>
+          <div className="stats-row">
+            <div className="stat-card"><div className="stat-label">Head Days</div><div className="stat-value">{n0(r.headDays)}</div><div className="stat-sub">{r.periodDays} days · avg {(r.headDays / r.periodDays).toFixed(1)} hd</div></div>
+            <div className="stat-card"><div className="stat-label">Beginning</div><div className="stat-value">{r.start}</div><div className="stat-sub">end of {formatDate(addDays(startDate, -1))}</div></div>
+            <div className="stat-card"><div className="stat-label">In / Out</div><div className="stat-value"><span style={{color:'var(--sky)'}}>+{r.totIn}</span> <span style={{color:'var(--hay)'}}>−{r.totOut}</span></div><div className="stat-sub">incl. transfers</div></div>
+            <div className="stat-card"><div className="stat-label">Ending</div><div className="stat-value">{r.end}</div><div className="stat-sub">end of {formatDate(r.endDay)}</div></div>
+          </div>
+
+          <div className="detail-card" style={{marginBottom:'16px'}}>
+            <h3>Inventory Reconciliation</h3>
+            <div className="detail-row"><span className="detail-key">Beginning inventory</span><span className="detail-val td-mono">{r.start}</span></div>
+            {PRJ_IN.filter(k => r.counts[k] || k !== 'entered').map(k => <div key={k} className="detail-row"><span className="detail-key">+ {PRJ_EVENT[k].label}</span><span className="detail-val td-mono" style={{color: r.counts[k] ? PRJ_EVENT[k].color : 'var(--ash)'}}>{r.counts[k]}</span></div>)}
+            {PRJ_OUT.filter(k => r.counts[k] || k !== 'archived').map(k => <div key={k} className="detail-row"><span className="detail-key">− {PRJ_EVENT[k].label}</span><span className="detail-val td-mono" style={{color: r.counts[k] ? PRJ_EVENT[k].color : 'var(--ash)'}}>{r.counts[k]}</span></div>)}
+            <div className="detail-row" style={{borderTop:'1px solid rgba(139,69,19,0.4)'}}><span className="detail-key" style={{fontWeight:700}}>Ending inventory</span><span className="detail-val td-mono" style={{fontWeight:700}}>{r.end}</span></div>
+            <div style={{fontFamily:'IBM Plex Mono, monospace', fontSize:'11px', marginTop:'8px', color: calcEnd === r.end ? 'var(--sage)' : 'var(--hay)'}}>{calcEnd === r.end ? '✓ RECONCILED' : `⚠ ${r.start} + ${r.totIn} − ${r.totOut} = ${calcEnd}, ending shows ${r.end}`}</div>
+          </div>
+
+          {r.events.length === 0 ? (
+            <div className="empty-state"><h3>No head in or out</h3><p>{r.start ? `${r.start} head carried through ${formatDate(startDate)} – ${formatDate(r.endDay)} with no changes.` : `Nothing ${isOwner ? 'owned by' : 'in'} ${subjectName} during this period.`}</p></div>
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>Date</th><th>Event</th><th style={{textAlign:'center'}}>+/−</th><th>VID</th><th>EID</th><th>Sex</th><th>Herd</th><th>Detail</th></tr></thead>
+                <tbody>
+                  {r.events.map((e, i) => (
+                    <tr key={i} style={{cursor:'default'}}>
+                      <td className="td-mono" style={{fontSize:'12px'}}>{e.date}</td>
+                      <td style={{color: PRJ_EVENT[e.kind].color, fontSize:'12px', fontFamily:'IBM Plex Mono, monospace'}}>{PRJ_EVENT[e.kind].label.toUpperCase()}</td>
+                      <td style={{textAlign:'center', fontWeight:700, color: PRJ_EVENT[e.kind].color}}>{PRJ_EVENT[e.kind].sign}</td>
+                      <td className="td-mono">{e.vid || '—'}</td>
+                      <td style={{fontFamily:'IBM Plex Mono', fontSize:'11px', color:'var(--ash)'}}>{e.eid || '—'}</td>
+                      <td style={{fontSize:'12px'}}>{sexLabel(e.sex)}</td>
+                      <td style={{fontSize:'12px', color:'var(--ash)'}}>{e.herd || '—'}</td>
+                      <td style={{fontSize:'12px', color:'var(--ash)'}}>{noteFor(e) || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div style={{marginTop:'16px'}}>
+            <div className="hc-note">Head days are nights {isOwner ? 'owned' : 'in the project'}: the day an animal arrives or transfers in counts, the day it leaves or transfers out doesn't. The export adds a per-animal list with each head's days.</div>
+            {isOwner && <div className="hc-note">Owner transfers come from ownership changes and their effective dates. An animal's first owner on file counts from the day it arrived, since owners are often assigned after the fact. Head days are whole head per owner, not split by partnership shares.</div>}
+            {r.clipped && <div className="hc-note">End date is after today — counted through {formatDate(r.endDay)}.</div>}
+            {r.noExit > 0 && <div className="hc-note">{r.noExit} head tied to this project are sold, dead or archived with no exit date, so they're left out. Give them a status date to count them.</div>}
+            {r.counts.entered > 0 && <div className="hc-note">{r.counts.entered} head have no purchase or birth date, so they arrive on the day they were entered in RanchSavvy. Add purchase dates to fix their head days.</div>}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ===== REPORTS PAGE =====
 function ReportsPage({ toast }) {
-  const [activeTab, setActiveTab] = useState('inventory_change');
+  const [activeTab, setActiveTab] = useState('project_days');
   const [herds, setHerds] = useState([]);
   const [partnerships, setPartnerships] = useState([]);
+  const [projects, setProjects] = useState([]);
 
   // Legacy calving/summary state
   const [reportScope, setReportScope] = useState('herd');
@@ -4248,6 +5182,7 @@ function ReportsPage({ toast }) {
   useEffect(() => {
     supabase.from('herds').select('*').order('name').then(({ data }) => setHerds(data || []));
     supabase.from('partnerships').select('*').order('name').then(({ data }) => setPartnerships(data || []));
+    supabase.from('projects').select('*').order('name').then(({ data, error }) => setProjects(error ? [] : (data || [])));
     const oneYearAgo = new Date(); oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
     setStartDate(oneYearAgo.toISOString().split('T')[0]);
   }, []);
@@ -4303,8 +5238,10 @@ function ReportsPage({ toast }) {
   };
 
   const TABS = [
+    { id: 'project_days',     label: 'Project / Owner Days' },
     { id: 'inventory_change', label: 'Inventory Change' },
     { id: 'head_count',       label: 'Head Count' },
+    { id: 'head_days',        label: 'Head Days' },
     { id: 'calving',          label: 'Calving Records' },
     { id: 'summary',          label: 'Summary' },
   ];
@@ -4327,12 +5264,20 @@ function ReportsPage({ toast }) {
         ))}
       </div>
 
+      {activeTab === 'project_days' && (
+        <ProjectHeadDaysReport toast={toast} herds={herds} projects={projects} partnerships={partnerships} />
+      )}
+
       {activeTab === 'inventory_change' && (
-        <InventoryChangeReport toast={toast} herds={herds} />
+        <InventoryChangeReport toast={toast} herds={herds} projects={projects} />
       )}
 
       {activeTab === 'head_count' && (
-        <HeadCountReport toast={toast} herds={herds} partnerships={partnerships} />
+        <HeadCountReport toast={toast} herds={herds} partnerships={partnerships} projects={projects} />
+      )}
+
+      {activeTab === 'head_days' && (
+        <HeadDaysReport toast={toast} herds={herds} projects={projects} />
       )}
 
       {activeTab === 'calving' && (
@@ -4444,12 +5389,32 @@ function LoginPage({ onLogin }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [forgot, setForgot] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  const sendReset = async () => {
+    if (!email.trim()) { setError('Enter your email address.'); return; }
+    setLoading(true); setError('');
+    const { error: e } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: APP_URL });
+    setLoading(false);
+    // Same message whether or not the address has an account, so the form can't be used to probe for users
+    if (e && !/not found|no user/i.test(e.message)) setError(e.message);
+    else setSent(true);
+  };
 
   const handleLogin = async () => {
     if (!email || !password) { setError('Please enter your email and password.'); return; }
     setLoading(true); setError('');
     const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
-    if (authError) { setError('Invalid email or password. Please try again.'); setLoading(false); }
+    if (authError) {
+      // Only call it a bad password when Supabase says so — network, sandbox and account problems need their real message
+      const m = authError.message || '';
+      setError(/invalid login credentials/i.test(m) ? 'Wrong email or password. Use "Forgot password?" below to reset it.'
+        : /fetch|network|load failed/i.test(m) ? `Couldn't reach the server (${m}). Check your connection — this page has to run from your RanchSavvy web address, not a preview or a downloaded file.`
+        : /not confirmed/i.test(m) ? 'This email address hasn\'t been confirmed yet — check your inbox for the confirmation link.'
+        : `Sign-in failed: ${m}`);
+      setLoading(false);
+    }
     else { onLogin(); }
   };
 
@@ -4460,13 +5425,58 @@ function LoginPage({ onLogin }) {
           <h1 style={{fontFamily:'Syncopate, sans-serif', fontSize:'28px', fontWeight:'700', color:'var(--hay)', letterSpacing:'4px', textTransform:'uppercase', lineHeight:'1.2'}}>Ranch Savvy</h1>
           <p style={{fontFamily:'IBM Plex Mono, monospace', fontSize:'11px', letterSpacing:'3px', color:'var(--ash)', marginTop:'8px', textTransform:'uppercase'}}>Cattle Management Platform</p>
         </div>
+        {forgot ? (
+          <div style={{display:'flex', flexDirection:'column', gap:'16px'}}>
+            {sent ? <>
+              <p style={{color:'var(--cream)', fontSize:'14px', lineHeight:1.6}}>If <strong>{email.trim()}</strong> has a RanchSavvy login, a reset link is on its way. Open it on this device to set a new password.</p>
+              <p style={{color:'var(--ash)', fontSize:'12px', lineHeight:1.5}}>Nothing after a few minutes? Check spam. The link works once and expires after an hour.</p>
+            </> : <>
+              <p style={{color:'var(--ash)', fontSize:'13px', lineHeight:1.5}}>Enter your email and we'll send a link to set a new password.</p>
+              <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" placeholder="your@email.com" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key==='Enter'&&sendReset()} autoFocus /></div>
+              {error && <div style={{background:'rgba(224,85,85,0.1)', border:'1px solid rgba(224,85,85,0.4)', borderRadius:'4px', padding:'10px 14px', color:'#e05555', fontSize:'13px'}}>{error}</div>}
+              <button className="btn btn-primary" onClick={sendReset} disabled={loading} style={{padding:'12px', fontSize:'15px'}}>{loading ? 'Sending...' : 'Send Reset Link'}</button>
+            </>}
+            <button className="btn btn-ghost" onClick={() => { setForgot(false); setSent(false); setError(''); }}>← Back to sign in</button>
+          </div>
+        ) : (
         <div style={{display:'flex', flexDirection:'column', gap:'16px'}}>
           <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" placeholder="your@email.com" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key==='Enter'&&handleLogin()} autoFocus /></div>
           <div className="form-group"><label className="form-label">Password</label><input className="form-input" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key==='Enter'&&handleLogin()} /></div>
           {error && <div style={{background:'rgba(224,85,85,0.1)', border:'1px solid rgba(224,85,85,0.4)', borderRadius:'4px', padding:'10px 14px', color:'#e05555', fontSize:'13px'}}>{error}</div>}
           <button className="btn btn-primary" onClick={handleLogin} disabled={loading} style={{padding:'12px', fontSize:'15px', marginTop:'8px'}}>{loading ? 'Signing in...' : 'Sign In'}</button>
+          <button onClick={() => { setForgot(true); setError(''); }} style={{background:'none', border:'none', color:'var(--ash)', fontSize:'13px', cursor:'pointer', textDecoration:'underline', padding:0}}>Forgot password?</button>
         </div>
+        )}
         <div style={{marginTop:'24px', textAlign:'center', fontFamily:'IBM Plex Mono, monospace', fontSize:'11px', color:'var(--ash)', letterSpacing:'1px'}}>RANCHSAVVY.COM · SECURE LOGIN</div>
+      </div>
+    </div>
+  );
+}
+
+// Shown after arriving from a reset email: the link signs the person in, this sets the new password
+function SetPasswordPage({ onDone }) {
+  const [pw, setPw] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const save = async () => {
+    if (pw.length < 8) { setError('Use at least 8 characters.'); return; }
+    if (pw !== pw2) { setError("The two passwords don't match."); return; }
+    setSaving(true); setError('');
+    const { error: e } = await supabase.auth.updateUser({ password: pw });
+    setSaving(false);
+    if (e) setError(e.message); else onDone();
+  };
+  return (
+    <div style={{minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--soil)'}}>
+      <div style={{background:'var(--charcoal)', border:'1px solid rgba(139,69,19,0.4)', borderRadius:'8px', padding:'40px', width:'100%', maxWidth:'400px'}}>
+        <h2 style={{fontFamily:'Syncopate, sans-serif', fontSize:'18px', color:'var(--hay)', letterSpacing:'3px', textTransform:'uppercase', marginBottom:'24px', textAlign:'center'}}>Set New Password</h2>
+        <div style={{display:'flex', flexDirection:'column', gap:'16px'}}>
+          <div className="form-group"><label className="form-label">New Password</label><input className="form-input" type="password" autoComplete="new-password" value={pw} onChange={e => setPw(e.target.value)} autoFocus /></div>
+          <div className="form-group"><label className="form-label">Confirm New Password</label><input className="form-input" type="password" autoComplete="new-password" value={pw2} onChange={e => setPw2(e.target.value)} onKeyDown={e => e.key==='Enter'&&save()} /></div>
+          {error && <div style={{background:'rgba(224,85,85,0.1)', border:'1px solid rgba(224,85,85,0.4)', borderRadius:'4px', padding:'10px 14px', color:'#e05555', fontSize:'13px'}}>{error}</div>}
+          <button className="btn btn-primary" onClick={save} disabled={saving} style={{padding:'12px', fontSize:'15px'}}>{saving ? 'Saving...' : 'Save Password'}</button>
+        </div>
       </div>
     </div>
   );
@@ -4480,10 +5490,14 @@ function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [pendingHerdFilter, setPendingHerdFilter] = useState(null);
+  const [recovering, setRecovering] = useState(ARRIVED_FROM_RESET_LINK);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => { setSession(session); setAuthLoading(false); });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => { setSession(session); });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') setRecovering(true);
+      setSession(session);
+    });
     return () => subscription.unsubscribe();
   }, []);
 
@@ -4504,6 +5518,11 @@ function App() {
   );
 
   if (!session) return <LoginPage onLogin={() => {}} />;
+  if (recovering) return <SetPasswordPage onDone={() => {
+    setRecovering(false);
+    window.history.replaceState(null, '', APP_URL);   // drop the reset tokens from the address bar
+    showToast('Password updated', 'success');
+  }} />;
 
   return (
     <div>
