@@ -535,7 +535,8 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState({
     vid:true, eid:true, calfId:true, sex:true, herd:true, owner:true,
-    dob:true, tagColor:true, breedingStatus:true, project:true, status:true
+    dob:true, tagColor:true, breedingStatus:true, project:true, status:true,
+    mouth:false, udder:false, bcs:false, cull:false
   });
   const [page, setPage] = useState(0);
   const [sortColumn, setSortColumn] = useState('vid');
@@ -648,6 +649,10 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
         case 'tagColor': aVal=a.tag_color||''; bVal=b.tag_color||''; break;
         case 'breedingStatus': aVal=a.breeding_status||''; bVal=b.breeding_status||''; break;
         case 'project': aVal=a.project||''; bVal=b.project||''; break;
+        case 'mouth': aVal=a.mouth||''; bVal=b.mouth||''; break;
+        case 'udder': aVal=a.udder_score||''; bVal=b.udder_score||''; break;
+        case 'bcs': { const x = a.condition_score==null ? -1 : Number(a.condition_score), y = b.condition_score==null ? -1 : Number(b.condition_score); return sortDirection==='asc' ? x-y : y-x; }
+        case 'cull': aVal=a.is_cull?'1':'0'; bVal=b.is_cull?'1':'0'; break;
         case 'status': aVal=a.status||''; bVal=b.status||''; break;
         default: aVal=''; bVal='';
       }
@@ -680,6 +685,10 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
     if (visibleColumns.tagColor) headers.push('Tag Color');
     if (visibleColumns.breedingStatus) headers.push('Breeding Status');
     if (visibleColumns.project) headers.push('Project');
+    if (visibleColumns.mouth) headers.push('Mouth');
+    if (visibleColumns.udder) headers.push('Udder');
+    if (visibleColumns.bcs) headers.push('Condition Score');
+    if (visibleColumns.cull) headers.push('Cull');
     if (visibleColumns.status) headers.push('Status');
     filteredAnimals.forEach(a => {
       const row = [];
@@ -693,6 +702,10 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
       if (visibleColumns.tagColor) row.push(a.tag_color||'');
       if (visibleColumns.breedingStatus) row.push(a.breeding_status?.replace('_',' ')||'');
       if (visibleColumns.project) row.push(a.project||'');
+      if (visibleColumns.mouth) row.push(a.mouth||'');
+      if (visibleColumns.udder) row.push(a.udder_score||'');
+      if (visibleColumns.bcs) row.push(a.condition_score==null?'':Number(a.condition_score));
+      if (visibleColumns.cull) row.push(a.is_cull?'Yes':'No');
       if (visibleColumns.status) row.push(a.status);
       rows.push(row);
     });
@@ -844,7 +857,7 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
         <details style={{marginTop:'12px'}}>
           <summary style={{cursor:'pointer', fontSize:'12px', color:'var(--ash)', fontFamily:'IBM Plex Mono, monospace', letterSpacing:'1px'}}>⚙ COLUMN VISIBILITY</summary>
           <div style={{marginTop:'8px', padding:'12px', background:'var(--charcoal)', borderRadius:'4px', display:'flex', flexWrap:'wrap', gap:'12px'}}>
-            {Object.entries({vid:'VID', eid:'EID', calfId:'Calf ID', sex:'Sex', herd:'Herd', owner:'Owner', dob:'DOB', tagColor:'Tag Color', breedingStatus:'Breeding', project:'Project', status:'Status'}).map(([key, label]) => (
+            {Object.entries({vid:'VID', eid:'EID', calfId:'Calf ID', sex:'Sex', herd:'Herd', owner:'Owner', dob:'DOB', tagColor:'Tag Color', breedingStatus:'Breeding', project:'Project', status:'Status', mouth:'Mouth', udder:'Udder', bcs:'BCS', cull:'Cull'}).map(([key, label]) => (
               <label key={key} style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'13px', color:'var(--cream)'}}>
                 <input type="checkbox" checked={visibleColumns[key]} onChange={() => setVisibleColumns(v => ({...v, [key]: !v[key]}))} />
                 {label}
@@ -877,6 +890,10 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
                 {visibleColumns.tagColor && <SortTh col="tagColor" label="Tag Color" />}
                 {visibleColumns.breedingStatus && <SortTh col="breedingStatus" label="Breed Status" />}
                 {visibleColumns.project && <SortTh col="project" label="Project" />}
+                {visibleColumns.mouth && <SortTh col="mouth" label="Mouth" />}
+                {visibleColumns.udder && <SortTh col="udder" label="Udder" />}
+                {visibleColumns.bcs && <SortTh col="bcs" label="BCS" />}
+                {visibleColumns.cull && <SortTh col="cull" label="Cull" />}
                 {visibleColumns.status && <SortTh col="status" label="Status" />}
               </tr>
             </thead>
@@ -896,6 +913,10 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
                   {visibleColumns.tagColor && <td>{a.tag_color ? <span style={{display:'inline-flex', alignItems:'center', gap:'6px', fontSize:'12px', color:'var(--cream)', textTransform:'capitalize'}}><span style={{width:'12px', height:'12px', borderRadius:'50%', background: a.tag_color, border: a.tag_color==='white'?'1px solid var(--ash)':'none'}}></span>{a.tag_color}</span> : '—'}</td>}
                   {visibleColumns.breedingStatus && <td>{a.breeding_status ? <span style={{fontSize:'12px', color: a.breeding_status==='open' ? '#e05555' : 'var(--sage)'}}>{a.breeding_status.replace('_', ' ')}</span> : '—'}</td>}
                   {visibleColumns.project && <td style={{fontSize:'12px', color: a.project ? 'var(--hay)' : 'var(--ash)'}}>{a.project || '—'}</td>}
+                  {visibleColumns.mouth && <td style={{fontSize:'12px', textTransform:'capitalize', color: a.mouth==='broken' ? 'var(--hay)' : undefined}}>{a.mouth || '—'}</td>}
+                  {visibleColumns.udder && <td className="td-mono" style={{color: ['D','F'].includes(a.udder_score) ? '#e05555' : undefined}}>{a.udder_score || '—'}</td>}
+                  {visibleColumns.bcs && <td className="td-mono">{bcsLabel(a.condition_score)}</td>}
+                  {visibleColumns.cull && <td style={{fontSize:'12px', color: a.is_cull ? '#e05555' : 'var(--ash)'}}>{a.is_cull ? 'CULL' : '—'}</td>}
                   {visibleColumns.status && <td><span className={`status-dot status-${a.status}`}></span>{a.status}</td>}
                 </tr>
               ))}
@@ -927,6 +948,64 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
 // Plain per-animal fields: one value written to every selected head. Same field list as the CSV import
 // (Owner, Status, Notes and Vaccination have their own handling below). Options are written out here rather
 // than reusing SEX_VALUES / BREEDING_VALUES, which are declared further down the file.
+// ===== COW SCORES (mouth, udder, condition) + Cull/Alert =====
+// Tru-Test's Alert flag maps to the existing is_cull checkbox — one flag, not two.
+// Current value lives on animals; a preg-check import also copies mouth/udder/BCS onto that preg_checks row as dated history.
+// Columns are added by COW_SCORES_SQL — until it's run, edits only send these fields when they actually change, so nothing else breaks.
+const MOUTH_OPTIONS = [['solid','Solid'],['broken','Broken']];
+const UDDER_OPTIONS = ['A','B','C','D','F'].map(v => [v, v]);
+const BCS_OPTIONS = ['1','1.5','2','2.5','3','3.5','4','4.5','5','5.5','6'].map(v => [v, v]);
+const COW_SCORE_COLS = 'mouth, udder_score, condition_score';
+const parseMouth = (raw) => {
+  const v = String(raw ?? '').trim().toLowerCase().replace(/[\s_\-.]+/g, ' ');
+  if (!v) return '';
+  if (['s','sm','solid','solid mouth','sound','sound mouth','full','full mouth'].includes(v)) return 'solid';
+  if (['b','bm','br','broke','broken','broken mouth','brk'].includes(v)) return 'broken';
+  return null; // unrecognized
+};
+const parseAlert = (raw) => {
+  const v = String(raw ?? '').trim().toLowerCase();
+  if (!v) return '';
+  if (['y','yes','true','t','1','x','alert','on'].includes(v)) return true;
+  if (['n','no','false','f','0','off','-'].includes(v)) return false;
+  return null;
+};
+const parseUdder = (raw) => {
+  const v = String(raw ?? '').trim().toUpperCase();
+  if (!v) return '';
+  return ['A','B','C','D','F'].includes(v) ? v : null;
+};
+const parseBCS = (raw) => {
+  const v = String(raw ?? '').trim();
+  if (!v) return '';
+  if (!/^\d+(\.\d+)?$/.test(v)) return null;
+  const n = Math.round(Number(v) * 2) / 2; // half-score steps
+  return n >= 1 && n <= 6 ? n : null;
+};
+const cullLabel = (v) => v ? 'CULL' : 'No';
+const bcsLabel = (v) => v == null || v === '' ? '—' : String(Number(v));
+const COW_SCORES_SQL = `-- Run once in Supabase → SQL Editor. Adds mouth, udder and condition score. (Tru-Test Alert uses the existing is_cull.)
+alter table public.animals
+  add column if not exists mouth text check (mouth in ('solid','broken')),
+  add column if not exists udder_score text check (udder_score in ('A','B','C','D','F')),
+  add column if not exists condition_score numeric(2,1) check (condition_score between 1 and 6);
+-- Dated history on preg checks (skipped if preg_checks hasn't been created yet)
+do $$ begin
+  if to_regclass('public.preg_checks') is not null then
+    alter table public.preg_checks
+      add column if not exists mouth text check (mouth in ('solid','broken')),
+      add column if not exists udder_score text check (udder_score in ('A','B','C','D','F')),
+      add column if not exists condition_score numeric(2,1) check (condition_score between 1 and 6);
+  end if;
+end $$;
+-- If an earlier version added a separate alert column: fold it into is_cull, then drop it
+do $$ begin
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'animals' and column_name = 'alert') then
+    update public.animals set is_cull = true where alert = true and coalesce(is_cull, false) = false;
+    alter table public.animals drop column alert;
+  end if;
+end $$;`;
+
 const BULK_TAG_COLORS = ['yellow','red','blue','green','orange','white','black','pink','purple'];
 const BULK_FIELDS = {
   vid:               { label: 'VID', input: 'text', clearable: true, uniqueTag: true, placeholder: 'e.g. H607' },
@@ -942,6 +1021,10 @@ const BULK_FIELDS = {
   purchase_location: { label: 'Purchase Location', input: 'text', clearable: true, placeholder: 'e.g. Herreid Livestock' },
   purchase_price_per_head: { label: 'Purchase Price ($/hd)', input: 'number', clearable: true, placeholder: 'e.g. 1250' },
   project:           { label: 'Project', input: 'project', clearable: true },
+  mouth:             { label: 'Mouth', input: 'select', clearable: true, options: MOUTH_OPTIONS },
+  is_cull:           { label: 'Cull (Alert)', input: 'select', options: [['true','Yes — cull'],['false','No']], bool: true },
+  udder_score:       { label: 'Udder Score', input: 'select', clearable: true, options: UDDER_OPTIONS },
+  condition_score:   { label: 'Condition Score', input: 'select', clearable: true, options: BCS_OPTIONS, num: true },
 };
 
 function BulkEditModal({ selectedIds, herds, partnerships, projects = [], onClose, onSaved, toast }) {
@@ -1166,7 +1249,7 @@ function BulkEditModal({ selectedIds, herds, partnerships, projects = [], onClos
       } else if (action === 'purchased') {
         value = raw === 'true'; shown = value ? 'Yes' : 'No';
       } else if (f.input === 'select') {
-        value = raw; shown = (f.options.find(o => o[0] === raw) || [raw, raw])[1];
+        value = f.bool ? raw === 'true' : f.num ? Number(raw) : raw; shown = (f.options.find(o => o[0] === raw) || [raw, raw])[1];
       } else if (f.input === 'herd') {
         value = raw; shown = herds.find(h => h.id === raw)?.name || 'herd';
       } else if (f.input === 'project') {
@@ -1273,6 +1356,12 @@ function BulkEditModal({ selectedIds, herds, partnerships, projects = [], onClos
                 <option value="breed">Breed</option>
                 <option value="date_of_birth">Date of Birth</option>
                 <option value="breeding_status">Breeding Status</option>
+              </optgroup>
+              <optgroup label="Cow Scores">
+                <option value="mouth">Mouth (Solid / Broken)</option>
+                <option value="is_cull">Cull / Alert (Yes / No)</option>
+                <option value="udder_score">Udder Score (A–F)</option>
+                <option value="condition_score">Condition Score (1–6)</option>
               </optgroup>
               <optgroup label="Herd & Ownership">
                 <option value="herd_id">Move to Herd</option>
@@ -1496,6 +1585,11 @@ function AnimalDetailModal({ animal, herds, partnerships, projects = [], animalO
       notes: form.notes || null, updated_at: new Date().toISOString(),
       // Project change: the trigger logs a dated transfer in project_history using project_date
       ...((form.project || null) !== (animal.project || null) ? { project: form.project || null, project_date: form.project_change_date || todayLocal() } : {}),
+      // Cow scores: only sent when changed, so editing still works before COW_SCORES_SQL has been run
+      ...((form.mouth || null) !== (animal.mouth || null) ? { mouth: form.mouth || null } : {}),
+      ...((form.udder_score || null) !== (animal.udder_score || null) ? { udder_score: form.udder_score || null } : {}),
+      ...((form.condition_score == null || form.condition_score === '' ? null : Number(form.condition_score)) !== (animal.condition_score == null ? null : Number(animal.condition_score))
+        ? { condition_score: form.condition_score == null || form.condition_score === '' ? null : Number(form.condition_score) } : {}),
     };
     const { error } = await supabase.from('animals').update(payload).eq('id', animal.id);
     if (error) toast('Error updating: ' + error.message, 'error');
@@ -1610,11 +1704,16 @@ function AnimalDetailModal({ animal, herds, partnerships, projects = [], animalO
               <div className="form-group"><label className="form-label">Breeding Status</label><select className="form-select" value={form.breeding_status || ''} onChange={e => setForm(f => ({...f, breeding_status: e.target.value}))}><option value="">-- None --</option><option value="open">Open</option><option value="bred_spring">Bred - Spring</option><option value="bred_fall">Bred - Fall</option><option value="dry">Dry</option><option value="nursing">Nursing</option><option value="unknown">Unknown</option></select></div>
               <div className="form-group"><label className="form-label">Breed</label><input className="form-input" value={form.breed || ''} onChange={e => setForm(f => ({...f, breed: e.target.value}))} /></div>
               <div className="form-group"><label className="form-label">Tag Color</label><select className="form-select" value={form.tag_color || ''} onChange={e => setForm(f => ({...f, tag_color: e.target.value}))}><option value="">-- None --</option><option value="yellow">Yellow</option><option value="red">Red</option><option value="blue">Blue</option><option value="green">Green</option><option value="orange">Orange</option><option value="white">White</option><option value="black">Black</option><option value="pink">Pink</option><option value="purple">Purple</option></select></div>
+              {(['cow','heifer'].includes(form.sex) || animal.mouth || animal.udder_score) && <>
+                <div className="form-group"><label className="form-label">Mouth</label><select className="form-select" value={form.mouth || ''} onChange={e => setForm(f => ({...f, mouth: e.target.value}))}><option value="">-- None --</option>{MOUTH_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
+                <div className="form-group"><label className="form-label">Udder Score</label><select className="form-select" value={form.udder_score || ''} onChange={e => setForm(f => ({...f, udder_score: e.target.value}))}><option value="">-- None --</option>{UDDER_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
+              </>}
+              <div className="form-group"><label className="form-label">Condition Score (1–6)</label><select className="form-select" value={form.condition_score == null || form.condition_score === '' ? '' : String(Number(form.condition_score))} onChange={e => setForm(f => ({...f, condition_score: e.target.value}))}><option value="">-- None --</option>{BCS_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
               <div className="form-group"><label className="form-label">Project (Ambrook)</label><ProjectSelect projects={projects} value={form.project} onChange={v => setForm(f => ({...f, project: v}))} /></div>
               {(form.project || null) !== (animal.project || null) && <div className="form-group"><label className="form-label">{animal.project ? 'Transfer effective' : 'In project since'}</label><input type="date" className="form-input" max={todayLocal()} value={form.project_change_date} onChange={e => setForm(f => ({...f, project_change_date: e.target.value}))} /></div>}
               <div className="form-group full" style={{flexDirection:'row', gap:'10px', alignItems:'center'}}>
                 <input type="checkbox" id="is_cull" checked={form.is_cull || false} onChange={e => setForm(f => ({...f, is_cull: e.target.checked}))} style={{width:'16px', height:'16px', accentColor:'var(--rust)'}} />
-                <label htmlFor="is_cull" className="form-label" style={{margin:0}}>Mark as Cull</label>
+                <label htmlFor="is_cull" className="form-label" style={{margin:0}}>Mark as Cull (Tru-Test Alert)</label>
               </div>
               {form.is_cull && <div className="form-group full"><label className="form-label">Cull Reason</label><input className="form-input" value={form.cull_reason || ''} onChange={e => setForm(f => ({...f, cull_reason: e.target.value}))} placeholder="Reason for culling..." /></div>}
               <div className="form-group full"><label className="form-label">Notes</label><textarea className="form-textarea" value={form.notes || ''} onChange={e => setForm(f => ({...f, notes: e.target.value}))} /></div>
@@ -1640,6 +1739,9 @@ function AnimalDetailModal({ animal, herds, partnerships, projects = [], animalO
                 <div className="detail-row"><span className="detail-key">Owner</span><span className="detail-val" style={{color:'var(--sage)'}}>{animalOwners?.[animal.id] || '—'}</span></div>
                 <div className="detail-row"><span className="detail-key">Project</span><span className="detail-val" style={{color: animal.project ? 'var(--hay)' : undefined}}>{animal.project || '—'}</span></div>
                 <div className="detail-row"><span className="detail-key">Breeding Status</span><span className="detail-val">{animal.breeding_status?.replace('_',' ') || '—'}</span></div>
+                {(['cow','heifer'].includes(animal.sex) || animal.mouth) && <div className="detail-row"><span className="detail-key">Mouth</span><span className="detail-val" style={{textTransform:'capitalize', color: animal.mouth==='broken' ? 'var(--hay)' : undefined}}>{animal.mouth || '—'}</span></div>}
+                {(['cow','heifer'].includes(animal.sex) || animal.udder_score) && <div className="detail-row"><span className="detail-key">Udder Score</span><span className="detail-val" style={{color: ['D','F'].includes(animal.udder_score) ? '#e05555' : undefined}}>{animal.udder_score || '—'}</span></div>}
+                <div className="detail-row"><span className="detail-key">Condition Score</span><span className="detail-val">{bcsLabel(animal.condition_score)}</span></div>
                 <div className="detail-row"><span className="detail-key">Is Cull</span><span className="detail-val" style={{color: animal.is_cull ? '#e05555' : 'var(--sage)'}}>{animal.is_cull ? 'YES' : 'No'}</span></div>
                 {animal.is_cull && <div className="detail-row"><span className="detail-key">Cull Reason</span><span className="detail-val">{animal.cull_reason || '—'}</span></div>}
               </div>
@@ -1772,7 +1874,7 @@ function AnimalDetailModal({ animal, herds, partnerships, projects = [], animalO
                     <div key={p.id} className="detail-row">
                       <span className="detail-key">{formatDate(p.check_date)}</span>
                       <span className="detail-val" style={{color: p.result === 'open' ? '#e05555' : 'var(--sage)'}}>
-                        {p.result.toUpperCase()}{p.days_bred != null ? ` · ${p.days_bred} days` : ''}{p.calving_period ? ` · ${p.calving_period}` : ''}{p.expected_calving_date ? ` · due ${formatDate(p.expected_calving_date)}` : ''}{p.technician ? ` · ${p.technician}` : ''}
+                        {p.result.toUpperCase()}{p.days_bred != null ? ` · ${p.days_bred} days` : ''}{p.calving_period ? ` · ${p.calving_period}` : ''}{p.expected_calving_date ? ` · due ${formatDate(p.expected_calving_date)}` : ''}{p.mouth ? ` · ${p.mouth} mouth` : ''}{p.udder_score ? ` · udder ${p.udder_score}` : ''}{p.condition_score != null ? ` · BCS ${bcsLabel(p.condition_score)}` : ''}{p.technician ? ` · ${p.technician}` : ''}
                       </span>
                     </div>
                   ))}
@@ -2647,6 +2749,10 @@ const IMPORT_COLUMNS = [
   { key: 'purchase_location', label: 'Purchase Location', required: false, hint: 'e.g. Herreid Livestock' },
   { key: 'purchase_price_per_head', label: 'Purchase Price', required: false, hint: 'Dollar amount per head (e.g. 1250)' },
   { key: 'project', label: 'Project', required: false, hint: 'Must match a project under Animals → Projects (Ambrook name)' },
+  { key: 'mouth', label: 'Mouth', required: false, hint: 'solid or broken (S/B ok)' },
+  { key: 'udder_score', label: 'Udder', required: false, hint: 'A, B, C, D or F' },
+  { key: 'condition_score', label: 'Condition Score', required: false, hint: '1 to 6 (half scores ok)' },
+  { key: 'is_cull', label: 'Alert', required: false, hint: 'Tru-Test Alert → Cull checkbox (yes/no)' },
   { key: 'notes', label: 'Notes', required: false, hint: 'Any additional notes' },
 ];
 const SEX_VALUES = ['cow','heifer','bull','steer','calf_male','calf_female','horse'];
@@ -2775,8 +2881,18 @@ function AddAnimalsImport({ toast }) {
         else if (!pr.is_active) rowErrors.push(`Project "${pr.name}" is archived`);
         else project = pr.name;
       }
+      const mouth = parseMouth(mapped.mouth), udder = parseUdder(mapped.udder_score), bcs = parseBCS(mapped.condition_score), alert = parseAlert(mapped.is_cull);
+      if (mouth === null) rowErrors.push(`Invalid mouth "${mapped.mouth}" (solid/broken)`);
+      if (udder === null) rowErrors.push(`Invalid udder "${mapped.udder_score}" (A–F)`);
+      if (bcs === null) rowErrors.push(`Invalid condition score "${mapped.condition_score}" (1–6)`);
+      if (alert === null) rowErrors.push(`Invalid alert "${mapped.is_cull}" (yes/no)`);
+      const scores = {};
+      if (mouth) scores.mouth = mouth;
+      if (udder) scores.udder_score = udder;
+      if (bcs !== '' && bcs !== null) scores.condition_score = bcs;
+      if (alert === true || alert === false) scores.is_cull = alert;
       return {
-        rowNum: i + 1, vid, eid, sex,
+        rowNum: i + 1, vid, eid, sex, scores,
         herd_name: herd?.name || defaultHerdObj?.name || '—',
         herd_id: herd?.id || defaultHerd || null,
         owner_name: partnership?.name || '',
@@ -2809,7 +2925,7 @@ function AddAnimalsImport({ toast }) {
         if (error) throw new Error(`Failed to create partnership "${name}": ${error.message}`);
         if (data) newPartnershipMap[name] = data.id;
       }
-      const insertRows = validRows.map(r => ({ vid: r.vid || null, eid: r.eid || null, sex: r.sex, herd_id: r.herd_id || null, date_of_birth: r.date_of_birth || null, breed: r.breed || null, tag_color: r.tag_color || null, breeding_status: r.breeding_status || null, purchased: r.purchased, purchase_date: r.purchase_date || null, purchase_location: r.purchase_location || null, purchase_price_per_head: r.purchase_price_per_head || null, notes: r.notes || null, status: 'active', ...(r.project ? { project: r.project } : {}) }));
+      const insertRows = validRows.map(r => ({ vid: r.vid || null, eid: r.eid || null, sex: r.sex, herd_id: r.herd_id || null, date_of_birth: r.date_of_birth || null, breed: r.breed || null, tag_color: r.tag_color || null, breeding_status: r.breeding_status || null, purchased: r.purchased, purchase_date: r.purchase_date || null, purchase_location: r.purchase_location || null, purchase_price_per_head: r.purchase_price_per_head || null, notes: r.notes || null, status: 'active', ...(r.project ? { project: r.project } : {}), ...r.scores }));
       let imported = 0, failed = 0, ownershipInserted = 0, partnershipsCreated = Object.keys(newPartnershipMap).length;
       for (let i = 0; i < insertRows.length; i += 25) {
         const batch = insertRows.slice(i, i + 25);
@@ -2975,6 +3091,10 @@ const UPDATE_FIELDS = [
   { key: 'breeding_status', label: 'Preg Result / Breeding Status', hint: 'O/B, Open/Bred, P, days bred… mapped below' },
   { key: 'days_bred', label: 'Days Bred / Fetal Age', hint: 'Days — sets expected calving date', preg: true },
   { key: 'calving_period', label: 'Calving Period', hint: 'e.g. Early / Mid / Late, 1st cycle', preg: true },
+  { key: 'mouth', label: 'Mouth', hint: 'Solid / Broken (S/B ok)', score: true },
+  { key: 'udder_score', label: 'Udder Score', hint: 'A, B, C, D, F', score: true },
+  { key: 'condition_score', label: 'Condition Score', hint: '1–6, half scores ok', score: true },
+  { key: 'is_cull', label: 'Alert → Cull', hint: 'Tru-Test Alert — Yes checks Cull, No unchecks it' },
   { key: 'herd_name', label: 'Herd', hint: 'Moves the animal — must match a herd name' },
   { key: 'owner', label: 'Owner', hint: 'Partnership name — must already exist in Partnerships' },
   { key: 'project', label: 'Project (Ambrook)', hint: 'Must match a project under Animals → Projects' },
@@ -2988,6 +3108,10 @@ const UPDATE_FIELDS = [
 const UPDATE_FIELD_GUESS = [ // order matters: days before result so "Days Bred" isn't taken as the result
   ['days_bred', /^(days?([ _]?bred)?|fetal([ _]?age)?|dbred|days[ _]?preg(nant)?|age[ _]?of[ _]?preg.*)$/i],
   ['calving_period', /(period|calving[ _]?(group|window)|cycle)/i],
+  ['mouth', /(mouth|teeth)/i],
+  ['udder_score', /udder/i],
+  ['condition_score', /(^bcs$|condition|body[ _]?score)/i],
+  ['is_cull', /^(alert|cull|is[ _]?cull)$/i],
   ['breeding_status', /(preg|result|breeding[ _]?status|^status$|^bred$|^open$|^o\/b$)/i],
   ['herd_name', /^herd([ _]?name)?$/i],
   ['owner', /^(owner|ownership|owned[ _]?by|partnership|partner)$/i],
@@ -3080,6 +3204,9 @@ function UpdateAnimalsImport({ toast }) {
   const [undoing, setUndoing] = useState(false);
   const [animals, setAnimals] = useState(null);
   const [pregTableOk, setPregTableOk] = useState(null);
+  const [scoresOk, setScoresOk] = useState(null);        // animals has the cow-score columns
+  const [pregScoresOk, setPregScoresOk] = useState(false); // preg_checks has mouth/udder/BCS columns
+  const [showScoreSql, setShowScoreSql] = useState(false);
   const [showSql, setShowSql] = useState(false);
   const [preview, setPreview] = useState([]);
   const [missing, setMissing] = useState([]);
@@ -3098,12 +3225,21 @@ function UpdateAnimalsImport({ toast }) {
     setPregTableOk(!error);
     if (error) setRecordPreg(false);
   }, []);
+  const checkScoreCols = useCallback(async () => {
+    const [{ error: aErr }, { error: pErr }] = await Promise.all([
+      supabase.from('animals').select(COW_SCORE_COLS).limit(1),
+      supabase.from('preg_checks').select('mouth, udder_score, condition_score').limit(1),
+    ]);
+    setScoresOk(!aErr);
+    setPregScoresOk(!pErr);
+  }, []);
 
   useEffect(() => {
     supabase.from('herds').select('*').order('name').then(({ data }) => setHerds(data || []));
     supabase.from('partnerships').select('*').order('name').then(({ data }) => setPartnerships(data || []));
     supabase.from('projects').select('*').order('name').then(({ data, error }) => setProjects(error ? [] : (data || [])));
     checkPregTable();
+    checkScoreCols();
     (async () => {
       // Current owner = latest effective_date, same rule as Animal Inventory and the Head Count report
       const PAGE = 1000; const latest = {};
@@ -3170,6 +3306,7 @@ function UpdateAnimalsImport({ toast }) {
   const buildPreview = () => {
     if (!tagCol) { toast(`Pick the column that holds the ${MATCH_LABEL[matchBy]}`, 'error'); return; }
     if (!animals) { toast('Still loading animals — try again in a second', 'error'); return; }
+    if (UPDATE_FIELDS.some(f => f.score && columnMap[f.key]) && scoresOk === false) { toast('Run the cow-score setup SQL first (shown below the column list), or skip those columns', 'error'); return; }
     const ownerOn = !!(columnMap.owner || ownerDefault);
     if (ownerOn && !ownerNow) { toast('Still loading ownership history — try again in a second', 'error'); return; }
     if (ownerOn && !ownerDate) { toast('Pick an effective date for the ownership change', 'error'); return; }
@@ -3231,6 +3368,37 @@ function UpdateAnimalsImport({ toast }) {
           }
         }
       }
+
+      // Cow scores — blank leaves the current value; mouth/udder only make sense on females
+      const female = ['cow', 'heifer'].includes(a.sex);
+      const scoreObs = {}; // what the file says at this check, for preg_checks history (even if unchanged)
+      const mRaw = val('mouth');
+      if (mRaw) {
+        const m = parseMouth(mRaw);
+        if (m === null) r.warnings.push(`Mouth "${mRaw}" not recognized — skipped`);
+        else if (!female) r.errors.push(`Mouth on a ${a.sex} — check the tag`);
+        else { scoreObs.mouth = m; change('mouth', 'Mouth', a.mouth, m); }
+      }
+      const uRaw = val('udder_score');
+      if (uRaw) {
+        const u = parseUdder(uRaw);
+        if (u === null) r.warnings.push(`Udder "${uRaw}" not A–F — skipped`);
+        else if (!female) r.errors.push(`Udder score on a ${a.sex} — check the tag`);
+        else { scoreObs.udder_score = u; change('udder_score', 'Udder', a.udder_score, u); }
+      }
+      const cRaw = val('condition_score');
+      if (cRaw) {
+        const c = parseBCS(cRaw);
+        if (c === null) r.warnings.push(`Condition score "${cRaw}" not 1–6 — skipped`);
+        else { scoreObs.condition_score = c; change('condition_score', 'BCS', a.condition_score == null ? null : Number(a.condition_score), c, bcsLabel); }
+      }
+      const alRaw = val('is_cull');
+      if (alRaw) {
+        const al = parseAlert(alRaw);
+        if (al === null) r.warnings.push(`Alert "${alRaw}" not yes/no — skipped`);
+        else change('is_cull', 'Cull', !!a.is_cull, al, cullLabel);
+      }
+      if (r.preg && pregScoresOk) Object.assign(r.preg, scoreObs);
 
       // Plain fields
       const herdRaw = val('herd_name');
@@ -3324,7 +3492,7 @@ function UpdateAnimalsImport({ toast }) {
 
   // Before-values of every changed field, matched on RS ID — re-run it through this page to put fields back
   const downloadUndo = (rows) => {
-    const fields = ['breeding_status', 'herd_name', 'project', 'tag_color', 'breed', 'date_of_birth', 'eid', 'vid'];
+    const fields = ['breeding_status', 'herd_name', 'project', 'tag_color', 'breed', 'date_of_birth', 'eid', 'vid', 'mouth', 'udder_score', 'condition_score', 'is_cull'];
     const lines = [['rs_id', ...fields].join(',')];
     rows.forEach(r => {
       const a = r.animal, p = r.patch;
@@ -3332,7 +3500,9 @@ function UpdateAnimalsImport({ toast }) {
         'breeding_status' in p ? a.breeding_status : '', 'herd_id' in p ? herdName(a.herd_id) : '',
         'project' in p ? a.project : '',
         'tag_color' in p ? a.tag_color : '', 'breed' in p ? a.breed : '', 'date_of_birth' in p ? a.date_of_birth : '',
-        'eid' in p ? a.eid : '', 'vid' in p ? a.vid : ''].map(csvCell).join(','));
+        'eid' in p ? a.eid : '', 'vid' in p ? a.vid : '',
+        'mouth' in p ? a.mouth : '', 'udder_score' in p ? a.udder_score : '',
+        'condition_score' in p ? (a.condition_score ?? '') : '', 'is_cull' in p ? (a.is_cull ? 'yes' : 'no') : ''].map(csvCell).join(','));
     });
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -3513,6 +3683,26 @@ function UpdateAnimalsImport({ toast }) {
               </tbody>
             </table>
           </div>
+
+          {UPDATE_FIELDS.some(f => f.score && columnMap[f.key]) && (scoresOk === false || (pregTableOk && !pregScoresOk)) && (
+            <div className="detail-card" style={{marginBottom:'16px'}}>
+              <h3>Cow Scores Setup</h3>
+              <p style={{color:'var(--hay)', fontSize:'13px', margin:'6px 0 10px'}}>
+                {scoresOk === false
+                  ? 'Mouth, udder and condition score aren\'t in the database yet. Run this once, or skip those columns.'
+                  : 'Scores will save on the animals, but preg-check history doesn\'t have score columns yet — run this once to keep a dated record of mouth, udder and BCS with each preg check.'}
+              </p>
+              <div style={{display:'flex', gap:'10px', flexWrap:'wrap'}}>
+                <button className="btn btn-secondary" onClick={() => setShowScoreSql(s => !s)}>{showScoreSql ? 'Hide' : 'Show'} setup SQL</button>
+                <button className="btn btn-ghost" onClick={checkScoreCols}>I ran it — check again</button>
+              </div>
+              {showScoreSql && <div style={{marginTop:'10px'}}>
+                <p style={{color:'var(--ash)', fontSize:'12px', marginBottom:'6px'}}>Supabase → SQL Editor → New query → paste → Run.</p>
+                <textarea readOnly value={COW_SCORES_SQL} onFocus={e => e.target.select()} style={{width:'100%', height:'200px', ...mono, fontSize:'11px', background:'var(--charcoal)', color:'var(--cream)', border:'1px solid rgba(139,69,19,0.4)', borderRadius:'4px', padding:'8px'}} />
+                <button className="btn btn-ghost" style={{marginTop:'6px'}} onClick={() => { navigator.clipboard?.writeText(COW_SCORES_SQL); toast('SQL copied', 'success'); }}>Copy SQL</button>
+              </div>}
+            </div>
+          )}
 
           {columnMap.project && (
             <div className="detail-card" style={{marginBottom:'16px'}}>
