@@ -14,36 +14,36 @@
     :root {
       /* BETA palette: slate & teal (live RS is saddle brown & rust) */
       --soil: #0F1C24; --leather: #3A7D7B; --rust: #2A9D8F; --hay: #A8DADC;
-      --sage: #94B49F; --cream: #EAF2F4; --parchment: #D6E4E8;
-      --ash: #9AAFB8; --charcoal: #1B2B35; --sky: #F4A261;
+      --sage: #A9C9B3; --cream: #E8EFF1; --parchment: #D6E4E8;
+      --ash: #BFD0D6; --charcoal: #1B2B35; --sky: #F4A261;
     }
-    * { margin: 0; padding: 0; box-sizing: border-box; font-size: max(11px, 1em); }
-    body { background-color: var(--soil); color: var(--cream); font-family: 'Source Sans 3', sans-serif; min-height: 100vh;
+    * { margin: 0; padding: 0; box-sizing: border-box; font-size: max(13px, 1em); }
+    body { background-color: var(--soil); color: var(--cream); font-family: 'Source Sans 3', sans-serif; min-height: 100vh; line-height: 1.5;
       background-image: radial-gradient(ellipse at 20% 50%, rgba(58,125,123,0.15) 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, rgba(42,157,143,0.08) 0%, transparent 50%); }
     .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 220px; background: var(--charcoal); border-right: 2px solid var(--leather); z-index: 100; display: flex; flex-direction: column; transition: width 0.2s ease; overflow-y: auto; }
     .sidebar.collapsed { width: 60px; }
     .sidebar.collapsed .nav-item { justify-content: center; padding: 12px 0; }
     .sidebar.collapsed .logo { text-align: center; padding: 20px 8px; }
     .logo { padding: 24px 20px; border-bottom: 1px solid rgba(58,125,123,0.4); }
-    .logo h1 { font-family: 'Syncopate', sans-serif; font-size: 18px; font-weight: 700; color: var(--hay); letter-spacing: 2px; line-height: 1.3; text-transform: uppercase; }
-    .logo span { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ash); letter-spacing: 3px; text-transform: uppercase; }
+    .logo h1 { font-family: 'Syncopate', sans-serif; font-size: 17px; font-weight: 700; color: var(--hay); letter-spacing: 1px; line-height: 1.3; text-transform: uppercase; }
+    .logo span { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--ash); letter-spacing: 1px; text-transform: uppercase; }
     .nav-section { padding: 12px 0; border-bottom: 1px solid rgba(58,125,123,0.2); }
-    .nav-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--ash); padding: 0 20px 8px; }
-    .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 20px; cursor: pointer; transition: all 0.15s; font-size: 14px; font-weight: 600; color: var(--ash); border-left: 3px solid transparent; }
+    .nav-label { font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: var(--ash); padding: 0 20px 8px; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 20px; cursor: pointer; transition: all 0.15s; font-size: 17px; font-weight: 600; color: var(--ash); border-left: 3px solid transparent; }
     .nav-item:hover { background: rgba(58,125,123,0.2); color: var(--cream); }
     .nav-item.active { background: rgba(42,157,143,0.15); color: var(--hay); border-left-color: var(--rust); }
-    .nav-icon { font-size: 16px; width: 20px; text-align: center; }
-    .sidebar-footer { margin-top: auto; padding: 16px 20px; border-top: 1px solid rgba(58,125,123,0.4); font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ash); }
+    .nav-icon { font-size: 19px; width: 20px; text-align: center; }
+    .sidebar-footer { margin-top: auto; padding: 16px 20px; border-top: 1px solid rgba(58,125,123,0.4); font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--ash); }
     .main { margin-left: 220px; min-height: 100vh; display: flex; flex-direction: column; }
     .topbar { background: rgba(15,28,36,0.8); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(58,125,123,0.3); padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
-    .page-title { font-family: 'Syncopate', sans-serif; font-size: 18px; font-weight: 700; color: var(--cream); text-transform: uppercase; letter-spacing: 2px; }
+    .page-title { font-family: 'Syncopate', sans-serif; font-size: 22px; font-weight: 700; color: var(--cream); text-transform: uppercase; letter-spacing: 1px; }
     .topbar-actions { display: flex; gap: 12px; align-items: center; }
-    .btn { padding: 8px 18px; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; border: none; font-family: 'Source Sans 3', sans-serif; }
+    .btn { padding: 8px 18px; border-radius: 4px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.15s; border: none; font-family: 'Source Sans 3', sans-serif; }
     .btn-primary { background: var(--rust); color: white; }
     .btn-primary:hover { background: #21867A; }
     .btn-secondary { background: transparent; color: var(--hay); border: 1px solid var(--hay); }
     .btn-secondary:hover { background: rgba(168,218,220,0.1); }
-    .btn-ghost { background: transparent; color: var(--ash); border: 1px solid rgba(154,175,184,0.3); }
+    .btn-ghost { background: transparent; color: var(--ash); border: 1px solid rgba(191,208,214,0.3); }
     .btn-ghost:hover { color: var(--cream); border-color: var(--ash); }
     .btn-danger { background: transparent; color: #e05555; border: 1px solid #e05555; }
     .btn-danger:hover { background: rgba(224,85,85,0.1); }
@@ -51,46 +51,46 @@
     .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
     .stat-card { background: var(--charcoal); border: 1px solid rgba(58,125,123,0.3); border-radius: 6px; padding: 18px 20px; position: relative; overflow: hidden; }
     .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--rust); }
-    .stat-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--ash); margin-bottom: 6px; }
-    .stat-value { font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 700; color: var(--cream); line-height: 1; }
-    .stat-sub { font-size: 11px; color: var(--sage); margin-top: 4px; }
+    .stat-label { font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: var(--ash); margin-bottom: 6px; }
+    .stat-value { font-family: 'Playfair Display', serif; font-size: 38px; font-weight: 700; color: var(--cream); line-height: 1; }
+    .stat-sub { font-size: 13px; color: var(--sage); margin-top: 4px; }
     .filter-bar { display: flex; gap: 12px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
     .search-box { flex: 1; min-width: 200px; position: relative; }
-    .search-box input { width: 100%; background: var(--charcoal); border: 1px solid rgba(58,125,123,0.4); border-radius: 4px; padding: 9px 14px 9px 36px; color: var(--cream); font-size: 14px; font-family: 'Source Sans 3', sans-serif; outline: none; transition: border-color 0.15s; }
+    .search-box input { width: 100%; background: var(--charcoal); border: 1px solid rgba(58,125,123,0.4); border-radius: 4px; padding: 9px 14px 9px 36px; color: var(--cream); font-size: 17px; font-family: 'Source Sans 3', sans-serif; outline: none; transition: border-color 0.15s; }
     .search-box input:focus { border-color: var(--hay); }
     .search-box input::placeholder { color: var(--ash); }
-    .search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--ash); font-size: 14px; }
-    .filter-select { background: var(--charcoal); border: 1px solid rgba(58,125,123,0.4); border-radius: 4px; padding: 9px 14px; color: var(--cream); font-size: 13px; font-family: 'Source Sans 3', sans-serif; outline: none; cursor: pointer; min-width: 140px; }
+    .search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--ash); font-size: 17px; }
+    .filter-select { background: var(--charcoal); border: 1px solid rgba(58,125,123,0.4); border-radius: 4px; padding: 9px 14px; color: var(--cream); font-size: 16px; font-family: 'Source Sans 3', sans-serif; outline: none; cursor: pointer; min-width: 140px; }
     .filter-select:focus { border-color: var(--hay); }
     .table-wrap { background: var(--charcoal); border: 1px solid rgba(58,125,123,0.3); border-radius: 6px; overflow: hidden; }
     table { width: 100%; border-collapse: collapse; }
     thead { background: rgba(15,28,36,0.6); border-bottom: 2px solid rgba(58,125,123,0.4); }
-    th { padding: 12px 16px; text-align: left; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--ash); white-space: nowrap; }
+    th { padding: 12px 16px; text-align: left; font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: var(--ash); white-space: nowrap; }
     th[style*="cursor:pointer"]:hover { color: var(--hay); background: rgba(58,125,123,0.1); }
     tbody tr { border-bottom: 1px solid rgba(58,125,123,0.15); transition: background 0.1s; cursor: pointer; }
     tbody tr:hover { background: rgba(58,125,123,0.12); }
     tbody tr:last-child { border-bottom: none; }
-    td { padding: 12px 16px; font-size: 14px; color: var(--cream); }
-    .td-mono { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--hay); }
-    .badge { display: inline-block; padding: 3px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.5px; }
+    td { padding: 12px 16px; font-size: 17px; color: var(--cream); }
+    .td-mono { font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: var(--hay); }
+    .badge { display: inline-block; padding: 3px 8px; border-radius: 3px; font-size: 13px; font-weight: 600; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.5px; }
     .badge-cow { background: rgba(148,180,159,0.25); color: var(--sage); border: 1px solid rgba(148,180,159,0.4); }
     .badge-heifer { background: rgba(123,167,188,0.2); color: var(--sky); border: 1px solid rgba(123,167,188,0.4); }
     .badge-bull { background: rgba(42,157,143,0.2); color: #e8836a; border: 1px solid rgba(42,157,143,0.4); }
     .badge-steer { background: rgba(168,218,220,0.15); color: var(--hay); border: 1px solid rgba(168,218,220,0.3); }
     .badge-horse { background: rgba(58,125,123,0.25); color: #d9a066; border: 1px solid rgba(58,125,123,0.45); }
-    .badge-calf { background: rgba(154,175,184,0.15); color: var(--ash); border: 1px solid rgba(154,175,184,0.3); }
+    .badge-calf { background: rgba(191,208,214,0.15); color: var(--ash); border: 1px solid rgba(191,208,214,0.3); }
     .status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
     .status-active { background: #5cb85c; }
     .status-sold { background: var(--hay); }
     .status-dead { background: #e05555; }
     .status-archived { background: var(--ash); }
     .empty-state { text-align: center; padding: 60px 20px; color: var(--ash); }
-    .empty-state h3 { font-family: 'Playfair Display', serif; font-size: 20px; color: var(--cream); margin-bottom: 8px; }
+    .empty-state h3 { font-family: 'Playfair Display', serif; font-size: 24px; color: var(--cream); margin-bottom: 8px; }
     .modal-overlay { position: fixed; inset: 0; background: rgba(5,12,16,0.85); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; }
     .modal { background: var(--charcoal); border: 1px solid rgba(58,125,123,0.5); border-radius: 8px; width: 100%; max-width: 700px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
     .modal-header { padding: 20px 24px; border-bottom: 1px solid rgba(58,125,123,0.3); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--charcoal); z-index: 10; }
-    .modal-title { font-family: 'Playfair Display', serif; font-size: 20px; color: var(--cream); }
-    .modal-close { background: none; border: none; color: var(--ash); font-size: 20px; cursor: pointer; padding: 4px 8px; transition: color 0.15s; }
+    .modal-title { font-family: 'Playfair Display', serif; font-size: 24px; color: var(--cream); }
+    .modal-close { background: none; border: none; color: var(--ash); font-size: 24px; cursor: pointer; padding: 4px 8px; transition: color 0.15s; }
     .modal-close:hover { color: var(--cream); }
     .modal-body { padding: 24px; }
     .modal-footer { padding: 16px 24px; border-top: 1px solid rgba(58,125,123,0.3); display: flex; justify-content: flex-end; gap: 10px; position: sticky; bottom: 0; background: var(--charcoal); }
@@ -98,48 +98,48 @@
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .form-group { display: flex; flex-direction: column; gap: 6px; }
     .form-group.full { grid-column: 1 / -1; }
-    .form-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--ash); }
-    .form-input, .form-select, .form-textarea { background: rgba(15,28,36,0.5); border: 1px solid rgba(58,125,123,0.4); border-radius: 4px; padding: 9px 12px; color: var(--cream); font-size: 14px; font-family: 'Source Sans 3', sans-serif; outline: none; transition: border-color 0.15s; }
+    .form-label { font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: var(--ash); }
+    .form-input, .form-select, .form-textarea { background: rgba(15,28,36,0.5); border: 1px solid rgba(58,125,123,0.4); border-radius: 4px; padding: 9px 12px; color: var(--cream); font-size: 17px; font-family: 'Source Sans 3', sans-serif; outline: none; transition: border-color 0.15s; }
     .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--hay); }
     .form-input::placeholder { color: var(--ash); }
     .form-select option { background: var(--charcoal); }
     .form-textarea { resize: vertical; min-height: 80px; }
-    .form-section-title { grid-column: 1 / -1; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--rust); padding-top: 8px; border-top: 1px solid rgba(58,125,123,0.3); margin-top: 4px; }
+    .form-section-title { grid-column: 1 / -1; font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: var(--rust); padding-top: 8px; border-top: 1px solid rgba(58,125,123,0.3); margin-top: 4px; }
     .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     .detail-card { background: rgba(15,28,36,0.4); border: 1px solid rgba(58,125,123,0.25); border-radius: 6px; padding: 18px; }
-    .detail-card h3 { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--rust); margin-bottom: 14px; }
-    .detail-row { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; border-bottom: 1px solid rgba(58,125,123,0.1); font-size: 13px; }
+    .detail-card h3 { font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: var(--rust); margin-bottom: 14px; }
+    .detail-row { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; border-bottom: 1px solid rgba(58,125,123,0.1); font-size: 16px; }
     .detail-row:last-child { border-bottom: none; }
-    .detail-key { color: var(--ash); font-size: 12px; }
+    .detail-key { color: var(--ash); font-size: 14px; }
     .detail-val { color: var(--cream); font-weight: 600; text-align: right; }
     .chat-container { display: flex; flex-direction: column; height: calc(100vh - 140px); }
     .chat-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
-    .chat-bubble { max-width: 75%; padding: 12px 16px; border-radius: 6px; font-size: 14px; line-height: 1.5; }
+    .chat-bubble { max-width: 75%; padding: 12px 16px; border-radius: 6px; font-size: 17px; line-height: 1.5; }
     .chat-bubble.user { align-self: flex-end; background: rgba(42,157,143,0.25); border: 1px solid rgba(42,157,143,0.4); color: var(--cream); }
     .chat-bubble.assistant { align-self: flex-start; background: var(--charcoal); border: 1px solid rgba(58,125,123,0.3); color: var(--cream); }
-    .chat-bubble.system { align-self: center; background: rgba(148,180,159,0.15); border: 1px solid rgba(148,180,159,0.3); color: var(--sage); font-family: 'IBM Plex Mono', monospace; font-size: 12px; max-width: 90%; }
-    .chat-time { font-size: 11px; color: var(--ash); margin-top: 4px; font-family: 'IBM Plex Mono', monospace; }
+    .chat-bubble.system { align-self: center; background: rgba(148,180,159,0.15); border: 1px solid rgba(148,180,159,0.3); color: var(--sage); font-family: 'IBM Plex Mono', monospace; font-size: 14px; max-width: 90%; }
+    .chat-time { font-size: 13px; color: var(--ash); margin-top: 4px; font-family: 'IBM Plex Mono', monospace; }
     .chat-input-area { padding: 16px 20px; border-top: 1px solid rgba(58,125,123,0.3); background: var(--charcoal); display: flex; gap: 10px; align-items: flex-end; }
-    .chat-input { flex: 1; background: rgba(15,28,36,0.5); border: 1px solid rgba(58,125,123,0.4); border-radius: 4px; padding: 10px 14px; color: var(--cream); font-size: 14px; font-family: 'Source Sans 3', sans-serif; outline: none; resize: none; min-height: 42px; max-height: 120px; }
+    .chat-input { flex: 1; background: rgba(15,28,36,0.5); border: 1px solid rgba(58,125,123,0.4); border-radius: 4px; padding: 10px 14px; color: var(--cream); font-size: 17px; font-family: 'Source Sans 3', sans-serif; outline: none; resize: none; min-height: 42px; max-height: 120px; }
     .chat-input:focus { border-color: var(--hay); }
     .chat-input::placeholder { color: var(--ash); }
-    .chat-send-btn { background: var(--rust); border: none; border-radius: 4px; padding: 10px 18px; color: white; font-size: 18px; cursor: pointer; transition: background 0.15s; height: 42px; }
+    .chat-send-btn { background: var(--rust); border: none; border-radius: 4px; padding: 10px 18px; color: white; font-size: 22px; cursor: pointer; transition: background 0.15s; height: 42px; }
     .chat-send-btn:hover { background: #21867A; }
-    .chat-date-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 20px; border-top: 1px solid rgba(58,125,123,0.3); background: rgba(168,218,220,0.07); font-size: 13px; color: var(--ash); }
-    .chat-date-bar label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--hay); }
-    .chat-date-bar .form-input { padding: 6px 10px; font-size: 13px; }
+    .chat-date-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 20px; border-top: 1px solid rgba(58,125,123,0.3); background: rgba(168,218,220,0.07); font-size: 16px; color: var(--ash); }
+    .chat-date-bar label { font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: var(--hay); }
+    .chat-date-bar .form-input { padding: 6px 10px; font-size: 16px; }
     .log-status-completed { color: #5cb85c; }
     .log-status-failed { color: #e05555; }
     .log-status-rolled_back { color: var(--ash); }
     .log-status-cancelled { color: var(--hay); }
-    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--charcoal); border: 1px solid var(--sage); border-radius: 6px; padding: 14px 20px; color: var(--cream); font-size: 14px; z-index: 1000; box-shadow: 0 8px 24px rgba(0,0,0,0.4); animation: slideIn 0.2s ease; }
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--charcoal); border: 1px solid var(--sage); border-radius: 6px; padding: 14px 20px; color: var(--cream); font-size: 17px; z-index: 1000; box-shadow: 0 8px 24px rgba(0,0,0,0.4); animation: slideIn 0.2s ease; }
     .toast.error { border-color: #e05555; }
     .toast.success { border-color: var(--sage); }
     @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
     .pagination { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-top: 1px solid rgba(58,125,123,0.2); }
-    .pagination-info { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ash); }
+    .pagination-info { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--ash); }
     .pagination-btns { display: flex; gap: 6px; }
-    .page-btn { background: transparent; border: 1px solid rgba(58,125,123,0.3); border-radius: 3px; padding: 5px 10px; color: var(--ash); font-size: 12px; cursor: pointer; transition: all 0.15s; }
+    .page-btn { background: transparent; border: 1px solid rgba(58,125,123,0.3); border-radius: 3px; padding: 5px 10px; color: var(--ash); font-size: 14px; cursor: pointer; transition: all 0.15s; }
     .page-btn:hover { border-color: var(--hay); color: var(--hay); }
     .page-btn.active { background: var(--rust); border-color: var(--rust); color: white; }
     .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
@@ -153,13 +153,13 @@
     /* Calving record action buttons */
     .calving-record-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
     .calving-record-actions { display: flex; gap: 6px; align-items: center; }
-    .btn-icon { padding: 4px 10px; font-size: 12px; border-radius: 3px; cursor: pointer; transition: all 0.15s; font-family: 'Source Sans 3', sans-serif; font-weight: 600; }
+    .btn-icon { padding: 4px 10px; font-size: 14px; border-radius: 3px; cursor: pointer; transition: all 0.15s; font-family: 'Source Sans 3', sans-serif; font-weight: 600; }
     .btn-edit { background: transparent; color: var(--sky); border: 1px solid var(--sky); }
     .btn-edit:hover { background: rgba(123,167,188,0.15); }
     .btn-del { background: transparent; color: #e05555; border: 1px solid #e05555; }
     .btn-del:hover { background: rgba(224,85,85,0.1); }
     /* Calving gap filter styles */
-    .gap-tag { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-family: 'IBM Plex Mono', monospace; font-weight: 600; }
+    .gap-tag { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 13px; font-family: 'IBM Plex Mono', monospace; font-weight: 600; }
     .gap-never { background: rgba(224,85,85,0.2); color: #e05555; border: 1px solid rgba(224,85,85,0.4); }
     .gap-critical { background: rgba(42,157,143,0.2); color: var(--rust); border: 1px solid rgba(42,157,143,0.4); }
     .gap-warn { background: rgba(168,218,220,0.15); color: var(--hay); border: 1px solid rgba(168,218,220,0.3); }
@@ -167,11 +167,11 @@
     /* Head Count report */
     .hc-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
     .hc-result { position: sticky; top: 76px; }
-    .hc-count { font-family: 'Playfair Display', serif; font-size: 64px; font-weight: 700; color: var(--cream); line-height: 1; margin-top: 22px; font-variant-numeric: lining-nums tabular-nums; }
-    .hc-count-label { font-size: 13px; color: var(--sage); margin: 6px 0 16px; }
-    .hc-note { font-size: 13px; line-height: 1.5; color: var(--ash); padding: 8px 10px; border-left: 2px solid var(--hay); background: rgba(168,218,220,0.06); margin-top: 10px; }
-    .hc-group-label { display: block; font-size: 11px; color: var(--ash); margin-bottom: 6px; font-family: 'IBM Plex Mono', monospace; letter-spacing: 1px; }
-    .hc-check { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; color: var(--cream); }
+    .hc-count { font-family: 'Playfair Display', serif; font-size: 77px; font-weight: 700; color: var(--cream); line-height: 1; margin-top: 22px; font-variant-numeric: lining-nums tabular-nums; }
+    .hc-count-label { font-size: 16px; color: var(--sage); margin: 6px 0 16px; }
+    .hc-note { font-size: 16px; line-height: 1.5; color: var(--ash); padding: 8px 10px; border-left: 2px solid var(--hay); background: rgba(168,218,220,0.06); margin-top: 10px; }
+    .hc-group-label { display: block; font-size: 13px; color: var(--ash); margin-bottom: 6px; font-family: 'IBM Plex Mono', monospace; letter-spacing: 1px; }
+    .hc-check { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 16px; color: var(--cream); }
     .hc-check.muted { color: var(--ash); font-style: italic; }
     .hc-layout .btn:disabled { opacity: 0.4; cursor: default; }
     @media (max-width: 1000px) { .hc-layout { grid-template-columns: 1fr; } .hc-result { position: static; order: -1; } }
@@ -186,19 +186,19 @@
       .content { padding: 16px; }
     }
     /* Stock flow planning */
-    .sf-table th, .sf-table td { padding: 6px 10px; font-size: 12px; white-space: nowrap; }
+    .sf-table th, .sf-table td { padding: 6px 10px; font-size: 14px; white-space: nowrap; }
     .sf-table tbody tr { cursor: default; }
     .sf-table td.n { text-align: right; font-family: 'IBM Plex Mono', monospace; }
     .sf-table tr.sub td { background: rgba(58,125,123,0.14); font-weight: 700; color: var(--hay); }
     .sf-table tr.tot td { background: rgba(42,157,143,0.15); font-weight: 700; color: var(--hay); border-top: 2px solid rgba(58,125,123,0.5); }
     .sf-table tr.neg td { color: #e8836a; }
-    .sf-in { width: 64px; padding: 4px 6px; text-align: right; font-family: 'IBM Plex Mono', monospace; font-size: 12px; background: var(--soil); border: 1px solid rgba(58,125,123,0.4); border-radius: 3px; color: var(--cream); }
+    .sf-in { width: 72px; padding: 4px 6px; text-align: right; font-family: 'IBM Plex Mono', monospace; font-size: 14px; background: var(--soil); border: 1px solid rgba(58,125,123,0.4); border-radius: 3px; color: var(--cream); }
     .sf-in:focus { outline: none; border-color: var(--hay); }
-    .sf-sel { padding: 4px 6px; font-size: 12px; background: var(--soil); border: 1px solid rgba(58,125,123,0.4); border-radius: 3px; color: var(--cream); font-family: 'Source Sans 3', sans-serif; }
+    .sf-sel { padding: 4px 6px; font-size: 14px; background: var(--soil); border: 1px solid rgba(58,125,123,0.4); border-radius: 3px; color: var(--cream); font-family: 'Source Sans 3', sans-serif; }
     .sf-scroll { overflow-x: auto; }
-    .sf-h { font-family: 'Syncopate', sans-serif; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: var(--hay); margin: 24px 0 10px; }
-    .sf-note { font-size: 12px; color: var(--ash); margin: 8px 0 12px; line-height: 1.55; white-space: normal; }
-    .sf-warn { background: rgba(224,85,85,0.1); border: 1px solid rgba(224,85,85,0.4); color: #f0a0a0; padding: 10px 14px; border-radius: 4px; font-size: 12px; margin-bottom: 16px; }
+    .sf-h { font-family: 'Syncopate', sans-serif; font-size: 16px; letter-spacing: 1px; text-transform: uppercase; color: var(--hay); margin: 24px 0 10px; }
+    .sf-note { font-size: 14px; color: var(--ash); margin: 8px 0 12px; line-height: 1.55; white-space: normal; }
+    .sf-warn { background: rgba(224,85,85,0.1); border: 1px solid rgba(224,85,85,0.4); color: #f0a0a0; padding: 10px 14px; border-radius: 4px; font-size: 14px; margin-bottom: 16px; }
     .sf-calc { color: var(--sage); }
   </style>
 </head>
@@ -461,7 +461,7 @@ function ProjectsModal({ projects, projectsReady, animals, onChanged, onView, on
     else if (error) toast('Error: ' + error.message, 'error'); else onChanged();
   };
 
-  const mono = { fontFamily: 'IBM Plex Mono', fontSize: '11px', color: 'var(--ash)' };
+  const mono = { fontFamily: 'IBM Plex Mono', fontSize: '13px', color: 'var(--ash)' };
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" style={{maxWidth:'640px'}}>
@@ -471,16 +471,16 @@ function ProjectsModal({ projects, projectsReady, animals, onChanged, onView, on
         </div>
         <div className="modal-body">
           {!projectsReady ? <>
-            <p style={{fontSize:'13px', color:'var(--ash)', lineHeight:1.5, marginBottom:'10px'}}>The projects table isn't set up yet. Run this once in Supabase → SQL Editor, then reload the page.</p>
+            <p style={{fontSize:'16px', color:'var(--ash)', lineHeight:1.5, marginBottom:'10px'}}>The projects table isn't set up yet. Run this once in Supabase → SQL Editor, then reload the page.</p>
             <textarea readOnly value={PROJECTS_SQL} onFocus={e => e.target.select()} style={{width:'100%', height:'240px', ...mono, color:'var(--cream)', background:'var(--charcoal)', border:'1px solid rgba(58,125,123,0.4)', borderRadius:'4px', padding:'8px'}} />
             <button className="btn btn-ghost" style={{marginTop:'6px'}} onClick={() => { navigator.clipboard?.writeText(PROJECTS_SQL); toast('SQL copied', 'success'); }}>Copy SQL</button>
           </> : <>
-            <div style={{fontSize:'12px', color:'var(--ash)', marginBottom:'12px', lineHeight:1.5}}>A project stays with the animal whichever herd it's in. Names should match Ambrook Projects exactly — renaming here re-tags every animal carrying the old name.</div>
+            <div style={{fontSize:'14px', color:'var(--ash)', marginBottom:'12px', lineHeight:1.5}}>A project stays with the animal whichever herd it's in. Names should match Ambrook Projects exactly — renaming here re-tags every animal carrying the old name.</div>
             <div style={{display:'flex', gap:'8px', marginBottom:'16px'}}>
               <input className="form-input" style={{flex:1}} placeholder="New project name, e.g. 2027 Blue Steers" value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()} />
               <button className="btn btn-primary" onClick={add}>Add</button>
             </div>
-            {projects.length === 0 && <div style={{color:'var(--ash)', fontSize:'13px'}}>No projects yet.</div>}
+            {projects.length === 0 && <div style={{color:'var(--ash)', fontSize:'16px'}}>No projects yet.</div>}
             {projects.map(p => {
               const val = edits[p.id] ?? p.name;
               const t = stats[p.name];
@@ -488,10 +488,10 @@ function ProjectsModal({ projects, projectsReady, animals, onChanged, onView, on
                 <div key={p.id} style={{padding:'10px 0', borderBottom:'1px solid rgba(58,125,123,0.2)', opacity: p.is_active ? 1 : 0.55}}>
                   <div style={{display:'flex', gap:'6px', alignItems:'center'}}>
                     <input className="form-input" style={{flex:1}} value={val} onChange={e => setEdits(x => ({...x, [p.id]: e.target.value}))} onKeyDown={e => e.key === 'Enter' && rename(p)} />
-                    {val.trim() !== p.name && <button className="btn btn-primary" style={{padding:'6px 10px', fontSize:'12px'}} onClick={() => rename(p)}>Save</button>}
-                    {t && <button className="btn btn-secondary" style={{padding:'6px 10px', fontSize:'12px'}} onClick={() => onView(p.name)}>View</button>}
-                    <button className="btn btn-ghost" style={{padding:'6px 10px', fontSize:'12px'}} onClick={() => toggle(p)}>{p.is_active ? 'Archive' : 'Restore'}</button>
-                    <button className="btn btn-ghost" style={{padding:'6px 10px', fontSize:'12px'}} onClick={() => remove(p)}>✕</button>
+                    {val.trim() !== p.name && <button className="btn btn-primary" style={{padding:'6px 10px', fontSize:'14px'}} onClick={() => rename(p)}>Save</button>}
+                    {t && <button className="btn btn-secondary" style={{padding:'6px 10px', fontSize:'14px'}} onClick={() => onView(p.name)}>View</button>}
+                    <button className="btn btn-ghost" style={{padding:'6px 10px', fontSize:'14px'}} onClick={() => toggle(p)}>{p.is_active ? 'Archive' : 'Restore'}</button>
+                    <button className="btn btn-ghost" style={{padding:'6px 10px', fontSize:'14px'}} onClick={() => remove(p)}>✕</button>
                   </div>
                   <div style={{...mono, marginTop:'6px'}}>
                     {t ? <>
@@ -767,14 +767,14 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
           <div style={{marginTop:'12px', padding:'16px', background:'var(--charcoal)', borderRadius:'6px', border:'1px solid rgba(58,125,123,0.3)'}}>
             <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:'12px'}}>
               <div>
-                <label style={{display:'block', fontSize:'11px', color:'var(--ash)', marginBottom:'6px', fontFamily:'IBM Plex Mono, monospace', letterSpacing:'1px'}}>HERD</label>
+                <label style={{display:'block', fontSize:'13px', color:'var(--ash)', marginBottom:'6px', fontFamily:'IBM Plex Mono, monospace', letterSpacing:'1px'}}>HERD</label>
                 <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
-                  <label style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'13px', color:'var(--cream)'}}>
+                  <label style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'16px', color:'var(--cream)'}}>
                     <input type="checkbox" checked={herdFilter.includes('NO_HERD')} onChange={() => toggleFilter(herdFilter, setHerdFilter, 'NO_HERD')} />
                     <span style={{color:'var(--ash)', fontStyle:'italic'}}>No Herd Assigned</span>
                   </label>
                   {herds.map(h => (
-                    <label key={h.id} style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'13px', color:'var(--cream)'}}>
+                    <label key={h.id} style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'16px', color:'var(--cream)'}}>
                       <input type="checkbox" checked={herdFilter.includes(h.id)} onChange={() => toggleFilter(herdFilter, setHerdFilter, h.id)} />
                       {h.name}
                     </label>
@@ -782,10 +782,10 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
                 </div>
               </div>
               <div>
-                <label style={{display:'block', fontSize:'11px', color:'var(--ash)', marginBottom:'6px', fontFamily:'IBM Plex Mono, monospace', letterSpacing:'1px'}}>SEX/CLASS</label>
+                <label style={{display:'block', fontSize:'13px', color:'var(--ash)', marginBottom:'6px', fontFamily:'IBM Plex Mono, monospace', letterSpacing:'1px'}}>SEX/CLASS</label>
                 <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
                   {['cow','heifer','bull','steer','calf_male','calf_female','horse'].map(s => (
-                    <label key={s} style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'13px', color:'var(--cream)'}}>
+                    <label key={s} style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'16px', color:'var(--cream)'}}>
                       <input type="checkbox" checked={sexFilter.includes(s)} onChange={() => toggleFilter(sexFilter, setSexFilter, s)} />
                       {sexLabel(s)}
                     </label>
@@ -793,10 +793,10 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
                 </div>
               </div>
               <div>
-                <label style={{display:'block', fontSize:'11px', color:'var(--ash)', marginBottom:'6px', fontFamily:'IBM Plex Mono, monospace', letterSpacing:'1px'}}>BREEDING STATUS</label>
+                <label style={{display:'block', fontSize:'13px', color:'var(--ash)', marginBottom:'6px', fontFamily:'IBM Plex Mono, monospace', letterSpacing:'1px'}}>BREEDING STATUS</label>
                 <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
                   {['open','bred_spring','bred_fall','dry','nursing','unknown'].map(bs => (
-                    <label key={bs} style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'13px', color:'var(--cream)'}}>
+                    <label key={bs} style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'16px', color:'var(--cream)'}}>
                       <input type="checkbox" checked={breedingStatusFilter.includes(bs)} onChange={() => toggleFilter(breedingStatusFilter, setBreedingStatusFilter, bs)} />
                       {bs.replace('_', ' ')}
                     </label>
@@ -804,14 +804,14 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
                 </div>
               </div>
               <div>
-                <label style={{display:'block', fontSize:'11px', color:'var(--ash)', marginBottom:'6px', fontFamily:'IBM Plex Mono, monospace', letterSpacing:'1px'}}>OWNER</label>
+                <label style={{display:'block', fontSize:'13px', color:'var(--ash)', marginBottom:'6px', fontFamily:'IBM Plex Mono, monospace', letterSpacing:'1px'}}>OWNER</label>
                 <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
-                  <label style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'13px', color:'var(--cream)'}}>
+                  <label style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'16px', color:'var(--cream)'}}>
                     <input type="checkbox" checked={ownerFilter.includes('NO_OWNER')} onChange={() => toggleFilter(ownerFilter, setOwnerFilter, 'NO_OWNER')} />
                     <span style={{color:'var(--ash)', fontStyle:'italic'}}>No Owner Assigned</span>
                   </label>
                   {partnerships.map(p => (
-                    <label key={p.id} style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'13px', color:'var(--cream)'}}>
+                    <label key={p.id} style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'16px', color:'var(--cream)'}}>
                       <input type="checkbox" checked={ownerFilter.includes(p.id)} onChange={() => toggleFilter(ownerFilter, setOwnerFilter, p.id)} />
                       {p.name}
                     </label>
@@ -819,10 +819,10 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
                 </div>
               </div>
               <div>
-                <label style={{display:'block', fontSize:'11px', color:'var(--ash)', marginBottom:'6px', fontFamily:'IBM Plex Mono, monospace', letterSpacing:'1px'}}>STATUS</label>
+                <label style={{display:'block', fontSize:'13px', color:'var(--ash)', marginBottom:'6px', fontFamily:'IBM Plex Mono, monospace', letterSpacing:'1px'}}>STATUS</label>
                 <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
                   {['active','sold','dead','archived'].map(st => (
-                    <label key={st} style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'13px', color:'var(--cream)'}}>
+                    <label key={st} style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'16px', color:'var(--cream)'}}>
                       <input type="checkbox" checked={statusFilter.includes(st)} onChange={() => toggleFilter(statusFilter, setStatusFilter, st)} />
                       {st}
                     </label>
@@ -830,14 +830,14 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
                 </div>
               </div>
               <div>
-                <label style={{display:'block', fontSize:'11px', color:'var(--ash)', marginBottom:'6px', fontFamily:'IBM Plex Mono, monospace', letterSpacing:'1px'}}>PROJECT</label>
+                <label style={{display:'block', fontSize:'13px', color:'var(--ash)', marginBottom:'6px', fontFamily:'IBM Plex Mono, monospace', letterSpacing:'1px'}}>PROJECT</label>
                 <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
-                  <label style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'13px', color:'var(--cream)'}}>
+                  <label style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'16px', color:'var(--cream)'}}>
                     <input type="checkbox" checked={projectFilter.includes('NO_PROJECT')} onChange={() => toggleFilter(projectFilter, setProjectFilter, 'NO_PROJECT')} />
                     <span style={{color:'var(--ash)', fontStyle:'italic'}}>No Project</span>
                   </label>
                   {projects.map(p => (
-                    <label key={p.id} style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'13px', color:'var(--cream)', opacity: p.is_active ? 1 : 0.6}}>
+                    <label key={p.id} style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'16px', color:'var(--cream)', opacity: p.is_active ? 1 : 0.6}}>
                       <input type="checkbox" checked={projectFilter.includes(p.name)} onChange={() => toggleFilter(projectFilter, setProjectFilter, p.name)} />
                       {p.name}{!p.is_active && ' (archived)'}
                     </label>
@@ -845,17 +845,17 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
                 </div>
               </div>
               <div>
-                <label style={{display:'block', fontSize:'11px', color:'var(--ash)', marginBottom:'6px', fontFamily:'IBM Plex Mono, monospace', letterSpacing:'1px'}}>DATE OF BIRTH</label>
+                <label style={{display:'block', fontSize:'13px', color:'var(--ash)', marginBottom:'6px', fontFamily:'IBM Plex Mono, monospace', letterSpacing:'1px'}}>DATE OF BIRTH</label>
                 <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
                   <div>
-                    <label style={{display:'block', fontSize:'10px', color:'var(--ash)', marginBottom:'4px'}}>From</label>
-                    <input type="date" className="form-input" value={dobStartDate} onChange={e => { setDobStartDate(e.target.value); setPage(0); }} style={{width:'100%', padding:'6px 8px', fontSize:'12px'}} />
+                    <label style={{display:'block', fontSize:'12px', color:'var(--ash)', marginBottom:'4px'}}>From</label>
+                    <input type="date" className="form-input" value={dobStartDate} onChange={e => { setDobStartDate(e.target.value); setPage(0); }} style={{width:'100%', padding:'6px 8px', fontSize:'14px'}} />
                   </div>
                   <div>
-                    <label style={{display:'block', fontSize:'10px', color:'var(--ash)', marginBottom:'4px'}}>To</label>
-                    <input type="date" className="form-input" value={dobEndDate} onChange={e => { setDobEndDate(e.target.value); setPage(0); }} style={{width:'100%', padding:'6px 8px', fontSize:'12px'}} />
+                    <label style={{display:'block', fontSize:'12px', color:'var(--ash)', marginBottom:'4px'}}>To</label>
+                    <input type="date" className="form-input" value={dobEndDate} onChange={e => { setDobEndDate(e.target.value); setPage(0); }} style={{width:'100%', padding:'6px 8px', fontSize:'14px'}} />
                   </div>
-                  {(dobStartDate || dobEndDate) && <button className="btn btn-ghost" onClick={() => { setDobStartDate(''); setDobEndDate(''); }} style={{padding:'4px 8px', fontSize:'11px'}}>Clear Dates</button>}
+                  {(dobStartDate || dobEndDate) && <button className="btn btn-ghost" onClick={() => { setDobStartDate(''); setDobEndDate(''); }} style={{padding:'4px 8px', fontSize:'13px'}}>Clear Dates</button>}
                 </div>
               </div>
             </div>
@@ -864,7 +864,7 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
 
         {selectedAnimals.size > 0 && (
           <div style={{marginTop:'12px', padding:'12px 16px', background:'rgba(42,157,143,0.15)', borderRadius:'6px', border:'1px solid var(--rust)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-            <span style={{color:'var(--hay)', fontSize:'13px', fontFamily:'IBM Plex Mono, monospace'}}>{selectedAnimals.size} animals selected</span>
+            <span style={{color:'var(--hay)', fontSize:'16px', fontFamily:'IBM Plex Mono, monospace'}}>{selectedAnimals.size} animals selected</span>
             <div style={{display:'flex', gap:'8px'}}>
               <button className="btn btn-secondary" onClick={() => setSelectedAnimals(new Set())}>Clear Selection</button>
               <button className="btn btn-primary" onClick={() => setShowBulkEdit(true)}>Bulk Edit</button>
@@ -873,10 +873,10 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
         )}
 
         <details style={{marginTop:'12px'}}>
-          <summary style={{cursor:'pointer', fontSize:'12px', color:'var(--ash)', fontFamily:'IBM Plex Mono, monospace', letterSpacing:'1px'}}>⚙ COLUMN VISIBILITY</summary>
+          <summary style={{cursor:'pointer', fontSize:'14px', color:'var(--ash)', fontFamily:'IBM Plex Mono, monospace', letterSpacing:'1px'}}>⚙ COLUMN VISIBILITY</summary>
           <div style={{marginTop:'8px', padding:'12px', background:'var(--charcoal)', borderRadius:'4px', display:'flex', flexWrap:'wrap', gap:'12px'}}>
             {Object.entries({vid:'VID', eid:'EID', calfId:'Calf ID', sex:'Sex', herd:'Herd', owner:'Owner', dob:'DOB', tagColor:'Tag Color', breedingStatus:'Breeding', project:'Project', status:'Status', mouth:'Mouth', udder:'Udder', bcs:'BCS', cull:'Cull'}).map(([key, label]) => (
-              <label key={key} style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'13px', color:'var(--cream)'}}>
+              <label key={key} style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'16px', color:'var(--cream)'}}>
                 <input type="checkbox" checked={visibleColumns[key]} onChange={() => setVisibleColumns(v => ({...v, [key]: !v[key]}))} />
                 {label}
               </label>
@@ -922,19 +922,19 @@ function AnimalsPage({ toast, pendingHerdFilter, clearPendingFilter }) {
                     <input type="checkbox" checked={selectedAnimals.has(a.id)} onChange={() => { const ns = new Set(selectedAnimals); ns.has(a.id) ? ns.delete(a.id) : ns.add(a.id); setSelectedAnimals(ns); }} />
                   </td>
                   {visibleColumns.vid && <td className="td-mono">{a.vid || '—'}</td>}
-                  {visibleColumns.eid && <td className="td-mono" style={{fontSize:'11px', color:'var(--ash)'}}>{a.eid || '—'}</td>}
+                  {visibleColumns.eid && <td className="td-mono" style={{fontSize:'13px', color:'var(--ash)'}}>{a.eid || '—'}</td>}
                   {visibleColumns.calfId && <td className="td-mono" style={{color:'var(--sky)'}}>{a.calf_id_code || '—'}</td>}
                   {visibleColumns.sex && <td><span className={`badge badge-${a.sex?.includes('calf') ? 'calf' : a.sex}`}>{sexLabel(a.sex)}</span></td>}
                   {visibleColumns.herd && <td>{a.herds?.name || '—'}</td>}
-                  {visibleColumns.owner && <td style={{fontSize:'13px', color:'var(--sage)'}}>{animalOwners[a.id] || '—'}</td>}
-                  {visibleColumns.dob && <td style={{color:'var(--ash)', fontSize:'13px'}}>{formatDate(a.date_of_birth)}</td>}
-                  {visibleColumns.tagColor && <td>{a.tag_color ? <span style={{display:'inline-flex', alignItems:'center', gap:'6px', fontSize:'12px', color:'var(--cream)', textTransform:'capitalize'}}><span style={{width:'12px', height:'12px', borderRadius:'50%', background: a.tag_color, border: a.tag_color==='white'?'1px solid var(--ash)':'none'}}></span>{a.tag_color}</span> : '—'}</td>}
-                  {visibleColumns.breedingStatus && <td>{a.breeding_status ? <span style={{fontSize:'12px', color: a.breeding_status==='open' ? '#e05555' : 'var(--sage)'}}>{a.breeding_status.replace('_', ' ')}</span> : '—'}</td>}
-                  {visibleColumns.project && <td style={{fontSize:'12px', color: a.project ? 'var(--hay)' : 'var(--ash)'}}>{a.project || '—'}</td>}
-                  {visibleColumns.mouth && <td style={{fontSize:'12px', textTransform:'capitalize', color: a.mouth==='broken' ? 'var(--hay)' : undefined}}>{a.mouth || '—'}</td>}
+                  {visibleColumns.owner && <td style={{fontSize:'16px', color:'var(--sage)'}}>{animalOwners[a.id] || '—'}</td>}
+                  {visibleColumns.dob && <td style={{color:'var(--ash)', fontSize:'16px'}}>{formatDate(a.date_of_birth)}</td>}
+                  {visibleColumns.tagColor && <td>{a.tag_color ? <span style={{display:'inline-flex', alignItems:'center', gap:'6px', fontSize:'14px', color:'var(--cream)', textTransform:'capitalize'}}><span style={{width:'12px', height:'12px', borderRadius:'50%', background: a.tag_color, border: a.tag_color==='white'?'1px solid var(--ash)':'none'}}></span>{a.tag_color}</span> : '—'}</td>}
+                  {visibleColumns.breedingStatus && <td>{a.breeding_status ? <span style={{fontSize:'14px', color: a.breeding_status==='open' ? '#e05555' : 'var(--sage)'}}>{a.breeding_status.replace('_', ' ')}</span> : '—'}</td>}
+                  {visibleColumns.project && <td style={{fontSize:'14px', color: a.project ? 'var(--hay)' : 'var(--ash)'}}>{a.project || '—'}</td>}
+                  {visibleColumns.mouth && <td style={{fontSize:'14px', textTransform:'capitalize', color: a.mouth==='broken' ? 'var(--hay)' : undefined}}>{a.mouth || '—'}</td>}
                   {visibleColumns.udder && <td className="td-mono" style={{color: ['D','F'].includes(a.udder_score) ? '#e05555' : undefined}}>{a.udder_score || '—'}</td>}
                   {visibleColumns.bcs && <td className="td-mono">{bcsLabel(a.condition_score)}</td>}
-                  {visibleColumns.cull && <td style={{fontSize:'12px', color: a.is_cull ? '#e05555' : 'var(--ash)'}}>{a.is_cull ? 'CULL' : '—'}</td>}
+                  {visibleColumns.cull && <td style={{fontSize:'14px', color: a.is_cull ? '#e05555' : 'var(--ash)'}}>{a.is_cull ? 'CULL' : '—'}</td>}
                   {visibleColumns.status && <td><span className={`status-dot status-${a.status}`}></span>{a.status}</td>}
                 </tr>
               ))}
@@ -1360,7 +1360,7 @@ function BulkEditModal({ selectedIds, herds, partnerships, projects = [], onClos
       <div className="modal">
         <div className="modal-header"><h2 className="modal-title">Bulk Edit</h2><button className="modal-close" onClick={onClose}>✕</button></div>
         <div className="modal-body">
-          <p style={{color:'var(--ash)', fontSize:'13px', marginBottom:'20px'}}>Update {selectedIds.length} selected animals</p>
+          <p style={{color:'var(--ash)', fontSize:'16px', marginBottom:'20px'}}>Update {selectedIds.length} selected animals</p>
           <div className="form-group">
             <label className="form-label">Field / Action</label>
             <select className="form-select" value={action} onChange={e => changeAction(e.target.value)}>
@@ -1401,21 +1401,21 @@ function BulkEditModal({ selectedIds, herds, partnerships, projects = [], onClos
           </div>
           {field && <>
             {tagLocked
-              ? <p style={{fontSize:'13px', color:'var(--ash)', lineHeight:1.5, margin:'0 0 12px'}}>Each animal carries its own {field.label}, so with {selectedIds.length} selected the only bulk change is clearing it. To set a {field.label}, select one animal.</p>
+              ? <p style={{fontSize:'16px', color:'var(--ash)', lineHeight:1.5, margin:'0 0 12px'}}>Each animal carries its own {field.label}, so with {selectedIds.length} selected the only bulk change is clearing it. To set a {field.label}, select one animal.</p>
               : <div className="form-group"><label className="form-label">New {field.label}</label>{renderFieldInput()}</div>}
-            {field.clearable && <label style={{display:'flex', alignItems:'center', gap:'8px', fontSize:'13px', color:'var(--ash)', cursor: tagLocked ? 'default' : 'pointer'}}>
+            {field.clearable && <label style={{display:'flex', alignItems:'center', gap:'8px', fontSize:'16px', color:'var(--ash)', cursor: tagLocked ? 'default' : 'pointer'}}>
               <input type="checkbox" checked={clearField} disabled={tagLocked} onChange={e => setClearField(e.target.checked)} />
               Clear {field.label} (leave it blank) on all selected
             </label>}
-            {action === 'date_of_birth' && <p style={{fontSize:'12px', color:'var(--ash)', marginTop:'10px'}}>Calf ID codes on these head are re-lettered to match the new birth year.</p>}
+            {action === 'date_of_birth' && <p style={{fontSize:'14px', color:'var(--ash)', marginTop:'10px'}}>Calf ID codes on these head are re-lettered to match the new birth year.</p>}
             {action === 'project' && <div className="form-grid" style={{marginTop:'12px'}}>
               <div className="form-group"><label className="form-label">Effective Date</label><input type="date" className="form-input" max={todayLocal()} value={projectDate} onChange={e => setProjectDate(e.target.value)} /></div>
-              <label className="form-group full" style={{flexDirection:'row', alignItems:'center', gap:'8px', fontSize:'13px', color:'var(--ash)', cursor:'pointer'}}>
+              <label className="form-group full" style={{flexDirection:'row', alignItems:'center', gap:'8px', fontSize:'16px', color:'var(--ash)', cursor:'pointer'}}>
                 <input type="checkbox" checked={projectUseArrival} onChange={e => setProjectUseArrival(e.target.checked)} />
                 Head with no project yet: date them from their purchase / birth date instead
               </label>
             </div>}
-            {action === 'project' && <p style={{fontSize:'12px', color:'var(--ash)', marginTop:'10px'}}>{projects.length ? 'The project stays with these head through herd moves. Add or rename projects from Animals → Projects.' : 'No projects yet — set them up from Animals → Projects.'}</p>}
+            {action === 'project' && <p style={{fontSize:'14px', color:'var(--ash)', marginTop:'10px'}}>{projects.length ? 'The project stays with these head through herd moves. Add or rename projects from Animals → Projects.' : 'No projects yet — set them up from Animals → Projects.'}</p>}
           </>}
           {action === 'owner' && <div className="form-group"><label className="form-label">Assign to Owner</label><select className="form-select" value={ownerId} onChange={e => setOwnerId(e.target.value)}><option value="">Select owner...</option>{partnerships.filter(p => p.is_active !== false).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>}
           {action === 'status' && <div className="form-grid" style={{marginTop:'16px'}}>
@@ -1423,7 +1423,7 @@ function BulkEditModal({ selectedIds, herds, partnerships, projects = [], onClos
             <div className="form-group"><label className="form-label" htmlFor="bulk-status-date">{STATUS_DATE_LABEL[status] || 'Date It Happened'}</label><input id="bulk-status-date" type="date" className="form-input" value={statusDate} max={todayLocal()} onChange={e => setStatusDate(e.target.value)} /></div>
             {status === 'sold' && <div className="form-group full"><label className="form-label" htmlFor="bulk-sale-location">Sold At / To</label><input id="bulk-sale-location" className="form-input" value={saleLocation} onChange={e => setSaleLocation(e.target.value)} placeholder="e.g. Herreid Livestock, or the buyer (optional)" /></div>}
             {status === 'dead' && <div className="form-group full"><label className="form-label" htmlFor="bulk-death-cause">Cause of Death</label><input id="bulk-death-cause" className="form-input" value={deathCause} onChange={e => setDeathCause(e.target.value)} placeholder="e.g. bloat, pneumonia (optional)" /></div>}
-            {status && <p className="form-group full" style={{fontSize:'13px', color:'var(--ash)', lineHeight:1.5, margin:0}}>{{
+            {status && <p className="form-group full" style={{fontSize:'16px', color:'var(--ash)', lineHeight:1.5, margin:0}}>{{
               sold: 'Puts these head on a sale record with this date, so the sale shows in Inventory Change. Head already on a sale get that sale re-dated.',
               dead: 'Gives each head a death record with this date, so it shows in Inventory Change. Existing death records get re-dated.',
               active: 'Puts them back on inventory and takes them off any sale or death record — the way to undo a mistaken sale or death.',
@@ -1685,7 +1685,7 @@ function AnimalDetailModal({ animal, herds, partnerships, projects = [], animalO
   };
 
   const tabStyle = (t) => ({
-    padding: '8px 16px', cursor: 'pointer', fontSize: '12px', fontFamily: 'IBM Plex Mono, monospace',
+    padding: '8px 16px', cursor: 'pointer', fontSize: '14px', fontFamily: 'IBM Plex Mono, monospace',
     letterSpacing: '1px', textTransform: 'uppercase',
     borderBottom: tab === t ? '2px solid var(--rust)' : '2px solid transparent',
     color: tab === t ? 'var(--cream)' : 'var(--ash)',
@@ -1699,7 +1699,7 @@ function AnimalDetailModal({ animal, herds, partnerships, projects = [], animalO
           <div>
             <h2 className="modal-title">
               {animal.vid ? `Tag #${animal.vid}` : 'Animal Record'}
-              {animal.calf_id_code && <span style={{color:'var(--sky)', fontSize:'14px', marginLeft:'10px'}}>{animal.calf_id_code}</span>}
+              {animal.calf_id_code && <span style={{color:'var(--sky)', fontSize:'17px', marginLeft:'10px'}}>{animal.calf_id_code}</span>}
             </h2>
             <span className={`badge badge-${animal.sex?.includes('calf') ? 'calf' : animal.sex}`} style={{marginTop:'4px', display:'inline-block'}}>{sexLabel(animal.sex)}</span>
           </div>
@@ -1741,7 +1741,7 @@ function AnimalDetailModal({ animal, herds, partnerships, projects = [], animalO
               <div className="detail-card">
                 <h3>Identification</h3>
                 <div className="detail-row"><span className="detail-key">Visual ID</span><span className="detail-val td-mono">{animal.vid || '—'}</span></div>
-                <div className="detail-row"><span className="detail-key">EID</span><span className="detail-val" style={{fontFamily:'IBM Plex Mono', fontSize:'11px'}}>{animal.eid || '—'}</span></div>
+                <div className="detail-row"><span className="detail-key">EID</span><span className="detail-val" style={{fontFamily:'IBM Plex Mono', fontSize:'13px'}}>{animal.eid || '—'}</span></div>
                 <div className="detail-row"><span className="detail-key">Calf Code</span><span className="detail-val" style={{color:'var(--sky)'}}>{animal.calf_id_code || '—'}</span></div>
                 <div className="detail-row"><span className="detail-key">Sex</span><span className="detail-val">{sexLabel(animal.sex)}</span></div>
                 <div className="detail-row"><span className="detail-key">Breed</span><span className="detail-val">{animal.breed || '—'}</span></div>
@@ -1774,7 +1774,7 @@ function AnimalDetailModal({ animal, herds, partnerships, projects = [], animalO
               <div className="detail-card" style={{gridColumn: '1/-1'}}>
                 <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px'}}>
                   <h3 style={{margin:0}}>Notes</h3>
-                  {!addingNote && <button className="btn btn-secondary" style={{padding:'6px 12px', fontSize:'12px'}} onClick={() => setAddingNote(true)}>+ Add Note</button>}
+                  {!addingNote && <button className="btn btn-secondary" style={{padding:'6px 12px', fontSize:'14px'}} onClick={() => setAddingNote(true)}>+ Add Note</button>}
                 </div>
                 {addingNote && (
                   <div style={{marginBottom:'12px'}}>
@@ -1785,7 +1785,7 @@ function AnimalDetailModal({ animal, herds, partnerships, projects = [], animalO
                     </div>
                   </div>
                 )}
-                {form.notes ? <p style={{color:'var(--ash)', fontSize:'14px', lineHeight:'1.6', whiteSpace:'pre-wrap'}}>{form.notes}</p> : <p style={{color:'var(--ash)', fontSize:'13px', fontStyle:'italic'}}>No notes yet</p>}
+                {form.notes ? <p style={{color:'var(--ash)', fontSize:'17px', lineHeight:'1.6', whiteSpace:'pre-wrap'}}>{form.notes}</p> : <p style={{color:'var(--ash)', fontSize:'16px', fontStyle:'italic'}}>No notes yet</p>}
               </div>
             </div>
           ))}
@@ -1862,7 +1862,7 @@ function AnimalDetailModal({ animal, herds, partnerships, projects = [], animalO
                       <div className="calving-record-header">
                         <h3 style={{margin:0}}>Calving Event #{calvingRecords.length - i}</h3>
                         <div className="calving-record-actions">
-                          <span style={{color:'var(--hay)', fontFamily:'IBM Plex Mono', fontSize:'12px', marginRight:'8px'}}>{formatDate(c.calving_date)}</span>
+                          <span style={{color:'var(--hay)', fontFamily:'IBM Plex Mono', fontSize:'14px', marginRight:'8px'}}>{formatDate(c.calving_date)}</span>
                           <button className="btn-icon btn-edit" onClick={() => startEditCalving(c)} title="Edit this record">✎ Edit</button>
                           <button className="btn-icon btn-del" onClick={() => confirmDeleteCalving(c.id)} title="Delete this record">✕ Delete</button>
                         </div>
@@ -1870,9 +1870,9 @@ function AnimalDetailModal({ animal, herds, partnerships, projects = [], animalO
                       <div className="detail-row"><span className="detail-key">Calf Sex</span><span className="detail-val">{c.calf_sex}</span></div>
                       <div className="detail-row"><span className="detail-key">Udder Score</span><span className="detail-val">{c.udder_score || '—'}</span></div>
                       <div className="detail-row"><span className="detail-key">Calf Status</span><span className="detail-val" style={{color: c.calf_status === 'alive' ? 'var(--sage)' : '#e05555'}}>{c.calf_status}</span></div>
-                      {c.notes && <div style={{marginTop:'8px', color:'var(--ash)', fontSize:'13px'}}>{c.notes}</div>}
+                      {c.notes && <div style={{marginTop:'8px', color:'var(--ash)', fontSize:'16px'}}>{c.notes}</div>}
                       {i < calvingRecords.length - 1 && (
-                        <div style={{marginTop:'8px', padding:'6px', background:'rgba(15,28,36,0.4)', borderRadius:'4px', fontFamily:'IBM Plex Mono', fontSize:'11px', color:'var(--hay)'}}>
+                        <div style={{marginTop:'8px', padding:'6px', background:'rgba(15,28,36,0.4)', borderRadius:'4px', fontFamily:'IBM Plex Mono', fontSize:'13px', color:'var(--hay)'}}>
                           Interval from previous: {Math.round((new Date(c.calving_date) - new Date(calvingRecords[i+1].calving_date)) / 86400000)} days
                         </div>
                       )}
@@ -1903,11 +1903,11 @@ function AnimalDetailModal({ animal, herds, partnerships, projects = [], animalO
                 <div key={b.id} className="detail-card" style={{marginBottom:'12px'}}>
                   <div style={{display:'flex', justifyContent:'space-between', marginBottom:'8px'}}>
                     <h3 style={{margin:0}}>Breeding Event</h3>
-                    <span style={{color:'var(--hay)', fontFamily:'IBM Plex Mono', fontSize:'12px'}}>{formatDate(b.start_date)} — {formatDate(b.end_date)}</span>
+                    <span style={{color:'var(--hay)', fontFamily:'IBM Plex Mono', fontSize:'14px'}}>{formatDate(b.start_date)} — {formatDate(b.end_date)}</span>
                   </div>
                   <div className="detail-row"><span className="detail-key">Type</span><span className="detail-val">{b.breeding_type}</span></div>
                   <div className="detail-row"><span className="detail-key">Possible Sires</span><span className="detail-val">{b.breeding_event_sires?.map(s => s.animals?.vid).join(', ') || '—'}</span></div>
-                  {b.notes && <div style={{marginTop:'8px', color:'var(--ash)', fontSize:'13px'}}>{b.notes}</div>}
+                  {b.notes && <div style={{marginTop:'8px', color:'var(--ash)', fontSize:'16px'}}>{b.notes}</div>}
                 </div>
               ))}
             </div>
@@ -1940,7 +1940,7 @@ function AnimalDetailModal({ animal, herds, partnerships, projects = [], animalO
               {treatments.length === 0 && !showAddTreatment ? <div className="empty-state"><h3>No treatment records</h3><p>Click "Add Treatment" to create the first record.</p></div>
               : treatments.map(t => (
                 <div key={t.id} className="detail-card" style={{marginBottom:'10px'}}>
-                  <div style={{display:'flex', justifyContent:'space-between', marginBottom:'8px'}}><h3 style={{margin:0}}>{t.product_name}</h3><span style={{color:'var(--hay)', fontFamily:'IBM Plex Mono', fontSize:'12px'}}>{formatDate(t.treatment_date)}</span></div>
+                  <div style={{display:'flex', justifyContent:'space-between', marginBottom:'8px'}}><h3 style={{margin:0}}>{t.product_name}</h3><span style={{color:'var(--hay)', fontFamily:'IBM Plex Mono', fontSize:'14px'}}>{formatDate(t.treatment_date)}</span></div>
                   <div className="detail-row"><span className="detail-key">Type</span><span className="detail-val">{t.treatment_type || '—'}</span></div>
                   <div className="detail-row"><span className="detail-key">Lot #</span><span className="detail-val">{t.lot_number || '—'}</span></div>
                   <div className="detail-row"><span className="detail-key">Dosage</span><span className="detail-val">{t.dosage || '—'}</span></div>
@@ -1971,7 +1971,7 @@ function AnimalDetailModal({ animal, herds, partnerships, projects = [], animalO
               <button className="modal-close" onClick={() => setDeletingCalvingId(null)}>✕</button>
             </div>
             <div className="modal-body">
-              <p style={{color:'var(--ash)', fontSize:'14px', lineHeight:'1.6'}}>
+              <p style={{color:'var(--ash)', fontSize:'17px', lineHeight:'1.6'}}>
                 This will permanently delete this calving record. This action <strong style={{color:'#e05555'}}>cannot be undone</strong>.
               </p>
             </div>
@@ -2138,7 +2138,7 @@ function CalvingGapPage({ toast }) {
       {/* Config Panel */}
       <div className="detail-card" style={{marginBottom:'24px', maxWidth:'760px'}}>
         <h3 style={{marginBottom:'6px'}}>Find Cows That Haven't Calved</h3>
-        <p style={{color:'var(--ash)', fontSize:'13px', marginBottom:'20px', fontFamily:'Source Sans 3, sans-serif', fontWeight:'normal', letterSpacing:'0'}}>
+        <p style={{color:'var(--ash)', fontSize:'16px', marginBottom:'20px', fontFamily:'Source Sans 3, sans-serif', fontWeight:'normal', letterSpacing:'0'}}>
           Searches active cows and heifers. Two modes are available — pick the one that fits your question.
         </p>
 
@@ -2149,15 +2149,15 @@ function CalvingGapPage({ toast }) {
             <label style={{display:'flex', alignItems:'flex-start', gap:'12px', cursor:'pointer', padding:'12px 14px', borderRadius:'5px', border: mode==='no_record_in_range' ? '1px solid var(--rust)' : '1px solid rgba(58,125,123,0.25)', background: mode==='no_record_in_range' ? 'rgba(42,157,143,0.08)' : 'transparent', transition:'all 0.15s'}}>
               <input type="radio" name="gapMode" value="no_record_in_range" checked={mode==='no_record_in_range'} onChange={() => setMode('no_record_in_range')} style={{marginTop:'2px', accentColor:'var(--rust)', flexShrink:0}} />
               <div>
-                <div style={{color:'var(--cream)', fontSize:'14px', fontWeight:'600', marginBottom:'2px'}}>No record within date range</div>
-                <div style={{color:'var(--ash)', fontSize:'12px', lineHeight:'1.5'}}>Shows cows with zero calving records dated between the Start and End dates. Good for checking a specific calving season (e.g. Jan 1 – Jun 30).</div>
+                <div style={{color:'var(--cream)', fontSize:'17px', fontWeight:'600', marginBottom:'2px'}}>No record within date range</div>
+                <div style={{color:'var(--ash)', fontSize:'14px', lineHeight:'1.5'}}>Shows cows with zero calving records dated between the Start and End dates. Good for checking a specific calving season (e.g. Jan 1 – Jun 30).</div>
               </div>
             </label>
             <label style={{display:'flex', alignItems:'flex-start', gap:'12px', cursor:'pointer', padding:'12px 14px', borderRadius:'5px', border: mode==='last_before_start' ? '1px solid var(--rust)' : '1px solid rgba(58,125,123,0.25)', background: mode==='last_before_start' ? 'rgba(42,157,143,0.08)' : 'transparent', transition:'all 0.15s'}}>
               <input type="radio" name="gapMode" value="last_before_start" checked={mode==='last_before_start'} onChange={() => setMode('last_before_start')} style={{marginTop:'2px', accentColor:'var(--rust)', flexShrink:0}} />
               <div>
-                <div style={{color:'var(--cream)', fontSize:'14px', fontWeight:'600', marginBottom:'2px'}}>Last calving was before start date (or never calved)</div>
-                <div style={{color:'var(--ash)', fontSize:'12px', lineHeight:'1.5'}}>Shows cows whose most recent calving is older than the Start date. Good for finding open cows overall — set Start Date to 1–2 years ago.</div>
+                <div style={{color:'var(--cream)', fontSize:'17px', fontWeight:'600', marginBottom:'2px'}}>Last calving was before start date (or never calved)</div>
+                <div style={{color:'var(--ash)', fontSize:'14px', lineHeight:'1.5'}}>Shows cows whose most recent calving is older than the Start date. Good for finding open cows overall — set Start Date to 1–2 years ago.</div>
               </div>
             </label>
           </div>
@@ -2182,7 +2182,7 @@ function CalvingGapPage({ toast }) {
           </div>
         </div>
 
-        <button className="btn btn-primary" onClick={runFilter} disabled={loading} style={{width:'100%', padding:'11px', fontSize:'14px'}}>
+        <button className="btn btn-primary" onClick={runFilter} disabled={loading} style={{width:'100%', padding:'11px', fontSize:'17px'}}>
           {loading ? 'Searching…' : '🔍  Find Cows'}
         </button>
       </div>
@@ -2193,10 +2193,10 @@ function CalvingGapPage({ toast }) {
           {/* Summary */}
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px', flexWrap:'wrap', gap:'10px'}}>
             <div>
-              <span style={{fontFamily:'Playfair Display, serif', fontSize:'22px', color:'var(--cream)', marginRight:'10px'}}>
+              <span style={{fontFamily:'Playfair Display, serif', fontSize:'26px', color:'var(--cream)', marginRight:'10px'}}>
                 {results.length} cow{results.length !== 1 ? 's' : ''} found
               </span>
-              <span style={{color:'var(--ash)', fontSize:'13px'}}>
+              <span style={{color:'var(--ash)', fontSize:'16px'}}>
                 {mode === 'no_record_in_range'
                   ? `no calving between ${formatDate(rangeStart)} – ${formatDate(rangeEnd)}`
                   : `last calved before ${formatDate(rangeStart)}, or never calved`}
@@ -2212,17 +2212,17 @@ function CalvingGapPage({ toast }) {
             <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'12px', marginBottom:'20px'}}>
               <div className="stat-card">
                 <div className="stat-label">Never Calved</div>
-                <div className="stat-value" style={{color:'#e05555', fontSize:'28px'}}>{stats.never}</div>
+                <div className="stat-value" style={{color:'#e05555', fontSize:'34px'}}>{stats.never}</div>
                 <div className="stat-sub">no records at all</div>
               </div>
               <div className="stat-card">
                 <div className="stat-label">Gap 1–2 Years</div>
-                <div className="stat-value" style={{color:'var(--hay)', fontSize:'28px'}}>{stats.oneToTwo}</div>
+                <div className="stat-value" style={{color:'var(--hay)', fontSize:'34px'}}>{stats.oneToTwo}</div>
                 <div className="stat-sub">365–730 days since last</div>
               </div>
               <div className="stat-card">
                 <div className="stat-label">Gap 2+ Years</div>
-                <div className="stat-value" style={{color:'var(--rust)', fontSize:'28px'}}>{stats.over2yr}</div>
+                <div className="stat-value" style={{color:'var(--rust)', fontSize:'34px'}}>{stats.over2yr}</div>
                 <div className="stat-sub">over 730 days since last</div>
               </div>
             </div>
@@ -2253,8 +2253,8 @@ function CalvingGapPage({ toast }) {
                       <td className="td-mono">{c.vid || '—'}</td>
                       <td><span className={`badge badge-${c.sex}`}>{sexLabel(c.sex)}</span></td>
                       <td>{c.herds?.name || '—'}</td>
-                      <td style={{fontSize:'12px', color:'var(--sage)'}}>{c.breeding_status?.replace('_',' ') || '—'}</td>
-                      <td style={{fontSize:'13px', color: c.lastCalvingDate ? 'var(--ash)' : '#e05555'}}>
+                      <td style={{fontSize:'14px', color:'var(--sage)'}}>{c.breeding_status?.replace('_',' ') || '—'}</td>
+                      <td style={{fontSize:'16px', color: c.lastCalvingDate ? 'var(--ash)' : '#e05555'}}>
                         {c.lastCalvingDate ? formatDate(c.lastCalvingDate) : '— never calved —'}
                       </td>
                       <td>
@@ -2418,43 +2418,43 @@ function HerdsPage({ toast, navigateToAnimals }) {
           {herds.map(h => (
             <div key={h.id} className="detail-card">
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'12px'}}>
-                <h3 style={{fontFamily:'Playfair Display, serif', fontSize:'18px', color:'var(--cream)', fontWeight:'700', margin:0}}>{h.name}</h3>
-                <span style={{fontFamily:'IBM Plex Mono', fontSize:'24px', color:'var(--hay)', fontWeight:'700'}}>{herdCounts[h.id] || 0}</span>
+                <h3 style={{fontFamily:'Playfair Display, serif', fontSize:'22px', color:'var(--cream)', fontWeight:'700', margin:0}}>{h.name}</h3>
+                <span style={{fontFamily:'IBM Plex Mono', fontSize:'29px', color:'var(--hay)', fontWeight:'700'}}>{herdCounts[h.id] || 0}</span>
               </div>
-              <div style={{color:'var(--ash)', fontSize:'12px', fontFamily:'IBM Plex Mono', marginBottom:'8px'}}>HEAD ACTIVE</div>
-              <div style={{fontSize:'11px', fontFamily:'IBM Plex Mono', marginBottom:'8px', color: h.enterprise ? 'var(--sage)' : '#e8836a'}}>
+              <div style={{color:'var(--ash)', fontSize:'14px', fontFamily:'IBM Plex Mono', marginBottom:'8px'}}>HEAD ACTIVE</div>
+              <div style={{fontSize:'13px', fontFamily:'IBM Plex Mono', marginBottom:'8px', color: h.enterprise ? 'var(--sage)' : '#e8836a'}}>
                 ENTERPRISE: {h.enterprise || 'NOT TAGGED'}
               </div>
 
               {calculateCurrentAU(h) && (
                 <div style={{background:'rgba(58,125,123,0.2)', padding:'8px', borderRadius:'4px', marginBottom:'8px'}}>
-                  <div style={{fontFamily:'IBM Plex Mono', fontSize:'11px', color:'var(--ash)', marginBottom:'4px'}}>ANIMAL UNIT</div>
-                  <div style={{fontFamily:'IBM Plex Mono', fontSize:'16px', color:'var(--hay)', fontWeight:'600'}}>
+                  <div style={{fontFamily:'IBM Plex Mono', fontSize:'13px', color:'var(--ash)', marginBottom:'4px'}}>ANIMAL UNIT</div>
+                  <div style={{fontFamily:'IBM Plex Mono', fontSize:'19px', color:'var(--hay)', fontWeight:'600'}}>
                     {calculateCurrentAU(h)} AU/head
                   </div>
                   {h.adg && h.starting_weight && (
-                    <div style={{fontSize:'11px', color:'var(--ash)', marginTop:'4px', fontFamily:'IBM Plex Mono'}}>
+                    <div style={{fontSize:'13px', color:'var(--ash)', marginTop:'4px', fontFamily:'IBM Plex Mono'}}>
                       ADG: {h.adg} lbs/day
                     </div>
                   )}
                 </div>
               )}
 
-              {h.notes && <p style={{marginTop:'10px', color:'var(--ash)', fontSize:'13px'}}>{h.notes}</p>}
+              {h.notes && <p style={{marginTop:'10px', color:'var(--ash)', fontSize:'16px'}}>{h.notes}</p>}
 
               <div style={{display:'flex', gap:'8px', marginTop:'12px'}}>
-                <button className="btn btn-secondary" style={{flex:1, padding:'6px', fontSize:'12px'}} onClick={() => { setForm(h); setEditingHerd(h); }}>
+                <button className="btn btn-secondary" style={{flex:1, padding:'6px', fontSize:'14px'}} onClick={() => { setForm(h); setEditingHerd(h); }}>
                   Edit
                 </button>
-                <button className="btn btn-ghost" style={{flex:1, padding:'6px', fontSize:'12px'}} onClick={() => navigateToAnimals(h.id)}>
+                <button className="btn btn-ghost" style={{flex:1, padding:'6px', fontSize:'14px'}} onClick={() => navigateToAnimals(h.id)}>
                   View Animals
                 </button>
-                <button className="btn btn-ghost" style={{flex:1, padding:'6px', fontSize:'12px'}} onClick={() => toggleActive(h)}>
+                <button className="btn btn-ghost" style={{flex:1, padding:'6px', fontSize:'14px'}} onClick={() => toggleActive(h)}>
                   {h.is_active ? 'Archive' : 'Unarchive'}
                 </button>
               </div>
 
-              <div style={{marginTop:'12px', fontSize:'11px', color:'var(--ash)', fontFamily:'IBM Plex Mono'}}>{h.is_active ? '● ACTIVE' : '○ INACTIVE'}</div>
+              <div style={{marginTop:'12px', fontSize:'13px', color:'var(--ash)', fontFamily:'IBM Plex Mono'}}>{h.is_active ? '● ACTIVE' : '○ INACTIVE'}</div>
             </div>
           ))}
         </div>
@@ -2469,21 +2469,21 @@ function HerdsPage({ toast, navigateToAnimals }) {
               <button className="modal-close" onClick={() => setShowEnt(false)}>✕</button>
             </div>
             <div className="modal-body">
-              <div style={{fontSize:'12px', color:'var(--ash)', marginBottom:'12px'}}>Names should match Ambrook exactly. Renaming here updates every herd tagged with the old name.</div>
+              <div style={{fontSize:'14px', color:'var(--ash)', marginBottom:'12px'}}>Names should match Ambrook exactly. Renaming here updates every herd tagged with the old name.</div>
               <div style={{display:'flex', gap:'8px', marginBottom:'16px'}}>
                 <input className="form-input" style={{flex:1}} placeholder="New enterprise name" value={newEnt} onChange={e => setNewEnt(e.target.value)} onKeyDown={e => e.key === 'Enter' && addEnterprise()} />
                 <button className="btn btn-primary" onClick={addEnterprise}>Add</button>
               </div>
-              {enterprises.length === 0 && <div style={{color:'var(--ash)', fontSize:'13px'}}>No enterprises yet.</div>}
+              {enterprises.length === 0 && <div style={{color:'var(--ash)', fontSize:'16px'}}>No enterprises yet.</div>}
               {enterprises.map(ent => {
                 const val = entEdits[ent.id] ?? ent.name;
                 return (
                   <div key={ent.id} style={{display:'flex', gap:'6px', alignItems:'center', marginBottom:'8px', opacity: ent.is_active ? 1 : 0.55}}>
                     <input className="form-input" style={{flex:1}} value={val} onChange={e => setEntEdits(x => ({...x, [ent.id]: e.target.value}))} onKeyDown={e => e.key === 'Enter' && renameEnterprise(ent)} />
-                    <span style={{fontFamily:'IBM Plex Mono', fontSize:'11px', color:'var(--ash)', minWidth:'52px', textAlign:'right'}}>{entUseCount(ent.name)} herd{entUseCount(ent.name) === 1 ? '' : 's'}</span>
-                    {val.trim() !== ent.name && <button className="btn btn-primary" style={{padding:'6px 10px', fontSize:'12px'}} onClick={() => renameEnterprise(ent)}>Save</button>}
-                    <button className="btn btn-ghost" style={{padding:'6px 10px', fontSize:'12px'}} onClick={() => toggleEnterprise(ent)}>{ent.is_active ? 'Archive' : 'Restore'}</button>
-                    <button className="btn btn-ghost" style={{padding:'6px 10px', fontSize:'12px'}} onClick={() => deleteEnterprise(ent)}>✕</button>
+                    <span style={{fontFamily:'IBM Plex Mono', fontSize:'13px', color:'var(--ash)', minWidth:'52px', textAlign:'right'}}>{entUseCount(ent.name)} herd{entUseCount(ent.name) === 1 ? '' : 's'}</span>
+                    {val.trim() !== ent.name && <button className="btn btn-primary" style={{padding:'6px 10px', fontSize:'14px'}} onClick={() => renameEnterprise(ent)}>Save</button>}
+                    <button className="btn btn-ghost" style={{padding:'6px 10px', fontSize:'14px'}} onClick={() => toggleEnterprise(ent)}>{ent.is_active ? 'Archive' : 'Restore'}</button>
+                    <button className="btn btn-ghost" style={{padding:'6px 10px', fontSize:'14px'}} onClick={() => deleteEnterprise(ent)}>✕</button>
                   </div>
                 );
               })}
@@ -2520,12 +2520,12 @@ function HerdsPage({ toast, navigateToAnimals }) {
                 <div className="form-group">
                   <label className="form-label">Default AU (Cows/Bulls)</label>
                   <input className="form-input" type="number" step="0.01" placeholder="1.4" value={newHerd.default_au} onChange={e => setNewHerd(f => ({...f, default_au: e.target.value}))} />
-                  <div style={{fontSize:'11px', color:'var(--ash)', marginTop:'4px'}}>For static animals (cows, bulls)</div>
+                  <div style={{fontSize:'13px', color:'var(--ash)', marginTop:'4px'}}>For static animals (cows, bulls)</div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Starting Weight (lbs)</label>
                   <input className="form-input" type="number" placeholder="600" value={newHerd.starting_weight} onChange={e => setNewHerd(f => ({...f, starting_weight: e.target.value}))} />
-                  <div style={{fontSize:'11px', color:'var(--ash)', marginTop:'4px'}}>For yearlings with ADG</div>
+                  <div style={{fontSize:'13px', color:'var(--ash)', marginTop:'4px'}}>For yearlings with ADG</div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Weight Date</label>
@@ -2534,7 +2534,7 @@ function HerdsPage({ toast, navigateToAnimals }) {
                 <div className="form-group">
                   <label className="form-label">ADG (lbs/day)</label>
                   <input className="form-input" type="number" step="0.01" placeholder="2.5" value={newHerd.adg} onChange={e => setNewHerd(f => ({...f, adg: e.target.value}))} />
-                  <div style={{fontSize:'11px', color:'var(--ash)', marginTop:'4px'}}>Average daily gain for yearlings</div>
+                  <div style={{fontSize:'13px', color:'var(--ash)', marginTop:'4px'}}>Average daily gain for yearlings</div>
                 </div>
                 <div className="form-group full">
                   <label className="form-label">Notes</label>
@@ -2575,12 +2575,12 @@ function HerdsPage({ toast, navigateToAnimals }) {
                 <div className="form-group">
                   <label className="form-label">Default AU (Cows/Bulls)</label>
                   <input className="form-input" type="number" step="0.01" placeholder="1.4" value={form.default_au || ''} onChange={e => setForm(f => ({...f, default_au: e.target.value}))} />
-                  <div style={{fontSize:'11px', color:'var(--ash)', marginTop:'4px'}}>For static animals (cows, bulls)</div>
+                  <div style={{fontSize:'13px', color:'var(--ash)', marginTop:'4px'}}>For static animals (cows, bulls)</div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Starting Weight (lbs)</label>
                   <input className="form-input" type="number" placeholder="600" value={form.starting_weight || ''} onChange={e => setForm(f => ({...f, starting_weight: e.target.value}))} />
-                  <div style={{fontSize:'11px', color:'var(--ash)', marginTop:'4px'}}>For yearlings with ADG</div>
+                  <div style={{fontSize:'13px', color:'var(--ash)', marginTop:'4px'}}>For yearlings with ADG</div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Weight Date</label>
@@ -2589,7 +2589,7 @@ function HerdsPage({ toast, navigateToAnimals }) {
                 <div className="form-group">
                   <label className="form-label">ADG (lbs/day)</label>
                   <input className="form-input" type="number" step="0.01" placeholder="2.5" value={form.adg || ''} onChange={e => setForm(f => ({...f, adg: e.target.value}))} />
-                  <div style={{fontSize:'11px', color:'var(--ash)', marginTop:'4px'}}>Average daily gain for yearlings</div>
+                  <div style={{fontSize:'13px', color:'var(--ash)', marginTop:'4px'}}>Average daily gain for yearlings</div>
                 </div>
                 <div className="form-group full">
                   <label className="form-label">Notes</label>
@@ -2691,16 +2691,16 @@ function PartnershipsPage({ toast }) {
         {partnerships.map(p => (
           <div key={p.id} className="detail-card">
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'14px'}}>
-              <div><h3 style={{fontFamily:'Playfair Display, serif', fontSize:'18px', color:'var(--cream)', fontWeight:'700', margin:'0 0 4px'}}>{p.name}</h3>{p.description && <p style={{color:'var(--ash)', fontSize:'13px'}}>{p.description}</p>}</div>
+              <div><h3 style={{fontFamily:'Playfair Display, serif', fontSize:'22px', color:'var(--cream)', fontWeight:'700', margin:'0 0 4px'}}>{p.name}</h3>{p.description && <p style={{color:'var(--ash)', fontSize:'16px'}}>{p.description}</p>}</div>
               <div style={{display:'flex', gap:'8px', alignItems:'center'}}>
-                <span style={{fontSize:'11px', color: p.is_active ? 'var(--sage)' : 'var(--ash)', fontFamily:'IBM Plex Mono'}}>{p.is_active ? '● ACTIVE' : '○ INACTIVE'}</span>
-                <button className="btn btn-secondary" style={{padding:'4px 12px', fontSize:'12px'}} onClick={() => openEdit(p)}>Edit</button>
-                <button className="btn btn-danger" style={{padding:'4px 12px', fontSize:'12px'}} onClick={() => deletePartnership(p)}>Delete</button>
+                <span style={{fontSize:'13px', color: p.is_active ? 'var(--sage)' : 'var(--ash)', fontFamily:'IBM Plex Mono'}}>{p.is_active ? '● ACTIVE' : '○ INACTIVE'}</span>
+                <button className="btn btn-secondary" style={{padding:'4px 12px', fontSize:'14px'}} onClick={() => openEdit(p)}>Edit</button>
+                <button className="btn btn-danger" style={{padding:'4px 12px', fontSize:'14px'}} onClick={() => deletePartnership(p)}>Delete</button>
               </div>
             </div>
             <div style={{display:'flex', flexDirection:'column', gap:'6px'}}>
-              {(members[p.id] || []).map(m => <div key={m.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 12px', background:'rgba(15,28,36,0.4)', borderRadius:'4px'}}><span style={{color:'var(--cream)', fontSize:'14px'}}>{m.member_name}</span><span style={{color:'var(--hay)', fontFamily:'IBM Plex Mono', fontSize:'14px', fontWeight:'600'}}>{m.ownership_pct}%</span></div>)}
-              {(members[p.id] || []).length > 0 && <div style={{textAlign:'right', fontFamily:'IBM Plex Mono', fontSize:'11px', color:'var(--ash)', marginTop:'4px'}}>TOTAL: {(members[p.id] || []).reduce((s,m) => s + parseFloat(m.ownership_pct), 0).toFixed(1)}%</div>}
+              {(members[p.id] || []).map(m => <div key={m.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 12px', background:'rgba(15,28,36,0.4)', borderRadius:'4px'}}><span style={{color:'var(--cream)', fontSize:'17px'}}>{m.member_name}</span><span style={{color:'var(--hay)', fontFamily:'IBM Plex Mono', fontSize:'17px', fontWeight:'600'}}>{m.ownership_pct}%</span></div>)}
+              {(members[p.id] || []).length > 0 && <div style={{textAlign:'right', fontFamily:'IBM Plex Mono', fontSize:'13px', color:'var(--ash)', marginTop:'4px'}}>TOTAL: {(members[p.id] || []).reduce((s,m) => s + parseFloat(m.ownership_pct), 0).toFixed(1)}%</div>}
             </div>
           </div>
         ))}
@@ -2717,7 +2717,7 @@ function PartnershipsPage({ toast }) {
               {newMembers.map((m,i) => <MemberRow key={i} m={m} i={i} list={newMembers} setList={setNewMembers} />)}
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:'8px'}}>
                 <button className="btn btn-ghost" onClick={() => setNewMembers(m => [...m, { member_name: '', ownership_pct: '' }])}>+ Add Partner</button>
-                <span style={{fontFamily:'IBM Plex Mono', fontSize:'12px', color: Math.abs(totalPct(newMembers)-100)<0.01?'var(--sage)':'#e05555'}}>Total: {totalPct(newMembers).toFixed(1)}%</span>
+                <span style={{fontFamily:'IBM Plex Mono', fontSize:'14px', color: Math.abs(totalPct(newMembers)-100)<0.01?'var(--sage)':'#e05555'}}>Total: {totalPct(newMembers).toFixed(1)}%</span>
               </div>
             </div>
             <div className="modal-footer"><button className="btn btn-ghost" onClick={() => setShowAdd(false)}>Cancel</button><button className="btn btn-primary" onClick={addPartnership}>Create Partnership</button></div>
@@ -2740,7 +2740,7 @@ function PartnershipsPage({ toast }) {
               {editMembers.map((m,i) => <MemberRow key={i} m={m} i={i} list={editMembers} setList={setEditMembers} />)}
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:'8px'}}>
                 <button className="btn btn-ghost" onClick={() => setEditMembers(m => [...m, { member_name: '', ownership_pct: '' }])}>+ Add Partner</button>
-                <span style={{fontFamily:'IBM Plex Mono', fontSize:'12px', color: Math.abs(totalPct(editMembers)-100)<0.01?'var(--sage)':'#e05555'}}>Total: {totalPct(editMembers).toFixed(1)}%</span>
+                <span style={{fontFamily:'IBM Plex Mono', fontSize:'14px', color: Math.abs(totalPct(editMembers)-100)<0.01?'var(--sage)':'#e05555'}}>Total: {totalPct(editMembers).toFixed(1)}%</span>
               </div>
             </div>
             <div className="modal-footer"><button className="btn btn-ghost" onClick={() => setEditingP(null)}>Cancel</button><button className="btn btn-primary" onClick={saveEdit}>Save Changes</button></div>
@@ -2818,7 +2818,7 @@ function validateOwner(ownerName, partnerships) {
 function ImportPage({ toast }) {
   const [mode, setMode] = useState('add');
   const tab = (m, label) => (
-    <button onClick={() => setMode(m)} style={{flex:1, padding:'12px', border:'none', cursor:'pointer', fontFamily:'IBM Plex Mono, monospace', fontSize:'12px', letterSpacing:'1px', textTransform:'uppercase', background: mode===m ? 'var(--rust)' : 'var(--charcoal)', color: mode===m ? 'var(--cream)' : 'var(--ash)'}}>{label}</button>
+    <button onClick={() => setMode(m)} style={{flex:1, padding:'12px', border:'none', cursor:'pointer', fontFamily:'IBM Plex Mono, monospace', fontSize:'14px', letterSpacing:'1px', textTransform:'uppercase', background: mode===m ? 'var(--rust)' : 'var(--charcoal)', color: mode===m ? 'var(--cream)' : 'var(--ash)'}}>{label}</button>
   );
   return (
     <div>
@@ -2983,7 +2983,7 @@ function AddAnimalsImport({ toast }) {
     <div>
       <div style={{display:'flex', gap:'0', marginBottom:'28px', background:'var(--charcoal)', borderRadius:'6px', border:'1px solid rgba(58,125,123,0.3)', overflow:'hidden'}}>
         {['upload','map','preview','done'].map((s, i) => (
-          <div key={s} style={{flex:1, padding:'12px', textAlign:'center', fontFamily:'IBM Plex Mono, monospace', fontSize:'11px', letterSpacing:'2px', textTransform:'uppercase', background: step===s?'rgba(42,157,143,0.2)':'transparent', color: step===s?'var(--hay)':'var(--ash)', borderRight: i<3?'1px solid rgba(58,125,123,0.3)':'none'}}>
+          <div key={s} style={{flex:1, padding:'12px', textAlign:'center', fontFamily:'IBM Plex Mono, monospace', fontSize:'13px', letterSpacing:'1px', textTransform:'uppercase', background: step===s?'rgba(42,157,143,0.2)':'transparent', color: step===s?'var(--hay)':'var(--ash)', borderRight: i<3?'1px solid rgba(58,125,123,0.3)':'none'}}>
             {i+1}. {s}
           </div>
         ))}
@@ -2993,7 +2993,7 @@ function AddAnimalsImport({ toast }) {
         <div>
           <div className="detail-card" style={{marginBottom:'20px'}}>
             <h3>How to Import from Google Sheets</h3>
-            <div style={{color:'var(--ash)', fontSize:'14px', lineHeight:'1.8', marginTop:'8px'}}>
+            <div style={{color:'var(--ash)', fontSize:'17px', lineHeight:'1.8', marginTop:'8px'}}>
               <p>1. Open your Google Sheet with animal data</p>
               <p>2. Go to <strong style={{color:'var(--cream)'}}>File → Download → Comma Separated Values (.csv)</strong></p>
               <p>3. Upload the downloaded CSV file below</p>
@@ -3001,7 +3001,7 @@ function AddAnimalsImport({ toast }) {
           </div>
           <div className="detail-card" style={{marginBottom:'20px'}}>
             <h3>Default Settings</h3>
-            <p style={{color:'var(--ash)', fontSize:'13px', marginBottom:'14px'}}>Applied to rows where the CSV doesn't specify a value.</p>
+            <p style={{color:'var(--ash)', fontSize:'16px', marginBottom:'14px'}}>Applied to rows where the CSV doesn't specify a value.</p>
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'14px'}}>
               <div className="form-group"><label className="form-label">Default Herd</label><select className="form-select" value={defaultHerd} onChange={e => setDefaultHerd(e.target.value)}><option value="">-- None --</option>{herds.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select></div>
               <div className="form-group"><label className="form-label">Default Project</label><ProjectSelect projects={projects} value={defaultProject} onChange={setDefaultProject} /></div>
@@ -3011,14 +3011,14 @@ function AddAnimalsImport({ toast }) {
           <div style={{display:'flex', gap:'14px'}}>
             <div style={{flex:1, border:'2px dashed rgba(58,125,123,0.4)', borderRadius:'6px', padding:'48px 20px', textAlign:'center', cursor:'pointer', background:'var(--charcoal)'}} onClick={() => fileRef.current?.click()} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); handleFile(e.dataTransfer.files[0]); }}>
               <div style={{marginBottom:'12px', color:'var(--ash)'}}><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
-              <p style={{color:'var(--cream)', fontSize:'15px', fontWeight:'600', marginBottom:'6px'}}>Drop CSV file here or click to browse</p>
-              <p style={{color:'var(--ash)', fontSize:'13px'}}>Exported from Google Sheets</p>
+              <p style={{color:'var(--cream)', fontSize:'18px', fontWeight:'600', marginBottom:'6px'}}>Drop CSV file here or click to browse</p>
+              <p style={{color:'var(--ash)', fontSize:'16px'}}>Exported from Google Sheets</p>
               <input ref={fileRef} type="file" accept=".csv" style={{display:'none'}} onChange={e => handleFile(e.target.files[0])} />
             </div>
             <div style={{display:'flex', flexDirection:'column', gap:'10px', justifyContent:'center'}}>
               <button className="btn btn-secondary" onClick={downloadTemplate} style={{whiteSpace:'nowrap'}}>⬇ Download Template</button>
-              <div style={{color:'var(--ash)', fontSize:'11px', fontFamily:'IBM Plex Mono, monospace', textAlign:'center'}}>AVAILABLE<br/>COLUMNS</div>
-              {IMPORT_COLUMNS.map(c => <div key={c.key} style={{fontSize:'11px', color: c.required ? 'var(--rust)' : 'var(--ash)', fontFamily:'IBM Plex Mono, monospace'}}>{c.required ? '* ' : '  '}{c.key}</div>)}
+              <div style={{color:'var(--ash)', fontSize:'13px', fontFamily:'IBM Plex Mono, monospace', textAlign:'center'}}>AVAILABLE<br/>COLUMNS</div>
+              {IMPORT_COLUMNS.map(c => <div key={c.key} style={{fontSize:'13px', color: c.required ? 'var(--rust)' : 'var(--ash)', fontFamily:'IBM Plex Mono, monospace'}}>{c.required ? '* ' : '  '}{c.key}</div>)}
             </div>
           </div>
         </div>
@@ -3027,7 +3027,7 @@ function AddAnimalsImport({ toast }) {
       {step === 'map' && csvData && (
         <div>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
-            <div><h2 style={{fontFamily:'Playfair Display, serif', fontSize:'20px', color:'var(--cream)'}}>Map Your Columns</h2><p style={{color:'var(--ash)', fontSize:'13px', marginTop:'4px'}}>{csvData.rows.length} rows detected · {csvData.headers.length} columns found</p></div>
+            <div><h2 style={{fontFamily:'Playfair Display, serif', fontSize:'24px', color:'var(--cream)'}}>Map Your Columns</h2><p style={{color:'var(--ash)', fontSize:'16px', marginTop:'4px'}}>{csvData.rows.length} rows detected · {csvData.headers.length} columns found</p></div>
             <button className="btn btn-ghost" onClick={reset}>← Start Over</button>
           </div>
           <div className="table-wrap" style={{marginBottom:'20px'}}>
@@ -3036,9 +3036,9 @@ function AddAnimalsImport({ toast }) {
               <tbody>
                 {IMPORT_COLUMNS.map(col => (
                   <tr key={col.key}>
-                    <td><span style={{color:'var(--cream)', fontWeight:'600', fontSize:'13px'}}>{col.label}</span>{col.required && <span style={{color:'var(--rust)', marginLeft:'4px'}}>*</span>}<br/><span style={{color:'var(--ash)', fontSize:'11px', fontFamily:'IBM Plex Mono, monospace'}}>{col.hint}</span></td>
+                    <td><span style={{color:'var(--cream)', fontWeight:'600', fontSize:'16px'}}>{col.label}</span>{col.required && <span style={{color:'var(--rust)', marginLeft:'4px'}}>*</span>}<br/><span style={{color:'var(--ash)', fontSize:'13px', fontFamily:'IBM Plex Mono, monospace'}}>{col.hint}</span></td>
                     <td><select className="form-select" value={columnMap[col.key] || ''} onChange={e => setColumnMap(m => ({...m, [col.key]: e.target.value}))} style={{minWidth:'160px'}}><option value="">-- Skip --</option>{csvData.headers.map(h => <option key={h} value={h}>{h}</option>)}</select></td>
-                    <td style={{color:'var(--sage)', fontSize:'13px', fontFamily:'IBM Plex Mono, monospace'}}>{columnMap[col.key] ? (csvData.rows[0]?.[columnMap[col.key]] || '—') : '—'}</td>
+                    <td style={{color:'var(--sage)', fontSize:'16px', fontFamily:'IBM Plex Mono, monospace'}}>{columnMap[col.key] ? (csvData.rows[0]?.[columnMap[col.key]] || '—') : '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -3051,26 +3051,26 @@ function AddAnimalsImport({ toast }) {
       {step === 'preview' && (
         <div>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
-            <div><h2 style={{fontFamily:'Playfair Display, serif', fontSize:'20px', color:'var(--cream)'}}>Preview Import</h2><p style={{color:'var(--ash)', fontSize:'13px', marginTop:'4px'}}><span style={{color:'var(--sage)'}}>{preview.filter(r=>r.errors.length===0).length} ready to import</span>{errors.length > 0 && <span style={{color:'#e05555', marginLeft:'12px'}}>⚠ {errors.length} rows have errors (will be skipped)</span>}</p></div>
+            <div><h2 style={{fontFamily:'Playfair Display, serif', fontSize:'24px', color:'var(--cream)'}}>Preview Import</h2><p style={{color:'var(--ash)', fontSize:'16px', marginTop:'4px'}}><span style={{color:'var(--sage)'}}>{preview.filter(r=>r.errors.length===0).length} ready to import</span>{errors.length > 0 && <span style={{color:'#e05555', marginLeft:'12px'}}>⚠ {errors.length} rows have errors (will be skipped)</span>}</p></div>
             <button className="btn btn-ghost" onClick={() => setStep('map')}>← Back</button>
           </div>
-          {errors.length > 0 && <div style={{background:'rgba(224,85,85,0.1)', border:'1px solid rgba(224,85,85,0.3)', borderRadius:'6px', padding:'14px 18px', marginBottom:'16px'}}><p style={{color:'#e05555', fontWeight:'600', marginBottom:'8px'}}>⚠ Rows with errors will be skipped:</p>{errors.map(r => <p key={r.rowNum} style={{color:'var(--ash)', fontSize:'13px'}}>Row {r.rowNum} (VID: {r.vid || 'blank'}): {r.errors.join(', ')}</p>)}</div>}
+          {errors.length > 0 && <div style={{background:'rgba(224,85,85,0.1)', border:'1px solid rgba(224,85,85,0.3)', borderRadius:'6px', padding:'14px 18px', marginBottom:'16px'}}><p style={{color:'#e05555', fontWeight:'600', marginBottom:'8px'}}>⚠ Rows with errors will be skipped:</p>{errors.map(r => <p key={r.rowNum} style={{color:'var(--ash)', fontSize:'16px'}}>Row {r.rowNum} (VID: {r.vid || 'blank'}): {r.errors.join(', ')}</p>)}</div>}
           <div className="table-wrap" style={{marginBottom:'20px'}}>
             <table>
               <thead><tr><th>#</th><th>VID</th><th>EID</th><th>Sex</th><th>Herd</th><th>Owner</th><th>DOB</th><th>Breed Status</th><th>Project</th><th>Status</th></tr></thead>
               <tbody>
                 {preview.map(r => (
                   <tr key={r.rowNum} style={{opacity: r.errors.length > 0 ? 0.4 : 1}}>
-                    <td style={{color:'var(--ash)', fontSize:'12px'}}>{r.rowNum}</td>
+                    <td style={{color:'var(--ash)', fontSize:'14px'}}>{r.rowNum}</td>
                     <td className="td-mono">{r.vid || '—'}</td>
-                    <td style={{fontFamily:'IBM Plex Mono, monospace', fontSize:'11px', color:'var(--ash)'}}>{r.eid || '—'}</td>
+                    <td style={{fontFamily:'IBM Plex Mono, monospace', fontSize:'13px', color:'var(--ash)'}}>{r.eid || '—'}</td>
                     <td><span className={`badge badge-${r.sex?.includes('calf') ? 'calf' : r.sex}`}>{r.sex}</span></td>
                     <td>{r.herd_name}</td>
-                    <td style={{fontSize:'12px', color:'var(--sage)'}}>{r.owner_display}</td>
-                    <td style={{color:'var(--ash)', fontSize:'12px'}}>{r.date_of_birth || '—'}</td>
-                    <td style={{fontSize:'12px', color:'var(--sage)'}}>{r.breeding_status || '—'}</td>
-                    <td style={{fontSize:'12px', color:'var(--hay)'}}>{r.project || '—'}</td>
-                    <td>{r.errors.length > 0 ? <span style={{color:'#e05555', fontSize:'11px', fontFamily:'IBM Plex Mono, monospace'}}>⚠ SKIP</span> : <span style={{color:'var(--sage)', fontSize:'11px', fontFamily:'IBM Plex Mono, monospace'}}>✓ READY</span>}</td>
+                    <td style={{fontSize:'14px', color:'var(--sage)'}}>{r.owner_display}</td>
+                    <td style={{color:'var(--ash)', fontSize:'14px'}}>{r.date_of_birth || '—'}</td>
+                    <td style={{fontSize:'14px', color:'var(--sage)'}}>{r.breeding_status || '—'}</td>
+                    <td style={{fontSize:'14px', color:'var(--hay)'}}>{r.project || '—'}</td>
+                    <td>{r.errors.length > 0 ? <span style={{color:'#e05555', fontSize:'13px', fontFamily:'IBM Plex Mono, monospace'}}>⚠ SKIP</span> : <span style={{color:'var(--sage)', fontSize:'13px', fontFamily:'IBM Plex Mono, monospace'}}>✓ READY</span>}</td>
                   </tr>
                 ))}
               </tbody>
@@ -3086,7 +3086,7 @@ function AddAnimalsImport({ toast }) {
       {step === 'done' && importResult && (
         <div style={{textAlign:'center', padding:'60px 20px'}}>
           <div style={{marginBottom:'20px', color:'var(--sage)'}}><svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg></div>
-          <h2 style={{fontFamily:'Playfair Display, serif', fontSize:'32px', color:'var(--cream)', marginBottom:'16px'}}>Import Complete!</h2>
+          <h2 style={{fontFamily:'Playfair Display, serif', fontSize:'38px', color:'var(--cream)', marginBottom:'16px'}}>Import Complete!</h2>
           <div style={{display:'flex', justifyContent:'center', gap:'24px', marginBottom:'32px', flexWrap:'wrap'}}>
             <div className="stat-card" style={{minWidth:'140px'}}><div className="stat-label">Imported</div><div className="stat-value" style={{color:'var(--sage)'}}>{importResult.imported}</div></div>
             {importResult.partnershipsCreated > 0 && <div className="stat-card" style={{minWidth:'140px'}}><div className="stat-label">New Partnerships</div><div className="stat-value" style={{color:'var(--rust)'}}>{importResult.partnershipsCreated}</div></div>}
@@ -3626,7 +3626,7 @@ function UpdateAnimalsImport({ toast }) {
 
   const mono = { fontFamily: 'IBM Plex Mono, monospace' };
   const chip = (key, label, n, color) => (
-    <button key={key} className={`btn ${filter === key ? 'btn-secondary' : 'btn-ghost'}`} onClick={() => setFilter(key)} style={{ fontSize: '12px', padding: '6px 12px' }}>
+    <button key={key} className={`btn ${filter === key ? 'btn-secondary' : 'btn-ghost'}`} onClick={() => setFilter(key)} style={{ fontSize: '14px', padding: '6px 12px' }}>
       <span style={{ color }}>{n}</span>&nbsp;{label}
     </button>
   );
@@ -3636,7 +3636,7 @@ function UpdateAnimalsImport({ toast }) {
     <div>
       <div style={{display:'flex', gap:'0', marginBottom:'28px', background:'var(--charcoal)', borderRadius:'6px', border:'1px solid rgba(58,125,123,0.3)', overflow:'hidden'}}>
         {['upload','map','preview','done'].map((s, i) => (
-          <div key={s} style={{flex:1, padding:'12px', textAlign:'center', ...mono, fontSize:'11px', letterSpacing:'2px', textTransform:'uppercase', background: step===s?'rgba(42,157,143,0.2)':'transparent', color: step===s?'var(--hay)':'var(--ash)', borderRight: i<3?'1px solid rgba(58,125,123,0.3)':'none'}}>
+          <div key={s} style={{flex:1, padding:'12px', textAlign:'center', ...mono, fontSize:'13px', letterSpacing:'1px', textTransform:'uppercase', background: step===s?'rgba(42,157,143,0.2)':'transparent', color: step===s?'var(--hay)':'var(--ash)', borderRight: i<3?'1px solid rgba(58,125,123,0.3)':'none'}}>
             {i+1}. {s}
           </div>
         ))}
@@ -3646,7 +3646,7 @@ function UpdateAnimalsImport({ toast }) {
         <div>
           <div className="detail-card" style={{marginBottom:'20px'}}>
             <h3>Update Existing Animals</h3>
-            <p style={{color:'var(--ash)', fontSize:'14px', lineHeight:'1.7', marginTop:'8px'}}>
+            <p style={{color:'var(--ash)', fontSize:'17px', lineHeight:'1.7', marginTop:'8px'}}>
               Each row is matched to an <strong style={{color:'var(--cream)'}}>active</strong> animal by tag and only the columns you map get changed. Nothing new is created.
               Blank cells leave the existing value alone. Use this for preg-check results, retagging, herd moves, or fixing a batch of records.
             </p>
@@ -3663,11 +3663,11 @@ function UpdateAnimalsImport({ toast }) {
                   <option value="">All herds</option>{herds.map(h => <option key={h.id} value={String(h.id)}>{h.name}</option>)}
                 </select></div>
             </div>
-            <p style={{color:'var(--ash)', fontSize:'12px', marginTop:'8px'}}>Picking a herd settles tags that repeat across herds, and the preview will list cows in that herd the file didn't include.</p>
+            <p style={{color:'var(--ash)', fontSize:'14px', marginTop:'8px'}}>Picking a herd settles tags that repeat across herds, and the preview will list cows in that herd the file didn't include.</p>
           </div>
           <div style={{border:'2px dashed rgba(58,125,123,0.4)', borderRadius:'6px', padding:'48px 20px', textAlign:'center', cursor:'pointer', background:'var(--charcoal)'}} onClick={() => fileRef.current?.click()} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); handleFile(e.dataTransfer.files[0]); }}>
-            <p style={{color:'var(--cream)', fontSize:'15px', fontWeight:'600', marginBottom:'6px'}}>Drop CSV file here or click to browse</p>
-            <p style={{color:'var(--ash)', fontSize:'13px'}}>{animals ? `${animals.length.toLocaleString()} active animals loaded` : 'Loading animals…'}</p>
+            <p style={{color:'var(--cream)', fontSize:'18px', fontWeight:'600', marginBottom:'6px'}}>Drop CSV file here or click to browse</p>
+            <p style={{color:'var(--ash)', fontSize:'16px'}}>{animals ? `${animals.length.toLocaleString()} active animals loaded` : 'Loading animals…'}</p>
             <input ref={fileRef} type="file" accept=".csv,text/csv" style={{display:'none'}} onChange={e => { handleFile(e.target.files[0]); e.target.value = ''; }} />
           </div>
         </div>
@@ -3676,14 +3676,14 @@ function UpdateAnimalsImport({ toast }) {
       {step === 'map' && csvData && (
         <div>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px', gap:'12px', flexWrap:'wrap'}}>
-            <div><h2 style={{fontFamily:'Playfair Display, serif', fontSize:'20px', color:'var(--cream)'}}>Map Your Columns</h2><p style={{color:'var(--ash)', fontSize:'13px', marginTop:'4px'}}>{fileName} · {csvData.rows.length} rows · matching on {MATCH_LABEL[matchBy]}{herdScope ? ` in ${herdName(herdScope)}` : ''}</p></div>
+            <div><h2 style={{fontFamily:'Playfair Display, serif', fontSize:'24px', color:'var(--cream)'}}>Map Your Columns</h2><p style={{color:'var(--ash)', fontSize:'16px', marginTop:'4px'}}>{fileName} · {csvData.rows.length} rows · matching on {MATCH_LABEL[matchBy]}{herdScope ? ` in ${herdName(herdScope)}` : ''}</p></div>
             <button className="btn btn-ghost" onClick={reset}>← Back</button>
           </div>
 
           <div className="detail-card" style={{marginBottom:'16px'}}>
             <div className="form-group"><label className="form-label" style={{color:'var(--rust)'}}>* Column with the {MATCH_LABEL[matchBy]}</label>
               <select className="form-select" value={tagCol} onChange={e => setTagCol(e.target.value)}><option value="">-- Pick column --</option>{csvData.headers.map(h => <option key={h} value={h}>{h}</option>)}</select>
-              {tagCol && <span style={{color:'var(--sage)', fontSize:'12px', ...mono, marginTop:'6px', display:'block'}}>e.g. {sampleOf(tagCol)}</span>}
+              {tagCol && <span style={{color:'var(--sage)', fontSize:'14px', ...mono, marginTop:'6px', display:'block'}}>e.g. {sampleOf(tagCol)}</span>}
             </div>
           </div>
 
@@ -3693,9 +3693,9 @@ function UpdateAnimalsImport({ toast }) {
               <tbody>
                 {UPDATE_FIELDS.filter(f => f.key !== matchBy).map(f => (
                   <tr key={f.key}>
-                    <td><div style={{color:'var(--cream)', fontSize:'13px'}}>{f.label}</div>{f.hint && <div style={{color:'var(--ash)', fontSize:'11px'}}>{f.hint}</div>}</td>
+                    <td><div style={{color:'var(--cream)', fontSize:'16px'}}>{f.label}</div>{f.hint && <div style={{color:'var(--ash)', fontSize:'13px'}}>{f.hint}</div>}</td>
                     <td><select className="form-select" value={columnMap[f.key] || ''} onChange={e => setColumnMap(m => ({...m, [f.key]: e.target.value}))} style={{minWidth:'160px'}}><option value="">-- Skip --</option>{csvData.headers.map(h => <option key={h} value={h}>{h}</option>)}</select></td>
-                    <td style={{color:'var(--sage)', fontSize:'13px', ...mono}}>{columnMap[f.key] ? sampleOf(columnMap[f.key]) : '—'}</td>
+                    <td style={{color:'var(--sage)', fontSize:'16px', ...mono}}>{columnMap[f.key] ? sampleOf(columnMap[f.key]) : '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -3705,7 +3705,7 @@ function UpdateAnimalsImport({ toast }) {
           {UPDATE_FIELDS.some(f => f.score && columnMap[f.key]) && (scoresOk === false || (pregTableOk && !pregScoresOk)) && (
             <div className="detail-card" style={{marginBottom:'16px'}}>
               <h3>Cow Scores Setup</h3>
-              <p style={{color:'var(--hay)', fontSize:'13px', margin:'6px 0 10px'}}>
+              <p style={{color:'var(--hay)', fontSize:'16px', margin:'6px 0 10px'}}>
                 {scoresOk === false
                   ? 'Mouth, udder and condition score aren\'t in the database yet. Run this once, or skip those columns.'
                   : 'Scores will save on the animals, but preg-check history doesn\'t have score columns yet — run this once to keep a dated record of mouth, udder and BCS with each preg check.'}
@@ -3715,8 +3715,8 @@ function UpdateAnimalsImport({ toast }) {
                 <button className="btn btn-ghost" onClick={checkScoreCols}>I ran it — check again</button>
               </div>
               {showScoreSql && <div style={{marginTop:'10px'}}>
-                <p style={{color:'var(--ash)', fontSize:'12px', marginBottom:'6px'}}>Supabase → SQL Editor → New query → paste → Run.</p>
-                <textarea readOnly value={COW_SCORES_SQL} onFocus={e => e.target.select()} style={{width:'100%', height:'200px', ...mono, fontSize:'11px', background:'var(--charcoal)', color:'var(--cream)', border:'1px solid rgba(58,125,123,0.4)', borderRadius:'4px', padding:'8px'}} />
+                <p style={{color:'var(--ash)', fontSize:'14px', marginBottom:'6px'}}>Supabase → SQL Editor → New query → paste → Run.</p>
+                <textarea readOnly value={COW_SCORES_SQL} onFocus={e => e.target.select()} style={{width:'100%', height:'200px', ...mono, fontSize:'13px', background:'var(--charcoal)', color:'var(--cream)', border:'1px solid rgba(58,125,123,0.4)', borderRadius:'4px', padding:'8px'}} />
                 <button className="btn btn-ghost" style={{marginTop:'6px'}} onClick={() => { navigator.clipboard?.writeText(COW_SCORES_SQL); toast('SQL copied', 'success'); }}>Copy SQL</button>
               </div>}
             </div>
@@ -3725,14 +3725,14 @@ function UpdateAnimalsImport({ toast }) {
           {columnMap.project && (
             <div className="detail-card" style={{marginBottom:'16px'}}>
               <h3>Project</h3>
-              <p style={{color:'var(--ash)', fontSize:'13px', margin:'6px 0 12px'}}>Project changes are logged as transfers on this date, so head-day reports split days at the right point.</p>
+              <p style={{color:'var(--ash)', fontSize:'16px', margin:'6px 0 12px'}}>Project changes are logged as transfers on this date, so head-day reports split days at the right point.</p>
               <div className="form-group" style={{maxWidth:'220px'}}><label className="form-label">Effective date</label><input type="date" className="form-input" max={todayLocal()} value={projectDate} onChange={e => setProjectDate(e.target.value)} /></div>
             </div>
           )}
 
           <div className="detail-card" style={{marginBottom:'16px'}}>
             <h3>Ownership</h3>
-            <p style={{color:'var(--ash)', fontSize:'13px', marginTop:'6px'}}>
+            <p style={{color:'var(--ash)', fontSize:'16px', marginTop:'6px'}}>
               {columnMap.owner ? <>Owner comes from the <strong style={{color:'var(--cream)'}}>{columnMap.owner}</strong> column. Rows with a blank owner use the fallback below.</> : 'Map an Owner column above, or set one owner for every row in the file.'}
               {' '}The old owner stays in history; the new one starts on the effective date.
             </p>
@@ -3761,7 +3761,7 @@ function UpdateAnimalsImport({ toast }) {
                         <tr key={v}>
                           <td style={mono}>{v === '' ? <span style={{color:'var(--ash)'}}>(blank)</span> : v}</td>
                           <td style={{color:'var(--ash)'}}>{n}</td>
-                          <td>{v === '' ? <span style={{color:'var(--ash)', fontSize:'12px'}}>left unchanged</span> :
+                          <td>{v === '' ? <span style={{color:'var(--ash)', fontSize:'14px'}}>left unchanged</span> :
                             <select className="form-select" value={cur} onChange={e => setValueMap(m => ({...m, [v]: e.target.value}))} style={{minWidth:'150px', borderColor: cur ? undefined : '#e05555'}}>
                               <option value="">— skip —</option>{BREEDING_VALUES.map(b => <option key={b} value={b}>{b.replace('_', ' ')}</option>)}
                             </select>}</td>
@@ -3771,25 +3771,25 @@ function UpdateAnimalsImport({ toast }) {
                   </tbody>
                 </table>
               </div>
-              {resultValues.length > 12 && <p style={{color:'var(--ash)', fontSize:'12px', marginTop:'8px'}}>Lots of distinct values — if this column is days bred, numbers map to bred and 0 to open automatically.</p>}
+              {resultValues.length > 12 && <p style={{color:'var(--ash)', fontSize:'14px', marginTop:'8px'}}>Lots of distinct values — if this column is days bred, numbers map to bred and 0 to open automatically.</p>}
 
               <div style={{borderTop:'1px solid rgba(58,125,123,0.3)', marginTop:'16px', paddingTop:'14px'}}>
                 {pregTableOk === false ? (
                   <div>
-                    <p style={{color:'var(--hay)', fontSize:'13px'}}>Preg-check history isn't set up yet, so only breeding status will change (no dated record, days bred, or calving date).</p>
+                    <p style={{color:'var(--hay)', fontSize:'16px'}}>Preg-check history isn't set up yet, so only breeding status will change (no dated record, days bred, or calving date).</p>
                     <div style={{display:'flex', gap:'10px', marginTop:'10px', flexWrap:'wrap'}}>
                       <button className="btn btn-secondary" onClick={() => setShowSql(s => !s)}>{showSql ? 'Hide' : 'Show'} setup SQL</button>
                       <button className="btn btn-ghost" onClick={checkPregTable}>I ran it — check again</button>
                     </div>
                     {showSql && <div style={{marginTop:'10px'}}>
-                      <p style={{color:'var(--ash)', fontSize:'12px', marginBottom:'6px'}}>Supabase → SQL Editor → New query → paste → Run.</p>
-                      <textarea readOnly value={PREG_CHECKS_SQL} onFocus={e => e.target.select()} style={{width:'100%', height:'220px', ...mono, fontSize:'11px', background:'var(--charcoal)', color:'var(--cream)', border:'1px solid rgba(58,125,123,0.4)', borderRadius:'4px', padding:'8px'}} />
+                      <p style={{color:'var(--ash)', fontSize:'14px', marginBottom:'6px'}}>Supabase → SQL Editor → New query → paste → Run.</p>
+                      <textarea readOnly value={PREG_CHECKS_SQL} onFocus={e => e.target.select()} style={{width:'100%', height:'220px', ...mono, fontSize:'13px', background:'var(--charcoal)', color:'var(--cream)', border:'1px solid rgba(58,125,123,0.4)', borderRadius:'4px', padding:'8px'}} />
                       <button className="btn btn-ghost" style={{marginTop:'6px'}} onClick={() => { navigator.clipboard?.writeText(PREG_CHECKS_SQL); toast('SQL copied', 'success'); }}>Copy SQL</button>
                     </div>}
                   </div>
                 ) : (
                   <div>
-                    <label style={{display:'flex', gap:'8px', alignItems:'center', color:'var(--cream)', fontSize:'14px', cursor:'pointer'}}>
+                    <label style={{display:'flex', gap:'8px', alignItems:'center', color:'var(--cream)', fontSize:'17px', cursor:'pointer'}}>
                       <input type="checkbox" checked={recordPreg} disabled={!pregTableOk} onChange={e => setRecordPreg(e.target.checked)} /> Record as a preg check (keeps history, days bred, expected calving date)
                     </label>
                     {recordPreg && <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:'14px', marginTop:'12px'}}>
@@ -3810,7 +3810,7 @@ function UpdateAnimalsImport({ toast }) {
       {step === 'preview' && (
         <div>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px', gap:'12px', flexWrap:'wrap'}}>
-            <div><h2 style={{fontFamily:'Playfair Display, serif', fontSize:'20px', color:'var(--cream)'}}>Preview Changes</h2><p style={{color:'var(--ash)', fontSize:'13px', marginTop:'4px'}}>Nothing is saved until you click Apply. Rows with errors are skipped.</p></div>
+            <div><h2 style={{fontFamily:'Playfair Display, serif', fontSize:'24px', color:'var(--cream)'}}>Preview Changes</h2><p style={{color:'var(--ash)', fontSize:'16px', marginTop:'4px'}}>Nothing is saved until you click Apply. Rows with errors are skipped.</p></div>
             <button className="btn btn-ghost" onClick={() => setStep('map')}>← Remap</button>
           </div>
           <div style={{display:'flex', gap:'8px', flexWrap:'wrap', marginBottom:'14px'}}>
@@ -3820,7 +3820,7 @@ function UpdateAnimalsImport({ toast }) {
             {counts.warnings > 0 && chip('warnings', 'warnings', counts.warnings, 'var(--hay)')}
             {counts.errors > 0 && chip('errors', 'skipped', counts.errors, '#e05555')}
           </div>
-          <p style={{color:'var(--ash)', fontSize:'13px', marginBottom:'14px'}}>
+          <p style={{color:'var(--ash)', fontSize:'16px', marginBottom:'14px'}}>
             {counts.preg > 0 && <span>{counts.preg} preg checks will be recorded for {checkDate}. </span>}
             {counts.noChange > 0 && <span>{counts.noChange} rows already match RS. </span>}
           </p>
@@ -3828,10 +3828,10 @@ function UpdateAnimalsImport({ toast }) {
           {missing.length > 0 && (
             <div style={{background:'rgba(212,160,23,0.08)', border:'1px solid rgba(212,160,23,0.3)', borderRadius:'6px', padding:'12px 16px', marginBottom:'16px'}}>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:'10px'}}>
-                <span style={{color:'var(--hay)', fontSize:'13px'}}>{missing.length} active cows/heifers in {herdName(herdScope)} aren't in this file — missed, lost tag, or dead/sold not recorded?</span>
-                <button className="btn btn-ghost" style={{fontSize:'12px'}} onClick={() => setShowMissing(s => !s)}>{showMissing ? 'Hide' : 'Show'}</button>
+                <span style={{color:'var(--hay)', fontSize:'16px'}}>{missing.length} active cows/heifers in {herdName(herdScope)} aren't in this file — missed, lost tag, or dead/sold not recorded?</span>
+                <button className="btn btn-ghost" style={{fontSize:'14px'}} onClick={() => setShowMissing(s => !s)}>{showMissing ? 'Hide' : 'Show'}</button>
               </div>
-              {showMissing && <p style={{color:'var(--ash)', fontSize:'12px', ...mono, marginTop:'8px', lineHeight:'1.8'}}>{missing.map(a => a.vid || a.eid || '(no tag)').sort((x, y) => String(x).localeCompare(String(y), undefined, { numeric: true })).join(' · ')}</p>}
+              {showMissing && <p style={{color:'var(--ash)', fontSize:'14px', ...mono, marginTop:'8px', lineHeight:'1.8'}}>{missing.map(a => a.vid || a.eid || '(no tag)').sort((x, y) => String(x).localeCompare(String(y), undefined, { numeric: true })).join(' · ')}</p>}
             </div>
           )}
 
@@ -3841,25 +3841,25 @@ function UpdateAnimalsImport({ toast }) {
               <tbody>
                 {visibleRows.map(r => (
                   <tr key={r.rowNum} style={{opacity: r.errors.length ? 0.55 : 1}}>
-                    <td style={{color:'var(--ash)', fontSize:'12px'}}>{r.rowNum}</td>
+                    <td style={{color:'var(--ash)', fontSize:'14px'}}>{r.rowNum}</td>
                     <td className="td-mono">{r.tag || '—'}</td>
-                    <td style={{fontSize:'12px', color:'var(--ash)'}}>{r.animal ? herdName(r.animal.herd_id) : '—'}</td>
-                    <td style={{fontSize:'12px'}}>
+                    <td style={{fontSize:'14px', color:'var(--ash)'}}>{r.animal ? herdName(r.animal.herd_id) : '—'}</td>
+                    <td style={{fontSize:'14px'}}>
                       {r.changes.map((c, i) => <div key={i}><span style={{color:'var(--ash)'}}>{c.label}:</span> <span style={{color:'var(--ash)', textDecoration:'line-through'}}>{c.from || '—'}</span> → <span style={{color: c.to === 'open' ? '#e05555' : 'var(--sage)'}}>{c.to}</span></div>)}
                       {r.notesAppend && <div><span style={{color:'var(--ash)'}}>Note:</span> <span style={{color:'var(--cream)'}}>+ {r.notesAppend}</span></div>}
                       {!r.changes.length && !r.notesAppend && !r.errors.length && <span style={{color:'var(--ash)'}}>no change</span>}
                       {r.errors.map((e, i) => <div key={'e'+i} style={{color:'#e05555'}}>⚠ {e}</div>)}
                       {r.warnings.map((w, i) => <div key={'w'+i} style={{color:'var(--hay)'}}>△ {w}</div>)}
                     </td>
-                    <td style={{fontSize:'12px', ...mono}}>{r.preg ? <span style={{color: r.preg.result === 'open' ? '#e05555' : 'var(--sage)'}}>{r.preg.result.toUpperCase()}{r.preg.days_bred !== null ? ` ${r.preg.days_bred}d` : ''}{r.preg.calving_period ? ` · ${r.preg.calving_period}` : ''}{r.preg.expected_calving_date ? <div style={{color:'var(--ash)'}}>due {r.preg.expected_calving_date}</div> : null}</span> : '—'}</td>
-                    <td>{r.errors.length ? <span style={{color:'#e05555', fontSize:'11px', ...mono}}>SKIP</span> : (r.changes.length || r.notesAppend || r.preg) ? <span style={{color:'var(--sage)', fontSize:'11px', ...mono}}>✓</span> : null}</td>
+                    <td style={{fontSize:'14px', ...mono}}>{r.preg ? <span style={{color: r.preg.result === 'open' ? '#e05555' : 'var(--sage)'}}>{r.preg.result.toUpperCase()}{r.preg.days_bred !== null ? ` ${r.preg.days_bred}d` : ''}{r.preg.calving_period ? ` · ${r.preg.calving_period}` : ''}{r.preg.expected_calving_date ? <div style={{color:'var(--ash)'}}>due {r.preg.expected_calving_date}</div> : null}</span> : '—'}</td>
+                    <td>{r.errors.length ? <span style={{color:'#e05555', fontSize:'13px', ...mono}}>SKIP</span> : (r.changes.length || r.notesAppend || r.preg) ? <span style={{color:'var(--sage)', fontSize:'13px', ...mono}}>✓</span> : null}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           <div style={{display:'flex', justifyContent:'flex-end', alignItems:'center', gap:'10px', flexWrap:'wrap'}}>
-            {progress && <span style={{color:'var(--ash)', fontSize:'12px', ...mono}}>{progress}</span>}
+            {progress && <span style={{color:'var(--ash)', fontSize:'14px', ...mono}}>{progress}</span>}
             <button className="btn btn-ghost" onClick={() => setStep('map')} disabled={applying}>← Remap</button>
             <button className="btn btn-primary" onClick={apply} disabled={applying || (counts.changes === 0 && counts.preg === 0)}>{applying ? 'Saving…' : `Apply ${counts.changes} changes${counts.preg ? ` + ${counts.preg} preg checks` : ''}`}</button>
           </div>
@@ -3868,7 +3868,7 @@ function UpdateAnimalsImport({ toast }) {
 
       {step === 'done' && result && (
         <div style={{textAlign:'center', padding:'40px 20px'}}>
-          <h2 style={{fontFamily:'Playfair Display, serif', fontSize:'32px', color:'var(--cream)', marginBottom:'16px'}}>Records Updated</h2>
+          <h2 style={{fontFamily:'Playfair Display, serif', fontSize:'38px', color:'var(--cream)', marginBottom:'16px'}}>Records Updated</h2>
           <div style={{display:'flex', gap:'16px', justifyContent:'center', marginBottom:'24px', flexWrap:'wrap'}}>
             {(result.updated > 0 || !(result.ownersDone || result.ownersUndone || result.pregDone || result.notesDone)) && <div className="stat-card" style={{minWidth:'140px'}}><div className="stat-label">Animals Updated</div><div className="stat-value" style={{color:'var(--sage)'}}>{result.updated}</div></div>}
             {(result.ownersDone > 0 || result.ownersUndone) && <div className="stat-card" style={{minWidth:'140px'}}><div className="stat-label">Owner Changes</div><div className="stat-value" style={{color:'var(--rust)'}}>{result.ownersUndone ? 'undone' : result.ownersDone}</div></div>}
@@ -3876,8 +3876,8 @@ function UpdateAnimalsImport({ toast }) {
             {result.notesDone > 0 && <div className="stat-card" style={{minWidth:'140px'}}><div className="stat-label">Notes Added</div><div className="stat-value" style={{color:'var(--ash)'}}>{result.notesDone}</div></div>}
             {result.failed.length > 0 && <div className="stat-card" style={{minWidth:'140px'}}><div className="stat-label">Failed</div><div className="stat-value" style={{color:'#e05555'}}>{result.failed.length}</div></div>}
           </div>
-          {result.failed.length > 0 && <div style={{textAlign:'left', maxWidth:'640px', margin:'0 auto 20px', background:'rgba(224,85,85,0.1)', border:'1px solid rgba(224,85,85,0.3)', borderRadius:'6px', padding:'12px 16px'}}>{result.failed.map((f, i) => <p key={i} style={{color:'var(--ash)', fontSize:'13px'}}>{f.tag}: {f.why}</p>)}</div>}
-          {result.appliedRows.length > 0 && <p style={{color:'var(--ash)', fontSize:'12px', maxWidth:'560px', margin:'0 auto 16px'}}>The undo file holds the old values of every field changed. Owner changes have their own undo button, available until you leave this screen. Run it back through this page (match on RS ID) to restore them. It doesn't remove notes or preg-check records.</p>}
+          {result.failed.length > 0 && <div style={{textAlign:'left', maxWidth:'640px', margin:'0 auto 20px', background:'rgba(224,85,85,0.1)', border:'1px solid rgba(224,85,85,0.3)', borderRadius:'6px', padding:'12px 16px'}}>{result.failed.map((f, i) => <p key={i} style={{color:'var(--ash)', fontSize:'16px'}}>{f.tag}: {f.why}</p>)}</div>}
+          {result.appliedRows.length > 0 && <p style={{color:'var(--ash)', fontSize:'14px', maxWidth:'560px', margin:'0 auto 16px'}}>The undo file holds the old values of every field changed. Owner changes have their own undo button, available until you leave this screen. Run it back through this page (match on RS ID) to restore them. It doesn't remove notes or preg-check records.</p>}
           <div style={{display:'flex', gap:'12px', justifyContent:'center', flexWrap:'wrap'}}>
             {result.appliedRows.length > 0 && <button className="btn btn-secondary" onClick={() => downloadUndo(result.appliedRows)}>⤓ Download Undo File</button>}
             {(result.ownerUndo.inserted.length + result.ownerUndo.replaced.length) > 0 && <button className="btn btn-secondary" onClick={undoOwners} disabled={undoing}>{undoing ? 'Reversing…' : '↶ Undo Owner Changes'}</button>}
@@ -4367,7 +4367,7 @@ function InventoryChangeReport({ toast, herds, projects = [] }) {
             {loading ? 'Running...' : 'Run Report'}
           </button>
           {results && <button className="btn btn-secondary" onClick={exportCSV}>⤓ Export CSV</button>}
-          {loading && <span style={{color:'var(--ash)', fontSize:'13px', fontFamily:'IBM Plex Mono, monospace'}}>Querying database...</span>}
+          {loading && <span style={{color:'var(--ash)', fontSize:'16px', fontFamily:'IBM Plex Mono, monospace'}}>Querying database...</span>}
         </div>
       </div>
 
@@ -4386,7 +4386,7 @@ function InventoryChangeReport({ toast, herds, projects = [] }) {
             ].map(s => (
               <div key={s.label} className="stat-card">
                 <div className="stat-label">{s.label}</div>
-                <div className="stat-value" style={{color: s.color, fontSize:'28px', lineHeight:'1.1'}}>
+                <div className="stat-value" style={{color: s.color, fontSize:'34px', lineHeight:'1.1'}}>
                   {s.sign}{s.value}
                 </div>
               </div>
@@ -4400,13 +4400,13 @@ function InventoryChangeReport({ toast, herds, projects = [] }) {
             borderRadius:'6px', padding:'12px 18px', marginBottom:'20px',
             display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'8px',
           }}>
-            <span style={{fontFamily:'IBM Plex Mono, monospace', fontSize:'12px', color: diff === 0 ? 'var(--sage)' : 'var(--hay)'}}>
+            <span style={{fontFamily:'IBM Plex Mono, monospace', fontSize:'14px', color: diff === 0 ? 'var(--sage)' : 'var(--hay)'}}>
               {diff === 0 ? '✓ RECONCILED' : `⚠ ${Math.abs(diff)} HEAD UNACCOUNTED`}
               <span style={{color:'var(--ash)', marginLeft:'12px'}}>
                 {results.beginningCount} beg &nbsp;+ {results.purchases} pur &nbsp;+ {results.births} births &nbsp;− {results.sales} sales &nbsp;− {results.deaths} deaths &nbsp;= {calcEnding} calc &nbsp;| {results.endingCount} actual
               </span>
             </span>
-            <span style={{fontFamily:'IBM Plex Mono, monospace', fontSize:'11px', color:'var(--ash)'}}>
+            <span style={{fontFamily:'IBM Plex Mono, monospace', fontSize:'13px', color:'var(--ash)'}}>
               {results.herdName} · {results.startDate} → {results.endDate}
             </span>
           </div>
@@ -4437,19 +4437,19 @@ function InventoryChangeReport({ toast, herds, projects = [] }) {
                     const ts = TYPE_STYLE[t.type] || { color:'var(--ash)', label: t.type.toUpperCase(), sign:'' };
                     return (
                       <tr key={i} style={{cursor:'default'}}>
-                        <td className="td-mono" style={{fontSize:'12px'}}>{t.date}</td>
+                        <td className="td-mono" style={{fontSize:'14px'}}>{t.date}</td>
                         <td>
                           <span style={{
                             display:'inline-block', padding:'2px 8px', borderRadius:'3px',
-                            fontSize:'11px', fontFamily:'IBM Plex Mono, monospace', fontWeight:'600',
+                            fontSize:'13px', fontFamily:'IBM Plex Mono, monospace', fontWeight:'600',
                             color: ts.color, background: ts.color + '1a', border: `1px solid ${ts.color}44`,
                           }}>{ts.label}</span>
                         </td>
-                        <td style={{fontFamily:'IBM Plex Mono, monospace', fontSize:'16px', color: ts.color, textAlign:'center', fontWeight:'700'}}>{ts.sign}</td>
+                        <td style={{fontFamily:'IBM Plex Mono, monospace', fontSize:'19px', color: ts.color, textAlign:'center', fontWeight:'700'}}>{ts.sign}</td>
                         <td className="td-mono">{t.vid}</td>
                         <td>{t.sex && t.sex !== '—' ? <span className={`badge badge-${t.sex}`}>{t.sex}</span> : <span style={{color:'var(--ash)'}}>—</span>}</td>
-                        <td style={{fontSize:'13px', color:'var(--ash)'}}>{t.herd}</td>
-                        <td style={{fontSize:'12px', color:'var(--ash)', maxWidth:'200px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{t.notes || '—'}</td>
+                        <td style={{fontSize:'16px', color:'var(--ash)'}}>{t.herd}</td>
+                        <td style={{fontSize:'14px', color:'var(--ash)', maxWidth:'200px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{t.notes || '—'}</td>
                       </tr>
                     );
                   })}
@@ -4735,7 +4735,7 @@ function HeadCountReport({ toast, herds, partnerships, projects = [] }) {
               <HcCheck muted checked={tagColorFilter.includes('NO_TAG')} onChange={() => toggle(setTagColorFilter, 'NO_TAG')}>No tag color</HcCheck>
               {tagColorOptions.map(c => (
                 <HcCheck key={c} checked={tagColorFilter.includes(c)} onChange={() => toggle(setTagColorFilter, c)}>
-                  <span style={{width:'12px', height:'12px', borderRadius:'50%', background:c, border:'1px solid rgba(154,175,184,0.5)', flexShrink:0}}></span>
+                  <span style={{width:'12px', height:'12px', borderRadius:'50%', background:c, border:'1px solid rgba(191,208,214,0.5)', flexShrink:0}}></span>
                   {tagLabel(c)}
                 </HcCheck>
               ))}
@@ -4745,14 +4745,14 @@ function HeadCountReport({ toast, herds, partnerships, projects = [] }) {
             <span className="hc-group-label">DATE OF BIRTH</span>
             <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
               <div>
-                <label htmlFor="hc-dob-from" style={{display:'block', fontSize:'12px', color:'var(--ash)', marginBottom:'4px'}}>From</label>
-                <input id="hc-dob-from" type="date" className="form-input" value={dobStartDate} onChange={e => setDobStartDate(e.target.value)} style={{width:'100%', padding:'6px 8px', fontSize:'13px'}} />
+                <label htmlFor="hc-dob-from" style={{display:'block', fontSize:'14px', color:'var(--ash)', marginBottom:'4px'}}>From</label>
+                <input id="hc-dob-from" type="date" className="form-input" value={dobStartDate} onChange={e => setDobStartDate(e.target.value)} style={{width:'100%', padding:'6px 8px', fontSize:'16px'}} />
               </div>
               <div>
-                <label htmlFor="hc-dob-to" style={{display:'block', fontSize:'12px', color:'var(--ash)', marginBottom:'4px'}}>To</label>
-                <input id="hc-dob-to" type="date" className="form-input" value={dobEndDate} onChange={e => setDobEndDate(e.target.value)} style={{width:'100%', padding:'6px 8px', fontSize:'13px'}} />
+                <label htmlFor="hc-dob-to" style={{display:'block', fontSize:'14px', color:'var(--ash)', marginBottom:'4px'}}>To</label>
+                <input id="hc-dob-to" type="date" className="form-input" value={dobEndDate} onChange={e => setDobEndDate(e.target.value)} style={{width:'100%', padding:'6px 8px', fontSize:'16px'}} />
               </div>
-              {dobBackwards && <span style={{fontSize:'12px', color:'#e05555'}}>From is after To — nothing can match.</span>}
+              {dobBackwards && <span style={{fontSize:'14px', color:'#e05555'}}>From is after To — nothing can match.</span>}
             </div>
           </div>
         </div>
@@ -5026,7 +5026,7 @@ function HeadDaysReport({ toast, herds, projects }) {
           </div>
           <div className="form-group" style={{margin:0}}><label className="form-label">Limit To</label><ScopeSelect value={scope} onChange={setScope} herds={herds} projects={projects} /></div>
         </div>
-        {startDate > endDate && <p style={{color:'#e05555', fontSize:'13px', marginTop:'12px'}}>Start date is after end date.</p>}
+        {startDate > endDate && <p style={{color:'#e05555', fontSize:'16px', marginTop:'12px'}}>Start date is after end date.</p>}
       </div>
 
       {loadError ? (
@@ -5067,7 +5067,7 @@ function HeadDaysReport({ toast, herds, projects }) {
                     </tr>
                   ))}
                   <tr style={{cursor:'default', borderTop:'2px solid rgba(58,125,123,0.4)'}}>
-                    <td style={{...mono, fontSize:'12px', fontWeight:700}}>TOTAL</td>
+                    <td style={{...mono, fontSize:'14px', fontWeight:700}}>TOTAL</td>
                     <td className="td-mono" style={{textAlign:'right', fontWeight:700}}>{n0(report.total.headDays)}</td>
                     <td className="td-mono" style={{textAlign:'right', fontWeight:700}}>{n1(report.total.headDays / report.periodDays)}</td>
                     <td className="td-mono" style={{textAlign:'right'}}>{report.total.start}</td>
@@ -5283,7 +5283,7 @@ function ProjectHeadDaysReport({ toast, herds, projects, partnerships = [] }) {
           <div className="form-group" style={{margin:0}}><label className="form-label">Report By</label>
             <div style={{display:'flex', borderRadius:'4px', overflow:'hidden', border:'1px solid rgba(58,125,123,0.4)'}}>
               {[['project', 'Project'], ['owner', 'Owner']].map(([d, l]) => (
-                <button key={d} onClick={() => switchDim(d)} style={{flex:1, padding:'9px', border:'none', cursor:'pointer', fontFamily:'IBM Plex Mono, monospace', fontSize:'12px', letterSpacing:'1px', textTransform:'uppercase', background: dim === d ? 'var(--rust)' : 'transparent', color: dim === d ? 'var(--cream)' : 'var(--ash)'}}>{l}</button>
+                <button key={d} onClick={() => switchDim(d)} style={{flex:1, padding:'9px', border:'none', cursor:'pointer', fontFamily:'IBM Plex Mono, monospace', fontSize:'14px', letterSpacing:'1px', textTransform:'uppercase', background: dim === d ? 'var(--rust)' : 'transparent', color: dim === d ? 'var(--cream)' : 'var(--ash)'}}>{l}</button>
               ))}
             </div>
           </div>
@@ -5297,20 +5297,20 @@ function ProjectHeadDaysReport({ toast, herds, projects, partnerships = [] }) {
           <div className="form-group" style={{margin:0}}><label className="form-label">End</label><input className="form-input" type="date" value={endDate} max={today} onChange={e => setEndDate(e.target.value)} /></div>
         </div>
         <div style={{display:'flex', gap:'8px', marginTop:'12px', flexWrap:'wrap', alignItems:'center'}}>
-          <button className="btn btn-ghost" style={{padding:'5px 12px', fontSize:'12px'}} onClick={() => { setStartDate(lm.start); setEndDate(lm.end); }}>Last month</button>
-          <button className="btn btn-ghost" style={{padding:'5px 12px', fontSize:'12px'}} onClick={() => { setStartDate(today.slice(0, 8) + '01'); setEndDate(today); }}>Month to date</button>
-          <button className="btn btn-ghost" style={{padding:'5px 12px', fontSize:'12px'}} onClick={() => { setStartDate(today.slice(0, 4) + '-01-01'); setEndDate(today); }}>Year to date</button>
+          <button className="btn btn-ghost" style={{padding:'5px 12px', fontSize:'14px'}} onClick={() => { setStartDate(lm.start); setEndDate(lm.end); }}>Last month</button>
+          <button className="btn btn-ghost" style={{padding:'5px 12px', fontSize:'14px'}} onClick={() => { setStartDate(today.slice(0, 8) + '01'); setEndDate(today); }}>Month to date</button>
+          <button className="btn btn-ghost" style={{padding:'5px 12px', fontSize:'14px'}} onClick={() => { setStartDate(today.slice(0, 4) + '-01-01'); setEndDate(today); }}>Year to date</button>
           {r && <button className="btn btn-primary" style={{marginLeft:'auto'}} onClick={exportCSV}>⤓ Export Report</button>}
         </div>
-        {startDate > endDate && <p style={{color:'#e05555', fontSize:'13px', marginTop:'10px'}}>Start is after end.</p>}
+        {startDate > endDate && <p style={{color:'#e05555', fontSize:'16px', marginTop:'10px'}}>Start is after end.</p>}
       </div>
 
       {loadError ? (
         <div className="detail-card">
           <div className="hc-note" style={{borderLeftColor:'#e05555'}}>Couldn't load project data: {loadError}</div>
           {/project/.test(loadError) && <>
-            <p style={{fontSize:'13px', color:'var(--ash)', margin:'12px 0 8px'}}>Project history isn't set up yet. Run this in Supabase → SQL Editor (safe to re-run), then try again.</p>
-            <textarea readOnly value={PROJECTS_SQL} onFocus={e => e.target.select()} style={{width:'100%', height:'200px', fontFamily:'IBM Plex Mono', fontSize:'11px', color:'var(--cream)', background:'var(--charcoal)', border:'1px solid rgba(58,125,123,0.4)', borderRadius:'4px', padding:'8px'}} />
+            <p style={{fontSize:'16px', color:'var(--ash)', margin:'12px 0 8px'}}>Project history isn't set up yet. Run this in Supabase → SQL Editor (safe to re-run), then try again.</p>
+            <textarea readOnly value={PROJECTS_SQL} onFocus={e => e.target.select()} style={{width:'100%', height:'200px', fontFamily:'IBM Plex Mono', fontSize:'13px', color:'var(--cream)', background:'var(--charcoal)', border:'1px solid rgba(58,125,123,0.4)', borderRadius:'4px', padding:'8px'}} />
             <button className="btn btn-ghost" style={{marginTop:'6px'}} onClick={() => { navigator.clipboard?.writeText(PROJECTS_SQL); toast('SQL copied', 'success'); }}>Copy SQL</button>
           </>}
           <button className="btn btn-secondary" style={{marginTop:'12px', marginLeft:'8px'}} onClick={loadData}>Try again</button>
@@ -5332,7 +5332,7 @@ function ProjectHeadDaysReport({ toast, herds, projects, partnerships = [] }) {
             {PRJ_IN.filter(k => r.counts[k] || k !== 'entered').map(k => <div key={k} className="detail-row"><span className="detail-key">+ {PRJ_EVENT[k].label}</span><span className="detail-val td-mono" style={{color: r.counts[k] ? PRJ_EVENT[k].color : 'var(--ash)'}}>{r.counts[k]}</span></div>)}
             {PRJ_OUT.filter(k => r.counts[k] || k !== 'archived').map(k => <div key={k} className="detail-row"><span className="detail-key">− {PRJ_EVENT[k].label}</span><span className="detail-val td-mono" style={{color: r.counts[k] ? PRJ_EVENT[k].color : 'var(--ash)'}}>{r.counts[k]}</span></div>)}
             <div className="detail-row" style={{borderTop:'1px solid rgba(58,125,123,0.4)'}}><span className="detail-key" style={{fontWeight:700}}>Ending inventory</span><span className="detail-val td-mono" style={{fontWeight:700}}>{r.end}</span></div>
-            <div style={{fontFamily:'IBM Plex Mono, monospace', fontSize:'11px', marginTop:'8px', color: calcEnd === r.end ? 'var(--sage)' : 'var(--hay)'}}>{calcEnd === r.end ? '✓ RECONCILED' : `⚠ ${r.start} + ${r.totIn} − ${r.totOut} = ${calcEnd}, ending shows ${r.end}`}</div>
+            <div style={{fontFamily:'IBM Plex Mono, monospace', fontSize:'13px', marginTop:'8px', color: calcEnd === r.end ? 'var(--sage)' : 'var(--hay)'}}>{calcEnd === r.end ? '✓ RECONCILED' : `⚠ ${r.start} + ${r.totIn} − ${r.totOut} = ${calcEnd}, ending shows ${r.end}`}</div>
           </div>
 
           {r.events.length === 0 ? (
@@ -5344,14 +5344,14 @@ function ProjectHeadDaysReport({ toast, herds, projects, partnerships = [] }) {
                 <tbody>
                   {r.events.map((e, i) => (
                     <tr key={i} style={{cursor:'default'}}>
-                      <td className="td-mono" style={{fontSize:'12px'}}>{e.date}</td>
-                      <td style={{color: PRJ_EVENT[e.kind].color, fontSize:'12px', fontFamily:'IBM Plex Mono, monospace'}}>{PRJ_EVENT[e.kind].label.toUpperCase()}</td>
+                      <td className="td-mono" style={{fontSize:'14px'}}>{e.date}</td>
+                      <td style={{color: PRJ_EVENT[e.kind].color, fontSize:'14px', fontFamily:'IBM Plex Mono, monospace'}}>{PRJ_EVENT[e.kind].label.toUpperCase()}</td>
                       <td style={{textAlign:'center', fontWeight:700, color: PRJ_EVENT[e.kind].color}}>{PRJ_EVENT[e.kind].sign}</td>
                       <td className="td-mono">{e.vid || '—'}</td>
-                      <td style={{fontFamily:'IBM Plex Mono', fontSize:'11px', color:'var(--ash)'}}>{e.eid || '—'}</td>
-                      <td style={{fontSize:'12px'}}>{sexLabel(e.sex)}</td>
-                      <td style={{fontSize:'12px', color:'var(--ash)'}}>{e.herd || '—'}</td>
-                      <td style={{fontSize:'12px', color:'var(--ash)'}}>{noteFor(e) || '—'}</td>
+                      <td style={{fontFamily:'IBM Plex Mono', fontSize:'13px', color:'var(--ash)'}}>{e.eid || '—'}</td>
+                      <td style={{fontSize:'14px'}}>{sexLabel(e.sex)}</td>
+                      <td style={{fontSize:'14px', color:'var(--ash)'}}>{e.herd || '—'}</td>
+                      <td style={{fontSize:'14px', color:'var(--ash)'}}>{noteFor(e) || '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -5464,7 +5464,7 @@ function ReportsPage({ toast }) {
             color: activeTab === tab.id ? 'var(--hay)' : 'var(--ash)',
             borderBottom: activeTab === tab.id ? '2px solid var(--rust)' : '2px solid transparent',
             marginBottom:'-2px',
-            fontSize:'12px', fontWeight:'700', fontFamily:'IBM Plex Mono, monospace',
+            fontSize:'14px', fontWeight:'700', fontFamily:'IBM Plex Mono, monospace',
             letterSpacing:'1.5px', textTransform:'uppercase', transition:'color 0.15s',
           }}>
             {tab.label}
@@ -5842,7 +5842,7 @@ const sfNewBreedingSet = (name, division, extra = {}) => {
 };
 
 // Number box that lets you type "1." or clear the field without fighting React
-function SfNum({ value, onChange, width = 64, placeholder, disabled, title }) {
+function SfNum({ value, onChange, width = 72, placeholder, disabled, title }) {
   const [txt, setTxt] = useState(value ?? '');
   const [focus, setFocus] = useState(false);
   useEffect(() => { if (!focus) setTxt(value === null || value === undefined ? '' : String(value)); }, [value, focus]);
@@ -5861,11 +5861,11 @@ const SfTabs = ({ tabs, active, onChange }) => (
   <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: '20px', borderBottom: '2px solid rgba(58,125,123,0.3)' }}>
     {tabs.map(t => <button key={t.id} onClick={() => onChange(t.id)} style={{ padding: '10px 16px', border: 'none', background: 'transparent', cursor: 'pointer',
       color: active === t.id ? 'var(--hay)' : 'var(--ash)', borderBottom: active === t.id ? '2px solid var(--rust)' : '2px solid transparent', marginBottom: '-2px',
-      fontSize: '11px', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '1.5px', textTransform: 'uppercase' }}>{t.label}</button>)}
+      fontSize: '13px', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '1.5px', textTransform: 'uppercase' }}>{t.label}</button>)}
   </div>
 );
 const SfStat = ({ label, value, sub }) => (
-  <div className="stat-card"><div className="stat-label">{label}</div><div className="stat-value" style={{ fontSize: '24px' }}>{value}</div>{sub && <div className="stat-sub">{sub}</div>}</div>
+  <div className="stat-card"><div className="stat-label">{label}</div><div className="stat-value" style={{ fontSize: '29px' }}>{value}</div>{sub && <div className="stat-sub">{sub}</div>}</div>
 );
 
 function PlanningPage({ toast }) {
@@ -5934,7 +5934,7 @@ function PlanningPage({ toast }) {
     <div className="detail-card" style={{ maxWidth: '760px' }}>
       <div className="sf-h" style={{ marginTop: 0 }}>One-time setup</div>
       <div className="sf-note">Stock flow plans need one new table. Copy this into Supabase → SQL Editor, run it, then reload this page. It doesn't touch any existing table.</div>
-      <pre style={{ background: 'var(--soil)', padding: '14px', borderRadius: '4px', fontSize: '11px', overflowX: 'auto', color: 'var(--cream)', whiteSpace: 'pre-wrap' }}>{STOCK_PLANS_SQL}</pre>
+      <pre style={{ background: 'var(--soil)', padding: '14px', borderRadius: '4px', fontSize: '13px', overflowX: 'auto', color: 'var(--cream)', whiteSpace: 'pre-wrap' }}>{STOCK_PLANS_SQL}</pre>
       <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
         <button className="btn btn-secondary" onClick={() => { navigator.clipboard.writeText(STOCK_PLANS_SQL); toast('SQL copied', 'success'); }}>Copy SQL</button>
         <button className="btn btn-primary" onClick={() => { setReady(null); loadPlans(); }}>I ran it — reload</button>
@@ -6057,7 +6057,7 @@ function SfNewPlanModal({ plans, current, currentRes, herds, onCreate, onClose, 
           {opts.map(([id, label, desc]) => (
             <label key={id} style={{ display: 'flex', gap: '10px', padding: '10px', marginBottom: '6px', borderRadius: '4px', cursor: 'pointer', border: `1px solid ${source === id ? 'var(--hay)' : 'rgba(58,125,123,0.3)'}` }}>
               <input type="radio" checked={source === id} onChange={() => setSource(id)} />
-              <div><div style={{ fontWeight: 700 }}>{label}</div><div style={{ fontSize: '12px', color: 'var(--ash)' }}>{desc}</div></div>
+              <div><div style={{ fontWeight: 700 }}>{label}</div><div style={{ fontSize: '14px', color: 'var(--ash)' }}>{desc}</div></div>
             </label>
           ))}
           <div className="form-grid" style={{ marginTop: '14px' }}>
@@ -6131,7 +6131,7 @@ function SfSetup({ plan, res, upd, setMeta, herds }) {
               <td><SfNum value={c.value} width={70} onChange={v => setC(c.id, 'value', v)} /></td>
               <td><SfNum value={c.closeValue} width={70} placeholder="same" onChange={v => setC(c.id, 'closeValue', v)} /></td>
               <td><SfNum value={c.sharePct} width={56} onChange={v => setC(c.id, 'sharePct', v)} /></td>
-              <td><button className="btn btn-ghost" style={{ padding: '3px 8px', fontSize: '11px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: (c.herdIds || []).length ? 'var(--sage)' : 'var(--ash)' }} onClick={() => setMapFor(c.id)}>{mappedLabel(c)}</button></td>
+              <td><button className="btn btn-ghost" style={{ padding: '3px 8px', fontSize: '13px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: (c.herdIds || []).length ? 'var(--sage)' : 'var(--ash)' }} onClick={() => setMapFor(c.id)}>{mappedLabel(c)}</button></td>
               <td><button className="btn-icon" onClick={() => removeClass(c)}>✕</button></td>
             </tr>
           ))}
@@ -6177,12 +6177,12 @@ function SfMapModal({ cls, herds, onSave, onClose }) {
         <div className="modal-body">
           <div className="form-label">Herds</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '4px', marginBottom: '16px' }}>
-            {list.map(h => <label key={h.id} style={{ fontSize: '13px', color: h.is_active === false ? 'var(--ash)' : 'var(--cream)', cursor: 'pointer' }}>
-              <input type="checkbox" checked={ids.includes(String(h.id))} onChange={() => tog(ids, setIds, String(h.id))} /> {h.name}{h.enterprise ? <span style={{ color: 'var(--ash)', fontSize: '11px' }}> · {h.enterprise}</span> : ''}</label>)}
+            {list.map(h => <label key={h.id} style={{ fontSize: '16px', color: h.is_active === false ? 'var(--ash)' : 'var(--cream)', cursor: 'pointer' }}>
+              <input type="checkbox" checked={ids.includes(String(h.id))} onChange={() => tog(ids, setIds, String(h.id))} /> {h.name}{h.enterprise ? <span style={{ color: 'var(--ash)', fontSize: '13px' }}> · {h.enterprise}</span> : ''}</label>)}
           </div>
           <div className="form-label">Only these sexes (leave all unchecked for every animal in the herds)</div>
           <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
-            {SF_SEXES.map(s => <label key={s} style={{ fontSize: '13px', cursor: 'pointer' }}><input type="checkbox" checked={sexes.includes(s)} onChange={() => tog(sexes, setSexes, s)} /> {sexLabel(s)}</label>)}
+            {SF_SEXES.map(s => <label key={s} style={{ fontSize: '16px', cursor: 'pointer' }}><input type="checkbox" checked={sexes.includes(s)} onChange={() => tog(sexes, setSexes, s)} /> {sexLabel(s)}</label>)}
           </div>
           <div className="sf-note" style={{ marginTop: '14px' }}>An animal counts toward the first class (top to bottom on Setup) whose herds and sexes match it. Actuals use each animal's current herd, so a cow that moved herds mid-year reports under her new class.</div>
         </div>
@@ -6268,7 +6268,7 @@ function SfMoves({ plan, res, upd }) {
     <div>
       {virtual.length > 0 && <div className="sf-warn" style={{ background: 'rgba(168,218,220,0.08)', borderColor: 'rgba(168,218,220,0.4)', color: 'var(--hay)' }}>
         Breeding-stat sales with no price yet (counted in the stock flow, $0 in the economics):
-        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>{virtual.map(v => <button key={v.id} className="btn btn-ghost" style={{ padding: '3px 8px', fontSize: '11px' }} onClick={() => adopt(v)}>+ {cls[v.classId]?.name} {v.reason} ({sf0(v.qty)} hd)</button>)}</div>
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>{virtual.map(v => <button key={v.id} className="btn btn-ghost" style={{ padding: '3px 8px', fontSize: '13px' }} onClick={() => adopt(v)}>+ {cls[v.classId]?.name} {v.reason} ({sf0(v.qty)} hd)</button>)}</div>
       </div>}
       <div className="table-wrap sf-scroll"><table className="sf-table"><thead><tr>
         <th>Type</th><th>Reason / to</th><th>Head basis</th><th>Head</th><th>Month</th><th>Wt (lb)</th><th>$/cwt</th><th>or $/hd</th><th>$/hd</th><th>Gross</th><th>Note</th><th></th>
@@ -6528,7 +6528,7 @@ function SfActual({ plan, res, upd, herds, toast }) {
           const forecast = a ? a.now + remIn - remOut : null;
           return (
             <tr key={c.id} style={{ opacity: isMapped ? 1 : 0.55 }}>
-              <td>{c.name}{!isMapped && <div className="sf-calc" style={{ fontSize: '10px' }}>not mapped — plan only</div>}{a && a.added > 0 && <div className="sf-calc" style={{ fontSize: '10px' }}>{a.added} entered in RS this year{a.purchased ? ` (${a.purchased} purchased)` : ''}</div>}</td>
+              <td>{c.name}{!isMapped && <div className="sf-calc" style={{ fontSize: '12px' }}>not mapped — plan only</div>}{a && a.added > 0 && <div className="sf-calc" style={{ fontSize: '12px' }}>{a.added} entered in RS this year{a.purchased ? ` (${a.purchased} purchased)` : ''}</div>}</td>
               <V plan={r.open} act={a ? a.open : null} />
               <V plan={pb} act={a ? a.births : null} />
               <V plan={ps} act={a ? a.sold : null} />
@@ -6580,7 +6580,7 @@ function LogsPage({ toast }) {
   return (
     <div>
       <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
-        <p style={{color:'var(--ash)', fontSize:'13px'}}>Complete audit trail of all conversational entries. Click any row to view details or roll back.</p>
+        <p style={{color:'var(--ash)', fontSize:'16px'}}>Complete audit trail of all conversational entries. Click any row to view details or roll back.</p>
         <button className="btn btn-ghost" onClick={fetchLogs}>↻ Refresh</button>
       </div>
       <div className="table-wrap">
@@ -6591,11 +6591,11 @@ function LogsPage({ toast }) {
             <tbody>
               {logs.map(l => (
                 <tr key={l.id} onClick={() => setSelected(l)}>
-                  <td className="td-mono" style={{fontSize:'11px', whiteSpace:'nowrap'}}>{new Date(l.created_at).toLocaleString()}</td>
-                  <td><span className="badge badge-steer" style={{fontSize:'11px'}}>{l.action_type || '—'}</span></td>
-                  <td style={{maxWidth:'250px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'var(--ash)', fontSize:'13px'}}>{l.raw_input}</td>
-                  <td style={{maxWidth:'200px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontSize:'13px'}}>{l.ai_interpretation || '—'}</td>
-                  <td><span style={{color: statusColor(l.status), fontFamily:'IBM Plex Mono', fontSize:'11px'}}>● {l.status}</span></td>
+                  <td className="td-mono" style={{fontSize:'13px', whiteSpace:'nowrap'}}>{new Date(l.created_at).toLocaleString()}</td>
+                  <td><span className="badge badge-steer" style={{fontSize:'13px'}}>{l.action_type || '—'}</span></td>
+                  <td style={{maxWidth:'250px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'var(--ash)', fontSize:'16px'}}>{l.raw_input}</td>
+                  <td style={{maxWidth:'200px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontSize:'16px'}}>{l.ai_interpretation || '—'}</td>
+                  <td><span style={{color: statusColor(l.status), fontFamily:'IBM Plex Mono', fontSize:'13px'}}>● {l.status}</span></td>
                 </tr>
               ))}
             </tbody>
@@ -6607,8 +6607,8 @@ function LogsPage({ toast }) {
             <div className="modal-header"><h2 className="modal-title">Log Entry Detail</h2><button className="modal-close" onClick={() => setSelected(null)}>✕</button></div>
             <div className="modal-body">
               <div className="detail-card"><h3>Entry Info</h3><div className="detail-row"><span className="detail-key">Date/Time</span><span className="detail-val">{new Date(selected.created_at).toLocaleString()}</span></div><div className="detail-row"><span className="detail-key">Action Type</span><span className="detail-val">{selected.action_type || '—'}</span></div><div className="detail-row"><span className="detail-key">Status</span><span className="detail-val" style={{color: statusColor(selected.status)}}>{selected.status}</span></div></div>
-              <div className="detail-card" style={{marginTop:'12px'}}><h3>Raw Input</h3><p style={{color:'var(--cream)', fontSize:'14px', lineHeight:'1.5'}}>{selected.raw_input}</p></div>
-              {selected.ai_interpretation && <div className="detail-card" style={{marginTop:'12px'}}><h3>AI Interpretation</h3><p style={{color:'var(--cream)', fontSize:'14px'}}>{selected.ai_interpretation}</p></div>}
+              <div className="detail-card" style={{marginTop:'12px'}}><h3>Raw Input</h3><p style={{color:'var(--cream)', fontSize:'17px', lineHeight:'1.5'}}>{selected.raw_input}</p></div>
+              {selected.ai_interpretation && <div className="detail-card" style={{marginTop:'12px'}}><h3>AI Interpretation</h3><p style={{color:'var(--cream)', fontSize:'17px'}}>{selected.ai_interpretation}</p></div>}
             </div>
             <div className="modal-footer"><button className="btn btn-ghost" onClick={() => setSelected(null)}>Close</button>{selected.status === 'completed' && <button className="btn btn-danger" onClick={() => handleRollback(selected)}>↩ Flag as Rolled Back</button>}</div>
           </div>
@@ -6657,19 +6657,19 @@ function LoginPage({ onLogin }) {
     <div style={{minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--soil)', backgroundImage:'radial-gradient(ellipse at 20% 50%, rgba(58,125,123,0.15) 0%, transparent 60%)'}}>
       <div style={{background:'var(--charcoal)', border:'1px solid rgba(58,125,123,0.4)', borderRadius:'8px', padding:'48px 40px', width:'100%', maxWidth:'400px', boxShadow:'0 20px 60px rgba(0,0,0,0.5)'}}>
         <div style={{textAlign:'center', marginBottom:'36px'}}>
-          <h1 style={{fontFamily:'Syncopate, sans-serif', fontSize:'28px', fontWeight:'700', color:'var(--hay)', letterSpacing:'4px', textTransform:'uppercase', lineHeight:'1.2'}}>Ranch Savvy</h1>
-          <p style={{fontFamily:'IBM Plex Mono, monospace', fontSize:'11px', letterSpacing:'3px', color:'var(--ash)', marginTop:'8px', textTransform:'uppercase'}}>Cattle Management Platform</p>
+          <h1 style={{fontFamily:'Syncopate, sans-serif', fontSize:'34px', fontWeight:'700', color:'var(--hay)', letterSpacing:'1px', textTransform:'uppercase', lineHeight:'1.2'}}>Ranch Savvy</h1>
+          <p style={{fontFamily:'IBM Plex Mono, monospace', fontSize:'13px', letterSpacing:'1px', color:'var(--ash)', marginTop:'8px', textTransform:'uppercase'}}>Cattle Management Platform</p>
         </div>
         {forgot ? (
           <div style={{display:'flex', flexDirection:'column', gap:'16px'}}>
             {sent ? <>
-              <p style={{color:'var(--cream)', fontSize:'14px', lineHeight:1.6}}>If <strong>{email.trim()}</strong> has a RanchSavvy login, a reset link is on its way. Open it on this device to set a new password.</p>
-              <p style={{color:'var(--ash)', fontSize:'12px', lineHeight:1.5}}>Nothing after a few minutes? Check spam. The link works once and expires after an hour.</p>
+              <p style={{color:'var(--cream)', fontSize:'17px', lineHeight:1.6}}>If <strong>{email.trim()}</strong> has a RanchSavvy login, a reset link is on its way. Open it on this device to set a new password.</p>
+              <p style={{color:'var(--ash)', fontSize:'14px', lineHeight:1.5}}>Nothing after a few minutes? Check spam. The link works once and expires after an hour.</p>
             </> : <>
-              <p style={{color:'var(--ash)', fontSize:'13px', lineHeight:1.5}}>Enter your email and we'll send a link to set a new password.</p>
+              <p style={{color:'var(--ash)', fontSize:'16px', lineHeight:1.5}}>Enter your email and we'll send a link to set a new password.</p>
               <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" placeholder="your@email.com" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key==='Enter'&&sendReset()} autoFocus /></div>
-              {error && <div style={{background:'rgba(224,85,85,0.1)', border:'1px solid rgba(224,85,85,0.4)', borderRadius:'4px', padding:'10px 14px', color:'#e05555', fontSize:'13px'}}>{error}</div>}
-              <button className="btn btn-primary" onClick={sendReset} disabled={loading} style={{padding:'12px', fontSize:'15px'}}>{loading ? 'Sending...' : 'Send Reset Link'}</button>
+              {error && <div style={{background:'rgba(224,85,85,0.1)', border:'1px solid rgba(224,85,85,0.4)', borderRadius:'4px', padding:'10px 14px', color:'#e05555', fontSize:'16px'}}>{error}</div>}
+              <button className="btn btn-primary" onClick={sendReset} disabled={loading} style={{padding:'12px', fontSize:'18px'}}>{loading ? 'Sending...' : 'Send Reset Link'}</button>
             </>}
             <button className="btn btn-ghost" onClick={() => { setForgot(false); setSent(false); setError(''); }}>← Back to sign in</button>
           </div>
@@ -6677,12 +6677,12 @@ function LoginPage({ onLogin }) {
         <div style={{display:'flex', flexDirection:'column', gap:'16px'}}>
           <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" placeholder="your@email.com" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key==='Enter'&&handleLogin()} autoFocus /></div>
           <div className="form-group"><label className="form-label">Password</label><input className="form-input" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key==='Enter'&&handleLogin()} /></div>
-          {error && <div style={{background:'rgba(224,85,85,0.1)', border:'1px solid rgba(224,85,85,0.4)', borderRadius:'4px', padding:'10px 14px', color:'#e05555', fontSize:'13px'}}>{error}</div>}
-          <button className="btn btn-primary" onClick={handleLogin} disabled={loading} style={{padding:'12px', fontSize:'15px', marginTop:'8px'}}>{loading ? 'Signing in...' : 'Sign In'}</button>
-          <button onClick={() => { setForgot(true); setError(''); }} style={{background:'none', border:'none', color:'var(--ash)', fontSize:'13px', cursor:'pointer', textDecoration:'underline', padding:0}}>Forgot password?</button>
+          {error && <div style={{background:'rgba(224,85,85,0.1)', border:'1px solid rgba(224,85,85,0.4)', borderRadius:'4px', padding:'10px 14px', color:'#e05555', fontSize:'16px'}}>{error}</div>}
+          <button className="btn btn-primary" onClick={handleLogin} disabled={loading} style={{padding:'12px', fontSize:'18px', marginTop:'8px'}}>{loading ? 'Signing in...' : 'Sign In'}</button>
+          <button onClick={() => { setForgot(true); setError(''); }} style={{background:'none', border:'none', color:'var(--ash)', fontSize:'16px', cursor:'pointer', textDecoration:'underline', padding:0}}>Forgot password?</button>
         </div>
         )}
-        <div style={{marginTop:'24px', textAlign:'center', fontFamily:'IBM Plex Mono, monospace', fontSize:'11px', color:'var(--ash)', letterSpacing:'1px'}}>RANCHSAVVY.COM · SECURE LOGIN</div>
+        <div style={{marginTop:'24px', textAlign:'center', fontFamily:'IBM Plex Mono, monospace', fontSize:'13px', color:'var(--ash)', letterSpacing:'1px'}}>RANCHSAVVY.COM · SECURE LOGIN</div>
       </div>
     </div>
   );
@@ -6705,12 +6705,12 @@ function SetPasswordPage({ onDone }) {
   return (
     <div style={{minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--soil)'}}>
       <div style={{background:'var(--charcoal)', border:'1px solid rgba(58,125,123,0.4)', borderRadius:'8px', padding:'40px', width:'100%', maxWidth:'400px'}}>
-        <h2 style={{fontFamily:'Syncopate, sans-serif', fontSize:'18px', color:'var(--hay)', letterSpacing:'3px', textTransform:'uppercase', marginBottom:'24px', textAlign:'center'}}>Set New Password</h2>
+        <h2 style={{fontFamily:'Syncopate, sans-serif', fontSize:'22px', color:'var(--hay)', letterSpacing:'1px', textTransform:'uppercase', marginBottom:'24px', textAlign:'center'}}>Set New Password</h2>
         <div style={{display:'flex', flexDirection:'column', gap:'16px'}}>
           <div className="form-group"><label className="form-label">New Password</label><input className="form-input" type="password" autoComplete="new-password" value={pw} onChange={e => setPw(e.target.value)} autoFocus /></div>
           <div className="form-group"><label className="form-label">Confirm New Password</label><input className="form-input" type="password" autoComplete="new-password" value={pw2} onChange={e => setPw2(e.target.value)} onKeyDown={e => e.key==='Enter'&&save()} /></div>
-          {error && <div style={{background:'rgba(224,85,85,0.1)', border:'1px solid rgba(224,85,85,0.4)', borderRadius:'4px', padding:'10px 14px', color:'#e05555', fontSize:'13px'}}>{error}</div>}
-          <button className="btn btn-primary" onClick={save} disabled={saving} style={{padding:'12px', fontSize:'15px'}}>{saving ? 'Saving...' : 'Save Password'}</button>
+          {error && <div style={{background:'rgba(224,85,85,0.1)', border:'1px solid rgba(224,85,85,0.4)', borderRadius:'4px', padding:'10px 14px', color:'#e05555', fontSize:'16px'}}>{error}</div>}
+          <button className="btn btn-primary" onClick={save} disabled={saving} style={{padding:'12px', fontSize:'18px'}}>{saving ? 'Saving...' : 'Save Password'}</button>
         </div>
       </div>
     </div>
@@ -6748,7 +6748,7 @@ function App() {
 
   if (authLoading) return (
     <div style={{minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--soil)'}}>
-      <div style={{display:'flex', alignItems:'center', gap:'12px', color:'var(--ash)'}}><div className="spinner"></div><span style={{fontFamily:'IBM Plex Mono, monospace', fontSize:'12px', letterSpacing:'2px'}}>LOADING...</span></div>
+      <div style={{display:'flex', alignItems:'center', gap:'12px', color:'var(--ash)'}}><div className="spinner"></div><span style={{fontFamily:'IBM Plex Mono, monospace', fontSize:'14px', letterSpacing:'1px'}}>LOADING...</span></div>
     </div>
   );
 
@@ -6766,7 +6766,7 @@ function App() {
           <h1>{sidebarCollapsed ? 'RS' : 'Ranch\nSavvy'}</h1>
           {!sidebarCollapsed && <span>Cattle Management <b style={{color:'var(--rust)'}}>· BETA</b></span>}
         </div>
-        <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} style={{position:'absolute', top:'16px', right: sidebarCollapsed ? '8px' : '16px', background:'none', border:'1px solid rgba(58,125,123,0.4)', borderRadius:'3px', color:'var(--ash)', fontSize:'14px', padding:'4px 8px', cursor:'pointer'}}>
+        <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} style={{position:'absolute', top:'16px', right: sidebarCollapsed ? '8px' : '16px', background:'none', border:'1px solid rgba(58,125,123,0.4)', borderRadius:'3px', color:'var(--ash)', fontSize:'17px', padding:'4px 8px', cursor:'pointer'}}>
           {sidebarCollapsed ? '→' : '←'}
         </button>
 
@@ -6805,9 +6805,9 @@ function App() {
         <div className="sidebar-footer">
           {!sidebarCollapsed && (
             <>
-              <div style={{marginBottom:'8px', color:'var(--hay)', fontSize:'11px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{session.user.email}</div>
-              <button onClick={handleLogout} style={{background:'none', border:'1px solid rgba(58,125,123,0.4)', borderRadius:'3px', color:'var(--ash)', fontSize:'11px', fontFamily:'IBM Plex Mono, monospace', padding:'4px 8px', cursor:'pointer', letterSpacing:'1px', width:'100%'}}>SIGN OUT</button>
-              <div style={{marginTop:'8px', fontSize:'11px', color:'rgba(154,175,184,0.5)'}}>Ranch Savvy v1.2</div>
+              <div style={{marginBottom:'8px', color:'var(--hay)', fontSize:'13px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{session.user.email}</div>
+              <button onClick={handleLogout} style={{background:'none', border:'1px solid rgba(58,125,123,0.4)', borderRadius:'3px', color:'var(--ash)', fontSize:'13px', fontFamily:'IBM Plex Mono, monospace', padding:'4px 8px', cursor:'pointer', letterSpacing:'1px', width:'100%'}}>SIGN OUT</button>
+              <div style={{marginTop:'8px', fontSize:'13px', color:'rgba(191,208,214,0.5)'}}>Ranch Savvy v1.2</div>
             </>
           )}
         </div>
