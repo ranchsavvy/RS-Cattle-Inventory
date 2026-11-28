@@ -5579,7 +5579,7 @@ function computeStockFlow(data) {
     if (c.kind !== 'breeding' || !c.calves) return;
     const r = R[c.id], cm = sfMi(c.calvingMonth), hp = sfHas(c.heiferPct) ? sfNum(c.heiferPct) / 100 : 0.5;
     const give = (cid, n) => {
-      if (!cid || !R[cid]) { if (n > 0.01) warnings.push(`${c.name}: ${cid ? 'linked calf class is missing' : 'no calf class linked'} — ${Math.round(n)} calves not tracked`); return; }
+      if (!cid || !R[cid]) { if (n > 0.01) warnings.push(`${c.name}: ${cid ? 'its calf row is excluded or missing' : 'no calf row linked'} — ${Math.round(n)} calves not tracked`); return; }
       R[cid].births += n; R[cid].bornMonth = R[cid].bornMonth === null ? cm : Math.min(R[cid].bornMonth, cm);
       R[cid].flows[cm].in += n;
     };
@@ -5648,7 +5648,7 @@ function computeStockFlow(data) {
       dv.purchases += m.gross; dv.my.purchases += m.gross * sh; cash.purchases[mo] += m.gross; CD(dv.name).purchases[mo] += m.gross;
     } else if (m.type === 'transfer') {
       const t = byId[m.toClassId];
-      if (!t) { warnings.push(`${c.name}: transfer has no destination class — ${Math.round(q)} head drop out of the plan`); r.xferOut += q; r.flows[mo].out += q; return; }
+      if (!t) { warnings.push(`${c.name}: transfer goes to an excluded or missing row — ${Math.round(q)} head drop out of the plan`); r.xferOut += q; r.flows[mo].out += q; return; }
       const rt = R[t.id];
       r.flows[mo].out += q; rt.flows[mo].in += q;
       if (divOf(t) !== divOf(c)) {        // crossing divisions: valued like a sale/purchase between enterprises
@@ -5750,19 +5750,19 @@ function sfTemplate2022() {
   const C = (id, o) => ({ id, division: 'Cow/Calf', kind: 'growing', open: 0, deathPct: '', deathQty: '', au: '', auStartMonth: 0, value: '', closeValue: '', sharePct: 100, herdIds: [], sexes: [], ...o });
   const brd = { kind: 'breeding', calves: true, calvingMonth: 5, heiferPct: 50, au: 1 };
   const classes = [
-    C('old', { ...brd, name: 'Old Cows', open: 278, deathPct: 1, dryPct: 3, cullPct: 5, openPct: 8, sireGroup: 'Angus', heiferClassId: 'hfrA', steerClassId: 'strA', value: 1300, sharePct: 25.2 }),
-    C('young', { ...brd, name: 'Young Cows', open: 251, deathPct: 1, dryPct: 3, cullPct: 5, openPct: 8, sireGroup: 'Terminal', heiferClassId: 'hfrX', steerClassId: 'strX', value: 1500, sharePct: 25.2 }),
-    C('h1', { ...brd, name: 'H1', open: 64, deathPct: 1, dryPct: 0, cullPct: 0, openPct: 25, calves: false, au: 0.8, value: 950, sharePct: 28.38 }),
-    C('fall', { ...brd, name: 'Fall Cows', open: 28, deathPct: 0, dryPct: 0, cullPct: 83, openPct: 100, calves: false, value: 1300, sharePct: 25.2 }),
-    C('bulls', { name: 'Bulls', kind: 'bulls', open: 45, deathQty: 1, au: 1.5, value: 1200 }),
-    C('hfrA', { name: 'Hfr calves – Angus', deathPct: 1.5, au: 0.5, auStartMonth: 10, sharePct: 81.15 }),
-    C('strA', { name: 'Str calves – Angus', deathPct: 1.5, au: 0.5, auStartMonth: 10, sharePct: 81.15 }),
-    C('hfrX', { name: 'Hfr calves – Xbred', deathPct: 1.5, au: 0.5, auStartMonth: 10, sharePct: 81.15 }),
-    C('strX', { name: 'Str calves – Xbred', deathPct: 1.5, au: 0.5, auStartMonth: 10, sharePct: 81.15 }),
-    C('sh1', { division: 'Stocker', kind: 'breeding', name: 'Stocker H1', open: 187, deathPct: 0.5, dryPct: 0, cullPct: 0, openPct: 30, calves: false, au: 0.8, value: 925, sharePct: 35.25 }),
-    C('ssp', { division: 'Stocker', name: 'Stocker Heifers (spayed)', open: 298, deathQty: 1, au: 0.8, value: 1300, sharePct: 35.25 }),
-    C('sh2', { division: 'Stocker', name: 'Stocker H2', open: 0, au: 0.9, value: 0, closeValue: 1300, sharePct: 35.25 }),
-    C('riley', { division: 'Stocker', name: 'Heifers @ Riley’s', open: 153, au: 0.8, value: 0 }),
+    C('old', { rsClass: 'cow', ...brd, name: 'Old Cows', open: 278, deathPct: 1, dryPct: 3, cullPct: 5, openPct: 8, sireGroup: 'Angus', heiferClassId: 'hfrA', steerClassId: 'strA', value: 1300, sharePct: 25.2 }),
+    C('young', { rsClass: 'cow', ...brd, name: 'Young Cows', open: 251, deathPct: 1, dryPct: 3, cullPct: 5, openPct: 8, sireGroup: 'Terminal', heiferClassId: 'hfrX', steerClassId: 'strX', value: 1500, sharePct: 25.2 }),
+    C('h1', { rsClass: 'heifer', ...brd, name: 'H1', open: 64, deathPct: 1, dryPct: 0, cullPct: 0, openPct: 25, calves: false, au: 0.8, value: 950, sharePct: 28.38 }),
+    C('fall', { rsClass: 'cow', ...brd, name: 'Fall Cows', open: 28, deathPct: 0, dryPct: 0, cullPct: 83, openPct: 100, calves: false, value: 1300, sharePct: 25.2 }),
+    C('bulls', { rsClass: 'bull', name: 'Bulls', kind: 'bulls', open: 45, deathQty: 1, au: 1.5, value: 1200 }),
+    C('hfrA', { rsClass: 'calf_female', name: 'Hfr calves – Angus', deathPct: 1.5, au: 0.5, auStartMonth: 10, sharePct: 81.15 }),
+    C('strA', { rsClass: 'calf_male', name: 'Str calves – Angus', deathPct: 1.5, au: 0.5, auStartMonth: 10, sharePct: 81.15 }),
+    C('hfrX', { rsClass: 'calf_female', name: 'Hfr calves – Xbred', deathPct: 1.5, au: 0.5, auStartMonth: 10, sharePct: 81.15 }),
+    C('strX', { rsClass: 'calf_male', name: 'Str calves – Xbred', deathPct: 1.5, au: 0.5, auStartMonth: 10, sharePct: 81.15 }),
+    C('sh1', { rsClass: 'heifer', division: 'Stocker', kind: 'breeding', name: 'Stocker H1', open: 187, deathPct: 0.5, dryPct: 0, cullPct: 0, openPct: 30, calves: false, au: 0.8, value: 925, sharePct: 35.25 }),
+    C('ssp', { rsClass: 'heifer', division: 'Stocker', name: 'Stocker Heifers (spayed)', open: 298, deathQty: 1, au: 0.8, value: 1300, sharePct: 35.25 }),
+    C('sh2', { rsClass: 'heifer', division: 'Stocker', name: 'Stocker H2', open: 0, au: 0.9, value: 0, closeValue: 1300, sharePct: 35.25 }),
+    C('riley', { rsClass: 'heifer', division: 'Stocker', name: 'Heifers @ Riley’s', open: 153, au: 0.8, value: 0 }),
   ];
   const M = (o) => ({ id: sfId(), reason: 'other', qtyMode: 'fixed', qtyFixed: '', month: 11, weight: '', price: '', perHead: '', toClassId: '', note: '', ...o });
   const moves = [
@@ -5831,12 +5831,17 @@ const sfDownload = (name, rows) => {
   const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url);
 };
 const SF_DEFAULT_RATES = { deathPct: 1, dryPct: 3, cullPct: 5, openPct: 8 };
+const SF_CLASS_PLURAL = { cow: 'Cows', heifer: 'Heifers', bull: 'Bulls', steer: 'Steers', calf_female: 'Heifer Calves', calf_male: 'Bull Calves', horse: 'Horses' };
+const sfAutoName = (herdName, rsClass) => `${herdName || 'New'} ${SF_CLASS_PLURAL[rsClass] || 'Cattle'}`;
+// How a row is planned, from its RS class: cows and heifers run the breeding chart (heifers on a stocker division grow out), bulls are bulls, the rest grow
+const sfPlanAsFor = (rsClass, division) => rsClass === 'cow' ? 'breeding' : rsClass === 'heifer' ? (/stock|feed|background/i.test(division || '') ? 'growing' : 'breeding') : rsClass === 'bull' ? 'bulls' : 'growing';
+const sfDefaultAU = (rsClass, kind) => ({ cow: 1, bull: 1.5, steer: 0.7, calf_female: 0.5, calf_male: 0.5 }[rsClass] ?? (kind === 'breeding' ? 0.9 : 0.7));
 const sfNewClass = (o = {}) => ({ id: sfId(), name: 'New class', division: 'Cow/Calf', kind: 'growing', open: 0, deathPct: 1, deathQty: '', au: 1, auStartMonth: 0,
   value: '', closeValue: '', sharePct: 100, herdIds: [], sexes: [], ...o });
 const sfNewBreedingSet = (name, division, extra = {}) => {
-  const cow = sfNewClass({ name, division, kind: 'breeding', ...SF_DEFAULT_RATES, calves: true, calvingMonth: 5, heiferPct: 50, sireGroup: '', au: 1, ...extra });
-  const hfr = sfNewClass({ name: `${name} – hfr calves`, division, deathPct: 2, au: 0.5, auStartMonth: 10, herdIds: [...(cow.herdIds || [])], sexes: cow.herdIds?.length ? ['calf_female'] : [] });
-  const str = sfNewClass({ name: `${name} – str calves`, division, deathPct: 2, au: 0.5, auStartMonth: 10, herdIds: [...(cow.herdIds || [])], sexes: cow.herdIds?.length ? ['calf_male'] : [] });
+  const cow = sfNewClass({ name, division, kind: 'breeding', rsClass: 'cow', ...SF_DEFAULT_RATES, calves: true, calvingMonth: 5, heiferPct: 50, sireGroup: '', au: 1, ...extra });
+  const hfr = sfNewClass({ name: `${name} – hfr calves`, rsClass: 'calf_female', division, deathPct: 2, au: 0.5, auStartMonth: 10, herdIds: [...(cow.herdIds || [])], sexes: cow.herdIds?.length ? ['calf_female'] : [] });
+  const str = sfNewClass({ name: `${name} – str calves`, rsClass: 'calf_male', division, deathPct: 2, au: 0.5, auStartMonth: 10, herdIds: [...(cow.herdIds || [])], sexes: cow.herdIds?.length ? ['calf_male'] : [] });
   cow.heiferClassId = hfr.id; cow.steerClassId = str.id;
   return [cow, hfr, str];
 };
@@ -5898,7 +5903,20 @@ function PlanningPage({ toast }) {
 
   const upd = (fn) => { setPlan(p => { const d = JSON.parse(JSON.stringify(p.data)); fn(d); return { ...p, data: d }; }); setDirty(true); };
   const setMeta = (k, v) => { setPlan(p => ({ ...p, [k]: v })); setDirty(true); };
-  const res = useMemo(() => plan ? computeStockFlow(plan.data) : null, [plan]);
+  // Only included rows (and their movements) go into the math; Setup still lists every row
+  const view = useMemo(() => {
+    if (!plan) return null;
+    const ids = new Set(plan.data.classes.filter(c => c.include !== false).map(c => c.id));
+    return { ...plan, data: { ...plan.data, classes: plan.data.classes.filter(c => ids.has(c.id)), moves: (plan.data.moves || []).filter(m => ids.has(m.classId)) } };
+  }, [plan]);
+  const res = useMemo(() => view ? computeStockFlow(view.data) : null, [view]);
+  // Live head by herd and RS class, for the Kind picker
+  const [herdCounts, setHerdCounts] = useState({});
+  useEffect(() => {
+    supabase.from('animals').select('herd_id, sex').eq('status', 'active').limit(10000).then(({ data }) => {
+      const m = {}; (data || []).forEach(a => { if (!a.herd_id) return; const k = String(a.herd_id); (m[k] = m[k] || {})[a.sex] = (m[k][a.sex] || 0) + 1; }); setHerdCounts(m);
+    });
+  }, []);
 
   const save = async () => {
     if (!plan.name.trim()) { toast('Give the plan a name', 'error'); return; }
@@ -5966,14 +5984,14 @@ function PlanningPage({ toast }) {
       {!plan ? <div className="empty-state" style={{ padding: '40px', textAlign: 'center', color: 'var(--ash)' }}>No plans yet. Start one with <b>+ New Plan</b> — from your RS herds, from the 2022 Cattle Economics template, or blank.</div> : <>
         {res.warnings.length > 0 && <div className="sf-warn">{res.warnings.map((w, i) => <div key={i}>⚠ {w}</div>)}</div>}
         <SfTabs tabs={TABS} active={tab} onChange={setTab} />
-        {tab === 'setup' && <SfSetup plan={plan} res={res} upd={upd} setMeta={setMeta} herds={herds} />}
-        {tab === 'breeding' && <SfBreeding plan={plan} res={res} upd={upd} />}
-        {tab === 'moves' && <SfMoves plan={plan} res={res} upd={upd} />}
-        {tab === 'flow' && <SfFlow plan={plan} res={res} />}
-        {tab === 'monthly' && <SfMonthly plan={plan} res={res} />}
-        {tab === 'cash' && <SfCash plan={plan} res={res} />}
-        {tab === 'econ' && <SfEcon plan={plan} res={res} />}
-        {tab === 'actual' && <SfActual plan={plan} res={res} upd={upd} herds={herds} toast={toast} />}
+        {tab === 'setup' && <SfSetup plan={plan} res={res} upd={upd} setMeta={setMeta} herds={herds} herdCounts={herdCounts} />}
+        {tab === 'breeding' && <SfBreeding plan={view} res={res} upd={upd} />}
+        {tab === 'moves' && <SfMoves plan={view} res={res} upd={upd} />}
+        {tab === 'flow' && <SfFlow plan={view} res={res} />}
+        {tab === 'monthly' && <SfMonthly plan={view} res={res} />}
+        {tab === 'cash' && <SfCash plan={view} res={res} />}
+        {tab === 'econ' && <SfEcon plan={view} res={res} />}
+        {tab === 'actual' && <SfActual plan={view} res={res} upd={upd} herds={herds} toast={toast} />}
       </>}
 
       {showNew && <SfNewPlanModal plans={plans} current={plan} currentRes={res} herds={herds} onCreate={createPlan} onClose={() => setShowNew(false)} toast={toast} />}
@@ -6015,26 +6033,28 @@ function SfNewPlanModal({ plans, current, currentRes, herds, onCreate, onClose, 
         if (atStart) (byHerd[k] = byHerd[k] || {})[a.sex] = (byHerd[k][a.sex] || 0) + 1;
         else if (past && created >= start) { const mi = months.findIndex(m => m.key === created.slice(0, 7)); if (mi >= 0) { (addedByHerd[k] = addedByHerd[k] || []).push({ sex: a.sex, mi }); byHerd[k] = byHerd[k] || {}; } }
       });
+      // One row per herd × class found in it, all included — untick the ones you don't want planned
       const classes = [], moves = [];
-      const addPurchases = (h, cls, sexes) => {
-        const per = {};
-        (addedByHerd[String(h.id)] || []).filter(x => !sexes.length || sexes.includes(x.sex)).forEach(x => { per[x.mi] = (per[x.mi] || 0) + 1; });
-        Object.entries(per).forEach(([mi, q]) => moves.push({ id: sfId(), classId: cls.id, type: 'purchase', reason: '', qtyMode: 'fixed', qtyFixed: q, month: Number(mi), weight: '', price: '', perHead: '', toClassId: '', note: 'Entered in RS after plan start' }));
-      };
+      const ORDER = ['cow', 'heifer', 'bull', 'steer', 'calf_female', 'calf_male', 'horse'];
       herds.filter(h => h.is_active !== false && byHerd[String(h.id)]).forEach(h => {
-        if (!Object.keys(byHerd[String(h.id)]).length && !(addedByHerd[String(h.id)] || []).length) return;
-        const sx = { ...byHerd[String(h.id)] }; (addedByHerd[String(h.id)] || []).forEach(x => { sx[x.sex] = (sx[x.sex] || 0) + 0.0001; });
-        const n = (k) => Math.round(sx[k] || 0), females = (sx.cow || 0) + (sx.heifer || 0), total = Object.values(sx).reduce((s, v) => s + v, 0);
-        const division = h.enterprise || 'Unassigned', au = sfHas(h.default_au) ? Number(h.default_au) : null;
-        if (females / total >= 0.6) {
-          const set = sfNewBreedingSet(h.name, division, { open: n('cow') + n('heifer'), herdIds: [String(h.id)], sexes: ['cow', 'heifer'], au: au ?? 1 });
-          set[1].open = n('calf_female'); set[2].open = n('calf_male');
-          classes.push(...set); addPurchases(h, set[0], ['cow', 'heifer']); addPurchases(h, set[1], ['calf_female']); addPurchases(h, set[2], ['calf_male']);
-          if (sx.bull) { const b = sfNewClass({ name: `${h.name} – bulls`, division, kind: 'bulls', open: n('bull'), au: 1.5, herdIds: [String(h.id)], sexes: ['bull'] }); classes.push(b); addPurchases(h, b, ['bull']); }
-        } else {
-          const kind = (sx.bull || 0) / total >= 0.6 ? 'bulls' : 'growing';
-          const c = sfNewClass({ name: h.name, division, kind, open: Math.round(total), au: au ?? (kind === 'bulls' ? 1.5 : 0.7), herdIds: [String(h.id)] });
-          classes.push(c); addPurchases(h, c, []);
+        const k = String(h.id), added = addedByHerd[k] || [], sx = { ...byHerd[k] };
+        added.forEach(x => { sx[x.sex] = sx[x.sex] || 0; });
+        const division = h.enterprise || 'Unassigned', hau = sfHas(h.default_au) ? Number(h.default_au) : null;
+        const rows = {};
+        ORDER.filter(rc => rc in sx).forEach(rc => {
+          const kind = sfPlanAsFor(rc, division);
+          const c = sfNewClass({ name: sfAutoName(h.name, rc), rsClass: rc, kind, division, open: sx[rc] || 0, herdIds: [k], sexes: [rc],
+            au: (rc === 'cow' || rc === 'steer') && hau ? hau : sfDefaultAU(rc, kind), auStartMonth: 0, deathPct: kind === 'breeding' ? 1 : 1 });
+          if (kind === 'breeding') Object.assign(c, SF_DEFAULT_RATES, { calves: true, calvingMonth: 5, heiferPct: 50, sireGroup: '' });
+          rows[rc] = c; classes.push(c);
+          const per = {}; added.filter(x => x.sex === rc).forEach(x => { per[x.mi] = (per[x.mi] || 0) + 1; });
+          Object.entries(per).forEach(([mi, q]) => moves.push({ id: sfId(), classId: c.id, type: 'purchase', reason: '', qtyMode: 'fixed', qtyFixed: q, month: Number(mi), weight: '', price: '', perHead: '', toClassId: '', note: 'Entered in RS after plan start' }));
+        });
+        // breeding rows calve into this herd's calf rows (made if the herd has none yet)
+        const breeders = Object.values(rows).filter(c => c.kind === 'breeding');
+        if (breeders.length) {
+          ['calf_female', 'calf_male'].forEach(rc => { if (!rows[rc]) { rows[rc] = sfNewClass({ name: sfAutoName(h.name, rc), rsClass: rc, kind: 'growing', division, open: 0, herdIds: [k], sexes: [rc], au: 0.5, auStartMonth: 10, deathPct: 2 }); classes.push(rows[rc]); } });
+          breeders.forEach(c => { c.heiferClassId = rows.calf_female.id; c.steerClassId = rows.calf_male.id; });
         }
       });
       data = { oppRate: 10, divisions: [...new Set(classes.map(c => c.division))], classes, moves, ledger: [] };
@@ -6044,7 +6064,7 @@ function SfNewPlanModal({ plans, current, currentRes, herds, onCreate, onClose, 
   };
 
   const opts = [
-    ['herds', 'From my RS herds', 'One class per active herd, opening head = live RS count. Cow herds get linked heifer/steer calf classes and default rates you then adjust.'],
+    ['herds', 'From my RS herds', 'One row for every class of cattle in every active herd, opening head from RS. Untick the rows you don\'t want planned. Cow herds get calf rows linked and default rates you then adjust.'],
     ...(current ? [['roll', `Roll forward "${current.name}"`, 'Same classes, rates, prices and movements; each class opens with last plan\'s projected close.']] : []),
     ['template', '2022 Cattle Economics template', 'Your 2022 workbook rebuilt as a plan — useful to check the math against the sheet.'],
     ['blank', 'Blank', 'Start empty.'],
@@ -6073,7 +6093,7 @@ function SfNewPlanModal({ plans, current, currentRes, herds, onCreate, onClose, 
 }
 
 // ── SETUP: plan settings, classes, RS herd mapping, other income & direct costs ──
-function SfSetup({ plan, res, upd, setMeta, herds }) {
+function SfSetup({ plan, res, upd, setMeta, herds, herdCounts = {} }) {
   const d = plan.data, months = res.months;
   const [mapFor, setMapFor] = useState(null);
   const divisions = [...new Set([...(d.divisions || []), ...d.classes.map(c => c.division)].filter(Boolean))];
@@ -6089,7 +6109,30 @@ function SfSetup({ plan, res, upd, setMeta, herds }) {
     });
   };
   const herdName = (id) => herds.find(h => String(h.id) === String(id))?.name || '?';
-  const mappedLabel = (c) => !(c.herdIds || []).length ? 'Not mapped' : c.herdIds.map(herdName).join(', ') + ((c.sexes || []).length ? ` · ${c.sexes.map(sexLabel).join('/')}` : '');
+  const mappedLabel = (c) => !(c.herdIds || []).length ? 'Not linked' : c.herdIds.map(herdName).join(', ') + ((c.sexes || []).length ? ` · ${c.sexes.map(sexLabel).join('/')}` : '');
+  const herdOf = (c) => (c.herdIds || [])[0] ? String(c.herdIds[0]) : '';
+  const activeHerds = [...herds].sort((a, b) => (b.is_active !== false) - (a.is_active !== false) || a.name.localeCompare(b.name));
+  const ORDER = ['cow', 'heifer', 'bull', 'steer', 'calf_female', 'calf_male', 'horse'];
+  // Kind choices: classes in this herd now (with head), then the rest — calves not born yet still need a row
+  const kindOptions = (c) => { const cnt = herdCounts[herdOf(c)] || {}; const here = ORDER.filter(k => cnt[k]); return [...here.map(k => [k, `${sexLabel(k)} · ${cnt[k]}`]), ...ORDER.filter(k => !cnt[k]).map(k => [k, herdOf(c) ? `${sexLabel(k)} · 0` : sexLabel(k)])]; };
+  const setHerd = (c, v) => upd(x => {
+    const k = x.classes.find(k => k.id === c.id);
+    if (v === '__other') { k.herdIds = []; k.sexes = []; return; }
+    const h = herds.find(h => String(h.id) === v);
+    k.herdIds = [v, ...(k.herdIds || []).slice(1).filter(id => id !== v)];
+    if (k.rsClass) { k.sexes = [k.rsClass]; k.name = sfAutoName(h?.name, k.rsClass); if (!sfHas(k.open) || !k.open) k.open = (herdCounts[v] || {})[k.rsClass] || 0; }
+    if (h?.enterprise && !k.divisionSet) k.division = h.enterprise;
+  });
+  const setKind = (c, rc) => upd(x => {
+    const k = x.classes.find(k => k.id === c.id), h = herds.find(h => String(h.id) === herdOf(k));
+    k.rsClass = rc;
+    k.kind = sfPlanAsFor(rc, k.division);
+    if (k.kind === 'breeding') Object.entries({ ...SF_DEFAULT_RATES, calvingMonth: 5, heiferPct: 50 }).forEach(([a, b]) => { if (!sfHas(k[a])) k[a] = b; });
+    if (k.kind === 'breeding' && k.calves === undefined) k.calves = true;
+    if (h) { k.sexes = [rc]; k.name = sfAutoName(h.name, rc); k.open = (herdCounts[herdOf(k)] || {})[rc] || 0; }
+    k.au = sfDefaultAU(rc, k.kind);
+  });
+  const allOn = d.classes.every(c => c.include !== false);
   const addLedger = () => upd(x => { x.ledger.push({ id: sfId(), division: divisions[0] || 'Cow/Calf', kind: 'cost', label: '', amount: '', month: 'spread' }); });
   const setL = (id, k, v) => upd(x => { x.ledger.find(l => l.id === id)[k] = v; });
 
@@ -6109,19 +6152,27 @@ function SfSetup({ plan, res, upd, setMeta, herds }) {
         <div className="sf-note" style={{ flexBasis: '100%', margin: 0 }}>Plan year: {months[0].label} – {months[11].label}. Match division names to your Ambrook enterprises so the gross margins line up with the books.</div>
       </div>
 
-      <div className="sf-h">Classes of stock</div>
-      <div className="sf-note">Year open is head on hand the first day of the plan (for breeding classes, the pregnant & kept count). Breeding rates and calf links are on the Breeding Stats tab. AU counts from the "AU from" month — set calves to start at weaning if their grass is counted with the cow. Map each class to RS herds (and sexes, when calves run in the cow herd) so Plan vs Actual can read the inventory.</div>
+      <div className="sf-h">Herds & classes in the plan</div>
+      <div className="sf-note">One row per class of cattle in a herd. <b>Include</b> takes a row in or out of every tab without deleting it — handy when a herd holds two classes and you only want to plan one. Pick the <b>Herd</b> from RS, then the <b>Kind</b> of cattle in it (live head shown); that sets the RS link and the opening head. <b>Plan as</b> is filled in from the kind — change it for heifers you're growing out rather than breeding. Year open for breeding rows is the pregnant & kept count; rates and calf links are on Breeding Stats. AU counts from the "AU from" month — start calves at weaning if their grass is counted with the cow.</div>
       <div className="table-wrap sf-scroll">
         <table className="sf-table"><thead><tr>
-          <th></th><th>Class</th><th>Division</th><th>Kind</th><th>Year open</th><th>Deaths</th><th>AU / hd</th><th>AU from</th><th>$/hd open</th><th>$/hd close</th><th>My share %</th><th>RS mapping</th><th></th>
+          <th title="Include in plan"><input type="checkbox" checked={allOn} onChange={e => upd(x => x.classes.forEach(c => { c.include = e.target.checked; }))} /></th><th></th><th>Herd</th><th>Kind</th><th>Plan as</th><th>Division</th><th>Year open</th><th>Deaths</th><th>AU / hd</th><th>AU from</th><th>$/hd open</th><th>$/hd close</th><th>My share %</th><th>Reads from RS</th><th></th>
         </tr></thead><tbody>
-          {d.classes.map((c, i) => (
-            <tr key={c.id}>
+          {d.classes.map((c, i) => { const on = c.include !== false, hid = herdOf(c); return (
+            <tr key={c.id} style={{ opacity: on ? 1 : 0.45 }}>
+              <td><input type="checkbox" checked={on} title={on ? 'In the plan' : 'Left out of the plan'} onChange={e => setC(c.id, 'include', e.target.checked)} /></td>
               <td style={{ whiteSpace: 'nowrap' }}><button className="btn-icon" onClick={() => move(i, -1)}>↑</button><button className="btn-icon" onClick={() => move(i, 1)}>↓</button></td>
-              <td><input className="sf-in" style={{ width: '170px', textAlign: 'left' }} value={c.name} onChange={e => setC(c.id, 'name', e.target.value)} /></td>
-              <td><select className="sf-sel" value={c.division} onChange={e => setC(c.id, 'division', e.target.value)}>{[...new Set([...divisions, c.division])].map(v => <option key={v}>{v}</option>)}</select></td>
+              <td style={{ whiteSpace: 'nowrap' }}>
+                <select className="sf-sel" value={hid || '__other'} onChange={e => setHerd(c, e.target.value)} style={{ maxWidth: '150px' }}>
+                  {activeHerds.map(h => <option key={h.id} value={String(h.id)}>{h.name}{h.is_active === false ? ' (archived)' : ''}</option>)}
+                  <option value="__other">Other (not in RS)</option>
+                </select>
+                {!hid && <input className="sf-in" style={{ width: '150px', textAlign: 'left', marginLeft: '6px' }} value={c.name} placeholder="Name" onChange={e => setC(c.id, 'name', e.target.value)} />}
+              </td>
+              <td><select className="sf-sel" value={c.rsClass || ''} onChange={e => setKind(c, e.target.value)}>{!c.rsClass && <option value="">— pick —</option>}{kindOptions(c).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></td>
               <td><select className="sf-sel" value={c.kind} onChange={e => upd(x => { const k = x.classes.find(k => k.id === c.id); k.kind = e.target.value; if (k.kind === 'breeding') Object.entries(SF_DEFAULT_RATES).forEach(([a, b]) => { if (!sfHas(k[a])) k[a] = b; }); })}>
                 {Object.entries(SF_KIND_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></td>
+              <td><select className="sf-sel" value={c.division} onChange={e => upd(x => { const k = x.classes.find(k => k.id === c.id); k.division = e.target.value; k.divisionSet = true; })}>{[...new Set([...divisions, c.division])].map(v => <option key={v}>{v}</option>)}</select></td>
               <td><SfNum value={c.open} onChange={v => setC(c.id, 'open', v)} /></td>
               <td style={{ whiteSpace: 'nowrap' }}>{c.kind === 'breeding'
                 ? <span className="sf-calc">{c.deathPct || 0}% (breeding tab)</span>
@@ -6131,16 +6182,16 @@ function SfSetup({ plan, res, upd, setMeta, herds }) {
               <td><SfNum value={c.value} width={70} onChange={v => setC(c.id, 'value', v)} /></td>
               <td><SfNum value={c.closeValue} width={70} placeholder="same" onChange={v => setC(c.id, 'closeValue', v)} /></td>
               <td><SfNum value={c.sharePct} width={56} onChange={v => setC(c.id, 'sharePct', v)} /></td>
-              <td><button className="btn btn-ghost" style={{ padding: '3px 8px', fontSize: '13px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: (c.herdIds || []).length ? 'var(--sage)' : 'var(--ash)' }} onClick={() => setMapFor(c.id)}>{mappedLabel(c)}</button></td>
+              <td><button className="btn btn-ghost" title="Add more herds or change which sexes this row reads" style={{ padding: '3px 8px', fontSize: '13px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: (c.herdIds || []).length ? 'var(--sage)' : 'var(--ash)' }} onClick={() => setMapFor(c.id)}>{mappedLabel(c)}</button></td>
               <td><button className="btn-icon" onClick={() => removeClass(c)}>✕</button></td>
             </tr>
-          ))}
+          ); })}
         </tbody></table>
       </div>
-      <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-        <button className="btn btn-secondary" onClick={() => upd(x => { x.classes.push(...sfNewBreedingSet('New cow herd', divisions[0] || 'Cow/Calf')); })}>+ Breeding class (with calf classes)</button>
-        <button className="btn btn-ghost" onClick={() => upd(x => { x.classes.push(sfNewClass({ division: divisions[0] || 'Cow/Calf' })); })}>+ Growing / stocker class</button>
-        <button className="btn btn-ghost" onClick={() => upd(x => { x.classes.push(sfNewClass({ name: 'Bulls', kind: 'bulls', au: 1.5, division: divisions[0] || 'Cow/Calf' })); })}>+ Bulls</button>
+      <div style={{ display: 'flex', gap: '8px', marginTop: '10px', alignItems: 'center' }}>
+        <button className="btn btn-secondary" onClick={() => upd(x => { x.classes.push(sfNewClass({ name: 'New row', rsClass: '', division: divisions[0] || 'Cow/Calf' })); })}>+ Row</button>
+        <button className="btn btn-ghost" onClick={() => upd(x => { x.classes.push(...sfNewBreedingSet('New cow herd', divisions[0] || 'Cow/Calf')); })}>+ Cow herd with calf rows</button>
+        <span className="sf-note" style={{ margin: 0 }}>{d.classes.filter(c => c.include === false).length ? `${d.classes.filter(c => c.include === false).length} row(s) left out of the plan` : ''}</span>
       </div>
 
       <div className="sf-h">Other income & direct costs</div>
